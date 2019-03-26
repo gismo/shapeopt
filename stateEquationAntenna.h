@@ -14,38 +14,39 @@ public:
     // gsInfo << "OBS CHECK DISCRETIZATION OF PDE!!\n";
     dbasis.uniformRefine();
     dbasis.uniformRefine();
+    dbasis.uniformRefine();
     // dbasis.uniformRefine();
     // dbasis.uniformRefine();
 
-  pde_f       = pde_f/pde_L_f;
-  pde_omega   = 2*M_PI*pde_f;
-  pde_eps_rs_real  = -20.198689873114;
-  pde_eps_rs_imag = 1.38170639237;
-  pde_eps_crs_real = pde_eps_rs_real;
-  pde_eps_crs_imag = pde_eps_rs_imag - pde_sigma/(pde_omega*pde_L_f*pde_eps0);
-  pde_k0      = 2*M_PI*pde_f*sqrt(pde_eps0*pde_mu0);
+    pde_f       = pde_f/pde_L_f;
+    pde_omega   = 2*M_PI*pde_f;
+    pde_eps_rs_real  = -20.198689873114;
+    pde_eps_rs_imag = 1.38170639237;
+    pde_eps_crs_real = pde_eps_rs_real;
+    pde_eps_crs_imag = pde_eps_rs_imag - pde_sigma/(pde_omega*pde_L_f*pde_eps0);
+    pde_k0      = 2*M_PI*pde_f*sqrt(pde_eps0*pde_mu0);
 
-  pde_eps_rs = pde_eps_rs_real + 1i*pde_eps_rs_imag;
-  pde_eps_crs = pde_eps_crs_real + 1i*pde_eps_crs_imag;
+    pde_eps_rs = pde_eps_rs_real + 1i*pde_eps_rs_imag;
+    pde_eps_crs = pde_eps_crs_real + 1i*pde_eps_crs_imag;
 
-	pde_bnd_const = 1.0/pde_eps_cr*(1i*pde_k0 + 1.0/(2*pde_r_t));
+    pde_bnd_const = 1.0/pde_eps_cr*(1i*pde_k0 + 1.0/(2*pde_r_t));
 
-	pde_eps_crs_inv = 1.0/pde_eps_crs;
-	pde_eps_cr_inv = 1.0/pde_eps_cr;
+    pde_eps_crs_inv = 1.0/pde_eps_crs;
+    pde_eps_cr_inv = 1.0/pde_eps_cr;
 
-	//FIXIT Antenna patch is hardcoded to 3.!!!
-	pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.real(), pde_eps_cr_inv);
-	pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.imag(), 0.0);
-	pde_mu_r_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_mu_rs, pde_mu_r);
-	// plotSolution(pde_eps_cr_fun_real,"pde_eps_cr_fun_real");
-	// plotSolution(pde_eps_cr_fun_imag,"pde_eps_cr_fun_imag");
+    //FIXIT Antenna patch is hardcoded to 3.!!!
+    pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.real(), pde_eps_cr_inv);
+    pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.imag(), 0.0);
+    pde_mu_r_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_mu_rs, pde_mu_r);
+    // plotSolution(pde_eps_cr_fun_real,"pde_eps_cr_fun_real");
+    // plotSolution(pde_eps_cr_fun_imag,"pde_eps_cr_fun_imag");
 
-  printConstants();
+    printConstants();
 
     // Change domain size
     // for (index_t i = 0; i < mp->nPatches(); i++){
-	  //    gsMatrix<> cc = mp->patch(i).coefs();
-	  //    mp->patch(i).setCoefs(pde_r_t/8.0*cc);
+    //    gsMatrix<> cc = mp->patch(i).coefs();
+    //    mp->patch(i).setCoefs(pde_r_t/8.0*cc);
     // }
 
     char tmp[200];

@@ -106,7 +106,7 @@ void paraOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector
   dJC.updateDesignVariables(u);
   dJC.getDvectors(tmp);
 
-  gsInfo << "max d: " << tmp.maxCoeff() << "\n";
+  // gsInfo << "max d: " << tmp.maxCoeff() << "\n";
 
   result.segment(0,dJC.n_constraints) = tmp;
   result.segment(dJC.n_constraints,iC.n_constraints) = interfaceConstraintMatrix*u;

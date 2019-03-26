@@ -1407,13 +1407,14 @@ int len = patches[0].coefsSize();
 int pm = 1;
 setupAntennaDomain(patches,degree,sqrt(len),pm);
 
-std::string out = "Geometry";
-gsInfo << "Writing the gsMultiPatch to a paraview file: " << out
-<< "\n\n";
-gsWriteParaview(patches, out);
+// std::string out = "Geometry";
+// gsInfo << "Writing the gsMultiPatch to a paraview file: " << out
+// << "\n\n";
+// gsWriteParaview(patches, out);
 
 gsInfo << "Domain is a: \n" << std::flush;
 gsInfo << "The domain is a "<< patches <<"\n";
+
 
 modLiaoOptProblem lOP(&patches);
 // detJacConstraint dJC(&patches);
@@ -1432,13 +1433,17 @@ gsVector<> des = lOP.getDesignVariables();
 // des = lOP.getDesignVariables();
 // saveVec(des,"ynotfixed_n6_m6/modLiao.txt");
 
+
 if (numRefine == 2){
-	des = loadVec(lOP.numDesignVars(),"controlpoints_n2/modLiao.txt");
+	des = loadVec(lOP.numDesignVars(),"controlPoints_n2/modLiao.txt");
 } else {
-	des = loadVec(lOP.numDesignVars(),"controlpoints_n1/modLiao.txt");
+	des = loadVec(lOP.numDesignVars(),"controlPoints_n1/modLiao.txt");
 }
+
+// des.setZero(des.rows());
 //
 lOP.updateDesignVariables(des);
+
 // Move domain upwards
 bool move = true;
 if (move) {
@@ -1454,11 +1459,12 @@ for(index_t i = 0; i < patches.nPatches(); i++){
 }
 }
 
+
 std::string str;
 gsVector<> x;
 if (startDes != 0){
 	char tmp[200];
-	snprintf(tmp, 200, "shapeOptProblemGradTest3/design_%d.txt", startDes);
+	snprintf(tmp, 200, "../results/shapeopt1/design_%d.txt", startDes);
 	str = tmp;
 	// x = loadVec(sOP.numDesignVars(),str);
 	// sOP.setCurrentDesign(x);
@@ -1471,7 +1477,7 @@ if (startDes != 0){
 
 	gsInfo << "\n...Max of d vector: " << dmax << "\n";
 
-	modLiaoOptProblem lOP2(&patches);
+	// modLiaoOptProblem lOP2(&patches);
 	// lOP2.solve();
   // char str [50];
 
@@ -1484,12 +1490,13 @@ if (startDes != 0){
 }
 
 shapeOptProblem sOP(&patches);
+// shapeOptProblem sOP(&patches);
 
 // sOP.SE.plotMagnitude("magnitudeGrad3");
 // gsVector<> con = sOP.evalCon();
 // real_t con_max = con.maxCoeff();
 // gsInfo << "\n...Con max: " << con_max << "\n";
-// sOP.counter1 = startDes + 1;
+// sOP.counter1 = startDes + 10;
 // sOP.solve();
 
 return 0;

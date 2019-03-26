@@ -336,7 +336,7 @@ gsVector<> shapeOptProblem::evalCon() const {
   gsVector<> tmp(dJC.n_constraints);
   dJC.getDvectors(tmp);
 
-  gsInfo << "\n...Max of D vector : " << tmp.maxCoeff() << "\n";
+  // gsInfo << "\n...Max of D vector : " << tmp.maxCoeff() << "\n";
 
   return tmp;
 
@@ -360,11 +360,11 @@ void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVect
   char str [50];
 
   if (counter1 >= 0){
-    sprintf(str,"shapeOptProblemGradTest12/design_%d.txt",counter1++);
+    sprintf(str,"../results/shapeopt1/design_%d.txt",counter1++);
     writeToFile(dJC.getDesignVariables(),std::string(str));
 
-    sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);
-    writeToFile(u,std::string(str));
+    // sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);
+    // writeToFile(u,std::string(str));
   } else {
     counter1++;
   }

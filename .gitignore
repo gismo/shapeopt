@@ -1,2 +1,11 @@
 # pvd and vts files for paraview
+*.pvd
+*.vts
+
+# CMake stuff
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
 
