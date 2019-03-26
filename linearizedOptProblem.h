@@ -13,6 +13,9 @@ public:
   void solveAndUpdate(gsVector<> deltaCps);
   real_t evalObj(real_t obj, gsVector<> grad, gsMatrix<> hess, gsVector<> x, gsVector<> x0);
 
+  // Updates the reference parametrization to the one currently hold in m_problem;
+  void reset();
+
   index_t numDesignVars(){ return ndesign; }
   gsVector<> refControlPoints(){ return refCps; }
 

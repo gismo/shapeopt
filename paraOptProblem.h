@@ -33,6 +33,9 @@ public:
   gsVector<> desLowerBounds() const { return m_desLowerBounds; }
   gsVector<> desUpperBounds() const { return m_desUpperBounds; }
 
+  // Methods to reset the fixed degrees of freedoms
+  void setDesignBounds();
+  void reset();                 //calls setDesignBounds() and set m_curDesign to zero;
 
 public:
   mutable gsMultiPatch<>* mp;

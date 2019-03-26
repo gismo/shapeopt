@@ -44,35 +44,10 @@ shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin): mp(mpin), dJC(mpin), iC(
 
   m_curDesign.setZero(m_numDesignVars,1);
 
-  gsVector<> xRef(m_numDesignVars);
-  gsVector<> des = pOP.getDesignVariables();
-  for(index_t i = 0; i < m_numDesignVars; i++){
-    xRef[i] = des[designIndiciesGlobal[i]];
-  }
 
   // gsInfo << "xRef:\n" << xRef << "\n";
 
-  m_desLowerBounds.setOnes(m_numDesignVars);
-  m_desUpperBounds.setOnes(m_numDesignVars);
-
-  real_t lb_x = -d_bw*SE.pde_L_f/2;
-  real_t ub_x = d_bw*SE.pde_L_f/2;
-  real_t lb_y = d_g/2*SE.pde_L_f;
-  real_t ub_y = (d_g/2 + d_bh)*SE.pde_L_f;
-
-  gsInfo << "\n\nlbx: " << lb_x;
-  gsInfo << "\nubx: " << ub_x;
-  gsInfo << "\nlby: " << lb_y;
-  gsInfo << "\nuby: " << ub_y << "\n";
-
-  for(index_t i = 0; i < m_numDesignVars/2; i++){
-    m_desLowerBounds[i] = lb_x - xRef[i];
-    m_desUpperBounds[i] = ub_x - xRef[i];
-
-    m_desLowerBounds[i+m_numDesignVars/2] = lb_y - xRef[i+m_numDesignVars/2];
-    m_desUpperBounds[i+m_numDesignVars/2] = ub_y - xRef[i+m_numDesignVars/2];
-  }
-
+  setDesignBounds(); // Sets bounds on the design variable (Depends on reference parametrization)
   // gsInfo << "desLowerBounds:\n" << m_desLowerBounds << "\n";
   // gsInfo << "desUpperBounds:\n" << m_desUpperBounds << "\n";
   // gsVector<> des;
@@ -109,6 +84,35 @@ shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin): mp(mpin), dJC(mpin), iC(
   // updateDesignVariables(des);
   // writeToFile(dJC.getDesignVariables(),"all_cps_after.txt");
 
+}
+
+void shapeOptProblem::setDesignBounds(){
+  gsVector<> xRef(m_numDesignVars);
+  gsVector<> des = pOP.getDesignVariables();
+  for(index_t i = 0; i < m_numDesignVars; i++){
+    xRef[i] = des[designIndiciesGlobal[i]];
+  }
+
+  m_desLowerBounds.setOnes(m_numDesignVars);
+  m_desUpperBounds.setOnes(m_numDesignVars);
+
+  real_t lb_x = -d_bw*SE.pde_L_f/2;
+  real_t ub_x = d_bw*SE.pde_L_f/2;
+  real_t lb_y = d_g/2*SE.pde_L_f;
+  real_t ub_y = (d_g/2 + d_bh)*SE.pde_L_f;
+
+  gsInfo << "\n\nlbx: " << lb_x;
+  gsInfo << "\nubx: " << ub_x;
+  gsInfo << "\nlby: " << lb_y;
+  gsInfo << "\nuby: " << ub_y << "\n";
+
+  for(index_t i = 0; i < m_numDesignVars/2; i++){
+    m_desLowerBounds[i] = lb_x - xRef[i];
+    m_desUpperBounds[i] = ub_x - xRef[i];
+
+    m_desLowerBounds[i+m_numDesignVars/2] = lb_y - xRef[i+m_numDesignVars/2];
+    m_desUpperBounds[i+m_numDesignVars/2] = ub_y - xRef[i+m_numDesignVars/2];
+  }
 }
 
 real_t shapeOptProblem::evalObj() const {
@@ -360,7 +364,7 @@ void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVect
   char str [50];
 
   if (counter1 >= 0){
-    sprintf(str,"../results/shapeopt1/design_%d.txt",counter1++);
+    sprintf(str,"../results/shapeopt2/design_%d.txt",counter1++);
     writeToFile(dJC.getDesignVariables(),std::string(str));
 
     // sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);
@@ -544,4 +548,48 @@ void shapeOptProblem::resetParametrizationToReference(){
 void shapeOptProblem::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result ) const{
   updateDesignVariables(u);
   result = gradientObj();
+}
+
+void shapeOptProblem::updateReferenceParametrization(){
+  // Reset paraOptProblem
+  pOP.reset();
+
+  // Solve the parametrization problem
+  pOP.solve();
+  gsInfo  << "\n\nReference parametrization is updated \n"
+          << "Max of d vectors: " << dJC.getDvectors().maxCoeff() << "\n\n";
+
+  // Reset the linearizedOptProblem
+  linOP.reset();
+
+  // Reset m_curDesign and design bounds
+  setDesignBounds();
+  m_curDesign.setZero(m_numDesignVars);
+
+}
+
+void shapeOptProblem::runOptimization(index_t maxiter){
+  gsInfo << "DoFs for geometry: " << dJC.n_controlpoints << "\n";
+  gsInfo << "DoFs for analysis: " << SE.dbasis.size() << "\n";
+  // Run optimization
+  for (index_t i = 0; i < maxiter; i++){
+    solve();
+
+    // Check if parametrization is good (larger than double of m_eps)
+    real_t maxD = dJC.getDvectors().maxCoeff();
+    if (maxD > 2*m_eps){
+      gsInfo << "\n\nFinal Solution is found, with max d of "
+             << maxD << "\n\n";
+      return;
+    }
+
+    // Else update parametrization
+    updateReferenceParametrization();
+    gsInfo << "\n New reference parametrization created at " << counter1 << " iteration. \n";
+    counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
+
+  }
+
+
+
 }

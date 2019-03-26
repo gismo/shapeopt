@@ -46,6 +46,23 @@ linearizedOptProblem::linearizedOptProblem(paraOptProblem* problem):m_problem(pr
   solver.compute(KKTsystem);
 };
 
+void linearizedOptProblem::reset(){
+  obj = m_problem->evalObj();
+  grad = m_problem->gradientObj();
+  hess = m_problem->hessianObj();
+  refCps = m_problem->getDesignVariables();
+
+  // The only part of KKTsystem that depends on the reference parametrization are the hessian part
+  KKTsystem.block(0,0,ndesign,ndesign) = hess;
+
+  // Compute factorization of the new matrix
+  solver.compute(KKTsystem);
+
+  // Similarly rhs depends on grad
+  rhs.segment(0,ndesign) = -grad ;
+
+}
+
 gsVector<> linearizedOptProblem::solve(gsVector<> deltaCps){
 
   // gsInfo << "Linearized obj BEFORE : " << evalObj(0,grad,hess,refCps,refCps) << "\n";

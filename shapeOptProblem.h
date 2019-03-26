@@ -40,6 +40,13 @@ public:
   real_t volumeOfPatch(index_t p) const;
   gsMatrix<> derivVolumeOfPatch(index_t p) const;
 
+  // Resets the reference parametrization
+  void updateReferenceParametrization();
+  void setDesignBounds();
+
+  // Method to run full optimization strategy (including reparametrization)
+  void runOptimization(index_t maxiter);
+
 public:
   gsFunctionExpr<> delta;
   gsFunctionExpr<> ddeltadx;

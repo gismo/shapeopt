@@ -1459,6 +1459,7 @@ for(index_t i = 0; i < patches.nPatches(); i++){
 }
 }
 
+shapeOptProblem sOP(&patches);
 
 std::string str;
 gsVector<> x;
@@ -1489,7 +1490,9 @@ if (startDes != 0){
 	// gsInfo << "\nLoad from " << str << "\n";
 }
 
-shapeOptProblem sOP(&patches);
+gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
+sOP.runOptimization(10);
+
 // shapeOptProblem sOP(&patches);
 
 // sOP.SE.plotMagnitude("magnitudeGrad3");

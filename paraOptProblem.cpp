@@ -16,23 +16,7 @@ paraOptProblem::paraOptProblem(gsMultiPatch<>* mpin):mp(mpin), dJC(mpin), iC(mpi
 
   m_numConJacNonZero = J1.nnz() + J2.nnz();
 
-  if (mp->nBoxes() > 3){
-    gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
-    m_desUpperBounds = iC.getUpperBounds(3); //Fix patch 3
-    gsInfo << "X vars on west boundaries freed ! (OBS: hardcoded)" << std::flush;
-    iC.freeBoundary(0,boundary::west,2);
-    iC.freeBoundary(1,boundary::west,2);
-    iC.freeBoundary(2,boundary::west,2);
-    // gsInfo << "X vars on south boundaries freed ! (OBS: hardcoded)";
-    // iC.freeBoundary(0,boundary::south,2);
-    // iC.freeBoundary(1,boundary::south,2);
-    // iC.freeBoundary(2,boundary::south,2);
-  } else {
-    gsInfo << "No patch is fixed (OBS: this happens when no. patches is less than 4)\n";
-    m_desUpperBounds = iC.getUpperBounds(); //Fix no patch
-  }
-  m_desLowerBounds = iC.getLowerBounds(m_desUpperBounds);
-
+  setDesignBounds(); //m_desLowerBounds and m_desUpperBounds is set in here.
   // gsInfo << "m_desUpperBounds  = \n" <<  m_desUpperBounds << "\n";
 
   // Set lower bounds to eps and 0's
@@ -58,6 +42,26 @@ paraOptProblem::paraOptProblem(gsMultiPatch<>* mpin):mp(mpin), dJC(mpin), iC(mpi
   m_curDesign = dJC.getDesignVariables();
 
   interfaceConstraintMatrix = iC.generateConstraintMatrix();
+}
+
+void paraOptProblem::setDesignBounds(){
+  //FIXIT: Patch 3 is hardcoded in paraOptProblem
+  if (mp->nBoxes() > 3){
+    gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
+    m_desUpperBounds = iC.getUpperBounds(3); //Fix patch 3
+    gsInfo << "X vars on west boundaries freed ! (OBS: hardcoded)" << std::flush;
+    iC.freeBoundary(0,boundary::west,2);
+    iC.freeBoundary(1,boundary::west,2);
+    iC.freeBoundary(2,boundary::west,2);
+    // gsInfo << "X vars on south boundaries freed ! (OBS: hardcoded)";
+    // iC.freeBoundary(0,boundary::south,2);
+    // iC.freeBoundary(1,boundary::south,2);
+    // iC.freeBoundary(2,boundary::south,2);
+  } else {
+    gsInfo << "No patch is fixed (OBS: this happens when no. patches is less than 4)\n";
+    m_desUpperBounds = iC.getUpperBounds(); //Fix no patch
+  }
+  m_desLowerBounds = iC.getLowerBounds(m_desUpperBounds);
 }
 
 gsVector<> paraOptProblem::getDesignVariables() const{
@@ -203,4 +207,9 @@ gsVector<> paraOptProblem::gradientObj() const{
     ind += ncoefs;
   }
   return grad;
+}
+
+void paraOptProblem::reset(){
+  setDesignBounds();
+  m_curDesign = dJC.getDesignVariables();
 }
