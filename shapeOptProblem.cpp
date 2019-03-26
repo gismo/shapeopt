@@ -364,7 +364,7 @@ void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVect
   char str [50];
 
   if (counter1 >= 0){
-    sprintf(str,"../results/shapeopt2/design_%d.txt",counter1++);
+    sprintf(str,"../results/shapeopt3/design_%d.txt",counter1++);
     writeToFile(dJC.getDesignVariables(),std::string(str));
 
     // sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);

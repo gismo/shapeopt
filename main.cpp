@@ -40,7 +40,7 @@ void readFromTxt(std::string name, gsMatrix<> &matrix){
 void loadCoefs(gsMultiPatch<> &mp, size_t i, std::string folder, std::string name){
 
 	gsMatrix<> cc = mp.patch(i).coefs();
-	readFromTxt("/home/asgl/Documents/PhD/Cpp/G+Smo/gismo/filedata/parametrizations/"+folder+name, cc);
+	readFromTxt("parametrizations/"+folder+name, cc);
 
 	mp.patch(i).setCoefs(cc);
 }
