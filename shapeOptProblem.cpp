@@ -202,10 +202,10 @@ gsVector<> shapeOptProblem::evaluateDerivativeTerm1(gsMultiPatch<> &u_real, gsMu
   gsExprEvaluator<> ev(A);
 
   // opts.setReal("quA",2);
-  gsOptionList opts = A.options();
-  opts.setInt("quB",1);
+  // gsOptionList opts = A.options();
+  // opts.setInt("quB",1);
   // gsInfo << opts << "\n";
-  A.setOptions(opts);
+  // A.setOptions(opts);
 
   //gsInfo<<"Active options:\n"<< A.options() <<"\n";
   typedef gsExprAssembler<>::geometryMap geometryMap;
@@ -296,10 +296,10 @@ gsVector<> shapeOptProblem::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPa
 
 
   // opts.setReal("quA",2);
-  gsOptionList opts = A.options();
-  opts.setInt("quB",1);
+  // gsOptionList opts = A.options();
+  // opts.setInt("quB",1);
   // gsInfo << opts << "\n";
-  A.setOptions(opts);
+  // A.setOptions(opts);
 
   //gsInfo<<"Active options:\n"<< A.options() <<"\n";
   typedef gsExprAssembler<>::geometryMap geometryMap;
@@ -364,7 +364,7 @@ void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVect
   char str [50];
 
   if (counter1 >= 0){
-    sprintf(str,"../results/shapeopt3/design_%d.txt",counter1++);
+    sprintf(str,"../results/shapeopt2_winslow/design_%d.txt",counter1++);
     writeToFile(dJC.getDesignVariables(),std::string(str));
 
     // sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);
@@ -587,6 +587,7 @@ void shapeOptProblem::runOptimization(index_t maxiter){
     updateReferenceParametrization();
     gsInfo << "\n New reference parametrization created at " << counter1 << " iteration. \n";
     counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
+
 
   }
 

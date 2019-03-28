@@ -114,6 +114,8 @@ void paraOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector
 
   result.segment(0,dJC.n_constraints) = tmp;
   result.segment(dJC.n_constraints,iC.n_constraints) = interfaceConstraintMatrix*u;
+
+  // gsInfo << "max ifconst : " << result.segment(dJC.n_constraints,iC.n_constraints).norm() << "\n";
 }
 
 void paraOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const {
@@ -152,7 +154,7 @@ void paraOptProblem::print(){
 
 void paraOptProblem::writeToFile(gsVector<> vec, std::string name) const{
   std::ofstream f(name);
-  for (auto &e : vec) f << e << "\n";
+  for (auto &e : vec) f << std::setprecision(12) << e << "\n";
 }
 
 void paraOptProblem::writeToFile(gsMatrix<> mat, std::string name) const{

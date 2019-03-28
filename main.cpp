@@ -14,6 +14,7 @@
 #include "liaoOptProblem.h"
 #include "knuppOptProblem.h"
 #include "modLiaoOptProblem.h"
+#include "winslowOptProblem.h"
 // #include "errorOptProblem.h"
 // #include "residualOptProblem.h"
 #include "detJacConstraint.h"
@@ -194,6 +195,9 @@ void convergenceTestOfParaJacobian(paraOptProblem &lOP){
 	gsVector<> grad = lOP.gradientObj();
 	gsMatrix<> hess = lOP.hessianObj();
 
+	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
+	// gsInfo << "\n" << grad << "\n";
+
 	// for (index_t i = 0; i < lOP.numDesignVars(); i++){
 	// 	for (index_t j = 0; j < lOP.numDesignVars(); j++){
 	// 		if (hess(i,j) == 0){ gsInfo << " ";
@@ -205,7 +209,7 @@ void convergenceTestOfParaJacobian(paraOptProblem &lOP){
 	// 	gsInfo <<"\n";
 	// }
 
-	std::srand((unsigned int) std::time(0));
+	// std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
 	ran.setRandom(lOP.numDesignVars());
 
@@ -251,7 +255,7 @@ void convergenceTestOfParaJacobian(paraOptProblem &lOP){
 		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
 
 		// gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
-		gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
+		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
 
 		real_t error0 = std::abs(guess0 - newLiao);
 		real_t error1 = std::abs(guess1 - newLiao);
@@ -1035,6 +1039,21 @@ void convergenceTestOfDesignUpdateJacobian(shapeOptProblem &sOP){
 
 }
 
+void checkGradientsWithFD(modLiaoOptProblem &lOP){
+	gsVector<> grad = lOP.gradientObj();
+	gsVector<> gradFD = lOP.gradObjFD(lOP.getDesignVariables());
+
+	gsVector<> diff = grad - gradFD;
+
+	gsInfo << "Check gradients\n";
+	for(index_t i = 0; i < grad.rows(); i++){
+		real_t ad = abs(diff[i]);
+		if (ad > 1e-12){
+			gsInfo << "Error of size " << ad << " at index " << i << "\n";
+		}
+	}
+}
+
 gsVector<> loadVec(index_t n,std::string name){
 		gsVector<> vec;
 		vec.setZero(n);
@@ -1228,7 +1247,7 @@ void testOfHelmhotz(gsMultiPatch<> mp, real_t k0, real_t r){
   gsExprAssembler<> A(1,1);
   //A.setOptions(Aopt);
 
-  //gsInfo<<"Active options:\n"<< A.options() <<"\n";
+  // gsInfo<<"Active options:\n"<< A.options() <<"\n";
   typedef gsExprAssembler<>::geometryMap geometryMap;
   typedef gsExprAssembler<>::variable    variable;
   typedef gsExprAssembler<>::space       space;
@@ -1375,12 +1394,19 @@ int numRefine = 1;
 bool plot = false;
 int para = -10;
 
+int quA = 1;
+int quB = 1;
+
 int startDes = 0;
 
 gsCmdLine cmd("A test of lumped mass matricies");
 cmd.addInt("p", "degree", "Degree of B-Splines.", degree);
 cmd.addInt("n", "numberRefine", "Number of refinements", numRefine);
 cmd.addInt("c", "parametrization", "parametrization", para);
+
+cmd.addInt("A", "quA", "quA", quA);
+cmd.addInt("B", "quB", "quB", quB);
+
 cmd.addString("o","output","Name of the output file",output);
 cmd.addSwitch("plot", "Create a ParaView visualization file with the solution", plot);
 
@@ -1459,13 +1485,20 @@ for(index_t i = 0; i < patches.nPatches(); i++){
 }
 }
 
+lOP.setNoQuadraturePoints(quA,quB);
+
+// convergenceTestOfParaJacobian(lOP);
+// lOP.solve();
+// gsInfo << "\nmodLiao : " << sOP.pOP.evalObj() << "\n";
+
 shapeOptProblem sOP(&patches);
+sOP.pOP.setNoQuadraturePoints(quA,quB);
 
 std::string str;
 gsVector<> x;
-if (startDes != 0){
+if (startDes > 0){
 	char tmp[200];
-	snprintf(tmp, 200, "../results/shapeopt1/design_%d.txt", startDes);
+	snprintf(tmp, 200, "../results/shapeopt2/design_%d.txt", startDes);
 	str = tmp;
 	// x = loadVec(sOP.numDesignVars(),str);
 	// sOP.setCurrentDesign(x);
@@ -1473,17 +1506,35 @@ if (startDes != 0){
 	des = loadVec(lOP.numDesignVars(),str);
 	lOP.updateDesignVariables(des);
 
-	gsVector<> d = lOP.dJC.getDvectors();
-	real_t dmax = d.maxCoeff();
+	lOP.reset();
 
-	gsInfo << "\n...Max of d vector: " << dmax << "\n";
+	real_t maxDbefore = lOP.dJC.getDvectors().maxCoeff();
+	real_t minDbefore = lOP.dJC.getDvectors().minCoeff();
+	gsInfo << "\n...Max of d vector before: " << maxDbefore << "\n";
 
+	gsVector<> ifcon = lOP.interfaceConstraintMatrix*des;
+
+	gsInfo << "\n ifcon before between " << ifcon.norm() << "\n";
+
+	sOP.updateReferenceParametrization();
+
+	gsInfo << "\n ifcon before between " << ifcon.norm() << "\n";
+
+	gsInfo << "\n...Max of d vector before: " << maxDbefore << "\n";
+	gsInfo << "\n...Min of d vector before: " << minDbefore << "\n";
+	gsInfo << "\n...Max of d vector after: " << lOP.dJC.getDvectors().maxCoeff() << "\n";
+	gsInfo << "\n...Min of d vector after: " << lOP.dJC.getDvectors().minCoeff() << "\n";
+
+	// gsMatrix<> disp(des.rows(),3);
+	// disp << lb, des, ub;
+	// gsInfo << std::setprecision(10) << disp;
+
+	// gsInfo << "\n con after between " << minConBefore << " and " maxConBefore << "\n";
 	// modLiaoOptProblem lOP2(&patches);
 	// lOP2.solve();
   // char str [50];
-
-  // sprintf(str,"shapeOptProblemGradTest12/design_%d.txt",);
-  // writeToFile(dJC.getDesignVariables(),std::string(str));
+  // sprintf(str,"../results/shapeopt2/designOpt_%d.txt",startDes);
+  // sOP.writeToFile(sOP.dJC.getDesignVariables(),std::string(str));
 	// gsInfo << "x = " << x << "\n";
 	// gsInfo << "obj = " << sOP.evalObj() << "\n";
 	// lOP.updateDesignVariables(des);
@@ -1491,7 +1542,7 @@ if (startDes != 0){
 }
 
 gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
-sOP.runOptimization(10);
+sOP.runOptimization(5);
 
 // shapeOptProblem sOP(&patches);
 
@@ -1502,5 +1553,6 @@ sOP.runOptimization(10);
 // sOP.counter1 = startDes + 10;
 // sOP.solve();
 
+gsInfo << "\n ==== DONE ==== \n";
 return 0;
 }

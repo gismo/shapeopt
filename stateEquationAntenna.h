@@ -27,7 +27,7 @@ public:
     pde_k0      = 2*M_PI*pde_f*sqrt(pde_eps0*pde_mu0);
 
     pde_eps_rs = pde_eps_rs_real + 1i*pde_eps_rs_imag;
-    pde_eps_crs = pde_eps_crs_real + 1i*pde_eps_crs_imag;
+    pde_eps_crs = pde_eps_crs_real + I*pde_eps_crs_imag;
 
     pde_bnd_const = 1.0/pde_eps_cr*(1i*pde_k0 + 1.0/(2*pde_r_t));
 

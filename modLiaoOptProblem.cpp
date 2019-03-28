@@ -14,12 +14,14 @@ real_t modLiaoOptProblem::evaluateOnPatch(index_t i) const{
   A.setIntegrationElements(dbasis);
   gsExprEvaluator<> ev(A);
 
-  //gsInfo<<"Active options:\n"<< A.options() <<"\n";
+  ev.options().setReal("quA",quA);
+  ev.options().setInt("quB",quB);
+  // gsInfo<<"Active options:\n"<< A.options() <<"\n";
   typedef gsExprAssembler<>::geometryMap geometryMap;
   typedef gsExprAssembler<>::variable    variable;
   typedef gsExprAssembler<>::space       space;
   typedef gsExprAssembler<>::solution    solution;
-  
+
   geometryMap G = A.getMap(singlePatch);
 
   gsFunctionExpr<> x("x",2);
@@ -49,6 +51,13 @@ void modLiaoOptProblem::evaluateDerivOnPatch(index_t i, gsVector<> &xVec, gsVect
   gsMultiBasis<> dbasis(singlePatch);
   A.setIntegrationElements(dbasis);
   gsExprEvaluator<> ev(A);
+
+
+  gsOptionList opts = A.options();
+  opts.setReal("quA",quA);
+  opts.setInt("quB",quB);
+  // gsInfo << opts << "\n";
+  A.setOptions(opts);
 
   //gsInfo<<"Active options:\n"<< A.options() <<"\n";
   typedef gsExprAssembler<>::geometryMap geometryMap;
@@ -104,6 +113,12 @@ void modLiaoOptProblem::evaluate2ndDerivOnPatch(index_t i, gsMatrix<> &xxMat, gs
   gsMultiBasis<> dbasis(singlePatch);
   A.setIntegrationElements(dbasis);
   gsExprEvaluator<> ev(A);
+
+  gsOptionList opts = A.options();
+  opts.setReal("quA",quA);
+  opts.setInt("quB",quB);
+  // gsInfo << opts << "\n";
+  A.setOptions(opts);
 
   //gsInfo<<"Active options:\n"<< A.options() <<"\n";
   typedef gsExprAssembler<>::geometryMap geometryMap;
@@ -194,4 +209,33 @@ void modLiaoOptProblem::evaluate2ndDerivOnPatch(index_t i, gsMatrix<> &xxMat, gs
 
   yyMat = A.matrix();
 
+}
+
+gsVector<> modLiaoOptProblem::gradObjFD(gsMatrix<> u) const
+{
+    const index_t n = u.rows();
+    //GISMO_ASSERT((index_t)m_numDesignVars == n*m, "Wrong design.");
+
+    gsMatrix<> uu = u;//copy
+    gsAsVector<> tmp(uu.data(), n);
+    gsAsConstVector<> ctmp(uu.data(), n);
+    gsVector<> result(n);
+    index_t c = 0;
+
+    // for all partial derivatives (column-wise)
+    for ( index_t i = 0; i!=n; i++ )
+    {
+        // to do: add m_desLowerBounds m_desUpperBounds check
+        tmp[i]  += real_t(0.00001);
+        const real_t e1 = this->evalObj(ctmp);
+        tmp[i]   = u[i] + real_t(0.00002);
+        const real_t e3 = this->evalObj(ctmp);
+        tmp[i]   = u[i] - real_t(0.00001);
+        const real_t e2 = this->evalObj(ctmp);
+        tmp[i]   = u[i] - real_t(0.00002);
+        const real_t e4 = this->evalObj(ctmp);
+        tmp[i]   = u[i];
+        result[c++]= ( 8 * (e1 - e2) + e4 - e3 ) / real_t(0.00012);
+    }
+    return result;
 }

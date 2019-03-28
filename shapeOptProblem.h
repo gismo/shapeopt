@@ -5,6 +5,7 @@ using namespace gismo;
 #include "detJacConstraint.h"
 #include "interfaceConstraint.h"
 #include "modLiaoOptProblem.h"
+#include "winslowOptProblem.h"
 #include "linearizedOptProblem.h"
 #include "IpOptSparseMatrix.h"
 #include "stateEquationAntenna.h"

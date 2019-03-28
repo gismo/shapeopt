@@ -64,14 +64,17 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
 
 	auto signOfDetJ = detJinv*meas(G);
 
+	// FIXIT: veta here is due to the boundary we integrate over are east or west, TODO try to generalize...
 	auto term_1x = veta*j01/nv(G).norm()*u.tr();
 	auto term_2x = v*u.tr()*nv(G).norm();
 
 	// gsInfo << "x terms\n" << std::flush;
 	// A.assemble(term_1x);
 	if (realOrImag == 0){
+		// FIXIT: why including rhs here? TODO avoid this...
 		A.assembleLhsRhsBc(bnd_f_real.val()*term_1x + bnd_dfdx_real.val()*term_2x,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
 	} else {
+		// FIXIT: why including rhs here? TODO avoid this...
 		A.assembleLhsRhsBc(bnd_f_imag.val()*term_1x + bnd_dfdx_imag.val()*term_2x,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
 	}
 
@@ -83,8 +86,10 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
 	A.initSystem();
 
 	if (realOrImag == 0){
+		// FIXIT: why including rhs here? TODO avoid this...
 		A.assembleLhsRhsBc(bnd_f_real.val()*term_1y,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
 	} else {
+		// FIXIT: why including rhs here? TODO avoid this...
 		A.assembleLhsRhsBc(bnd_f_imag.val()*term_1y,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
 	}
 
