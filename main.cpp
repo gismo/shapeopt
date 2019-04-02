@@ -11,6 +11,7 @@
 
 #include "stateEquationAntenna.h"
 
+#include "maxDetJacOptProblem.h"
 #include "liaoOptProblem.h"
 #include "knuppOptProblem.h"
 #include "modLiaoOptProblem.h"
@@ -1369,7 +1370,7 @@ gsMultiPatch<> getGeometry(){
 	gsTensorBSpline<2, real_t>  top(basis, coefs);
 	patches.addPatch(top);
 
-	double tol = 1e-1;
+	double tol = 1e-4;
 	patches.computeTopology(tol,true);
 	patches.closeGaps(tol);
 
@@ -1397,6 +1398,8 @@ int para = -10;
 int quA = 1;
 int quB = 1;
 
+bool mDJON = false;
+
 int startDes = 0;
 
 gsCmdLine cmd("A test of lumped mass matricies");
@@ -1409,6 +1412,7 @@ cmd.addInt("B", "quB", "quB", quB);
 
 cmd.addString("o","output","Name of the output file",output);
 cmd.addSwitch("plot", "Create a ParaView visualization file with the solution", plot);
+cmd.addSwitch("mdj", "solve mdj first", mDJON);
 
 cmd.addInt("s", "startDes", "design number to start from", startDes);
 
@@ -1418,20 +1422,20 @@ char buffer [50];
 std::sprintf(buffer,"p = %d \n n = %d\n",degree,numRefine);
 gsInfo << buffer;
 
-// gsMultiPatch<> patches = getGeometry();
+gsMultiPatch<> patches = getGeometry();
 
 // gsMultiPatch<> patches = gsNurbsCreator<>::BSplineSquareGrid(2, 2, 1);
-gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
-patches.basis(0).setDegree(degree);
+// gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+// patches.basis(0).setDegree(degree);
 
-for(int i = 0; i < numRefine; i++){
-	patches.uniformRefine();
-}
+// for(int i = 0; i < numRefine; i++){
+	// patches.uniformRefine();
+// }
 
-int len = patches[0].coefsSize();
-
-int pm = 1;
-setupAntennaDomain(patches,degree,sqrt(len),pm);
+// int len = patches[0].coefsSize();
+//
+// int pm = 1;
+// setupAntennaDomain(patches,degree,sqrt(len),pm);
 
 // std::string out = "Geometry";
 // gsInfo << "Writing the gsMultiPatch to a paraview file: " << out
@@ -1441,8 +1445,15 @@ setupAntennaDomain(patches,degree,sqrt(len),pm);
 gsInfo << "Domain is a: \n" << std::flush;
 gsInfo << "The domain is a "<< patches <<"\n";
 
+// for (index_t i = 0; i < patches.nBoundary(); i++){
+	// patchSide ps = patches.boundaries()[i];
+	// gsInfo << ps << "";
+	// gsInfo << "patch " << ps.patch << "has index " << ps.index() << "\n";
+// }
+
 
 modLiaoOptProblem lOP(&patches);
+// lOP.solve();
 // detJacConstraint dJC(&patches);
 
 // convergenceTestOfParaJacobian(lOP);
@@ -1450,6 +1461,7 @@ modLiaoOptProblem lOP(&patches);
 // gsInfo << "det Jac : \n " << lOP.dJC.getDvectors() << "\n";
 // gsInfo << lOP.interfaceConstraintMatrix << "\n\n\n";
 gsVector<> des = lOP.getDesignVariables();
+saveVec(des,"../results/designTest.txt");
 // gsInfo << lOP.interfaceConstraintMatrix*des;
 
 // convergenceTestOfDetJJacobian(lOP.dJC);
@@ -1460,18 +1472,17 @@ gsVector<> des = lOP.getDesignVariables();
 // saveVec(des,"ynotfixed_n6_m6/modLiao.txt");
 
 
-if (numRefine == 2){
-	des = loadVec(lOP.numDesignVars(),"controlPoints_n2/modLiao.txt");
-} else {
-	des = loadVec(lOP.numDesignVars(),"controlPoints_n1/modLiao.txt");
-}
-
+// if (numRefine == 2){
+	// des = loadVec(lOP.numDesignVars(),"controlPoints_n2/modLiao.txt");
+// } else {
+	// des = loadVec(lOP.numDesignVars(),"controlPoints_n1/modLiao.txt");
+// }
 // des.setZero(des.rows());
 //
 lOP.updateDesignVariables(des);
 
 // Move domain upwards
-bool move = true;
+bool move = false;
 if (move) {
 for(index_t i = 0; i < patches.nPatches(); i++){
 	gsMatrix<> cc = patches.patch(i).coefs();
@@ -1493,30 +1504,94 @@ lOP.setNoQuadraturePoints(quA,quB);
 
 shapeOptProblem sOP(&patches);
 sOP.pOP.setNoQuadraturePoints(quA,quB);
+sOP.SE.plotSolution("solTest");
+
+	des = lOP.getDesignVariables();
+	saveVec(des,"../results/designCoons.txt");
+	lOP.dJC.plotDetJ("detJ_Coons");
+
+// gsInfo << "\n\n\n ====== Test DetJ ====== \n\n\n";
+// gsInfo << "maxCoeff : " << sOP.dJC.getDvectors().maxCoeff() << "\n";
+// convergenceTestOfDetJJacobian(sOP.dJC);
+	// gsInfo << "\n...Max of d vector : " << lOP.dJC.getDvectors().maxCoeff() << "\n";
+	// gsInfo << "\n...Min of d vector : " << lOP.dJC.getDvectors().minCoeff() << "\n";
+	// gsInfo << "\n\n\n ====== solve modLiaoOptProblem ====== \n\n\n";
+	// lOP.solve();
+	// des = lOP.getDesignVariables();
+	// saveVec(des,"../results/designModLiao.txt");
+	// lOP.dJC.plotDetJ("detJ_modLiao");
+	//
+	// if (mDJON) {
+	// 	gsInfo << "\n\n\n ====== solve maxDetJacOptProblem ====== \n\n\n";
+	// 	maxDetJacOptProblem mDJOP(&patches);
+	// 	mDJOP.solve();
+	//
+	// 	gsInfo << "\n...Max of d vector after mdjopt: " << lOP.dJC.getDvectors().maxCoeff() << "\n";
+	// 	gsInfo << "\n...Min of d vector after mdjopt: " << lOP.dJC.getDvectors().minCoeff() << "\n";
+	//
+	// 	des = lOP.getDesignVariables();
+	// 	saveVec(des,"../results/designMDJ.txt");
+	//
+	// 	lOP.dJC.plotDetJ("detJ_mdj");
+	//
+	// 	gsInfo << "\n\n\n ====== solve modLiaoOptProblem ====== \n\n\n";
+	// 	lOP.solve();
+	// 	des = lOP.getDesignVariables();
+	// 	saveVec(des,"../results/designModLiaoAfter.txt");
+	// 	lOP.dJC.plotDetJ("detJ_modLiaoAfter");
+	// }
 
 std::string str;
 gsVector<> x;
 if (startDes > 0){
 	char tmp[200];
-	snprintf(tmp, 200, "../results/shapeopt2/design_%d.txt", startDes);
-	str = tmp;
+	// snprintf(tmp, 200, "../results/shapeopt5/design_%d.txt", startDes);
+	// str = tmp;
 	// x = loadVec(sOP.numDesignVars(),str);
 	// sOP.setCurrentDesign(x);
 	// sOP.updateDesignVariables(x);
-	des = loadVec(lOP.numDesignVars(),str);
-	lOP.updateDesignVariables(des);
+	// des = loadVec(lOP.numDesignVars(),str);
+	// lOP.updateDesignVariables(des);
 
 	lOP.reset();
 
 	real_t maxDbefore = lOP.dJC.getDvectors().maxCoeff();
 	real_t minDbefore = lOP.dJC.getDvectors().minCoeff();
 	gsInfo << "\n...Max of d vector before: " << maxDbefore << "\n";
+	gsInfo << "\n...Min of d vector before: " << minDbefore << "\n";
 
+	patches.closeGaps(1e-14);
+
+	des = lOP.getDesignVariables();
 	gsVector<> ifcon = lOP.interfaceConstraintMatrix*des;
 
 	gsInfo << "\n ifcon before between " << ifcon.norm() << "\n";
 
-	sOP.updateReferenceParametrization();
+	lOP.dJC.plotDetJ("detJ_before");
+
+	if (mDJON) {
+		gsInfo << "\n\n\n ====== solve maxDetJacOptProblem ====== \n\n\n";
+		maxDetJacOptProblem mDJOP(&patches);
+		mDJOP.solve();
+
+		gsInfo << "\n...Max of d vector before: " << maxDbefore << "\n";
+		gsInfo << "\n...Min of d vector before: " << minDbefore << "\n";
+
+		gsInfo << "\n...Max of d vector after mdjopt: " << lOP.dJC.getDvectors().maxCoeff() << "\n";
+		gsInfo << "\n...Min of d vector after mdjopt: " << lOP.dJC.getDvectors().minCoeff() << "\n";
+
+		des = lOP.getDesignVariables();
+		saveVec(des,"../results/designMDJ.txt");
+
+		lOP.dJC.plotDetJ("detJ_mdj");
+	}
+
+	gsInfo << "\n\n\n ====== solve modLiaoOptProblem ====== \n\n\n";
+	// sOP.updateReferenceParametrization();
+	modLiaoOptProblem wOP(&patches);
+	wOP.solve();
+
+	lOP.dJC.plotDetJ("detJ_after");
 
 	gsInfo << "\n ifcon before between " << ifcon.norm() << "\n";
 
@@ -1541,8 +1616,15 @@ if (startDes > 0){
 	// gsInfo << "\nLoad from " << str << "\n";
 }
 
+gsInfo << "\n\n\n ====== solve maxDetJacOptProblem ====== \n\n\n";
+// lOP.solve();
+
+// maxDetJacOptProblem mDJOP(&patches);
+// mDJOP.solve();
+
 gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
-sOP.runOptimization(5);
+sOP.updateReferenceParametrization();
+sOP.runOptimization(3);
 
 // shapeOptProblem sOP(&patches);
 

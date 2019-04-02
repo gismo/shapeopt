@@ -40,7 +40,7 @@ message(STATUS "G+Smo shared library in ${GISMO_LIBRARY_DIR}")
 
 include( ${GISMO_USE_FILE} )
 set(CMAKE_MODULE_PATH ${GISMO_MODULE_PATH})
-include(gsConfig) #compiler configuration
+#include(gsConfig) #compiler configuration
 
 # Source file
 file(GLOB SOURCES ./*.cpp)

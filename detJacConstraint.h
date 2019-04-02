@@ -10,15 +10,9 @@ class detJacConstraint{
 public:
   detJacConstraint(gsMultiPatch<>* mpin);
 
-	gsVector<> generateDResultVector();
-
 	void getDvectors(gsVector<> &result);
 
-  gsVector<> getDvectors();
-
-  void getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac);
-
-  void getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac);
+	gsVector<> getDvectors();
 
   IpOptSparseMatrix getJacobian();
 
@@ -31,9 +25,10 @@ public:
   friend class liaoOptProblem;
 
   gsVector<> getUpperBounds(real_t eps);
+
+  void plotDetJ(std::string name);
 public:
   gsMultiPatch<>* mp;
-	gsMultiPatch<> sp;
 	gsMultiBasis<> m_detJacBasis;
 
 	gsSparseSolver<>::LU solverMassMatrix;

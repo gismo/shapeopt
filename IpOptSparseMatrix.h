@@ -20,6 +20,8 @@ public:
   void printSize();
   void swap(IpOptSparseMatrix smat);
 
+  IpOptSparseMatrix& operator-(){ m_values *= -1; return *this; }
+
 private:
   index_t m_nnz;
   index_t m_nrows;

@@ -464,6 +464,13 @@ void stateEquationAntenna::plotSolution(gsMultiPatch<> &sol, std::string name){
 	ev.writeParaview( u_sol   , G, name);
 }
 
+void stateEquationAntenna::plotSolution(std::string name){
+	gsMultiPatch<> ur,ui;
+	solve(ur,ui);
+	plotSolution(ur,name + "_re");
+	plotSolution(ui,name + "_im");
+}
+
 void stateEquationAntenna::plotMagnitude(std::string name){
 	gsMultiPatch<> u_real, u_imag;
 	solve(u_real,u_imag);

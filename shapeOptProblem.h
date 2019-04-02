@@ -5,6 +5,7 @@ using namespace gismo;
 #include "detJacConstraint.h"
 #include "interfaceConstraint.h"
 #include "modLiaoOptProblem.h"
+#include "maxDetJacOptProblem.h"
 #include "winslowOptProblem.h"
 #include "linearizedOptProblem.h"
 #include "IpOptSparseMatrix.h"
@@ -57,9 +58,10 @@ public:
   mutable detJacConstraint dJC;
   mutable interfaceConstraint iC;
   mutable modLiaoOptProblem pOP;
+  mutable maxDetJacOptProblem mOP;
   mutable linearizedOptProblem linOP;
   mutable stateEquationAntenna SE;
-  real_t m_eps = 0.0001;
+  real_t m_eps = 0.01;
   index_t antennaPatch = 3;
   gsVector<index_t> designIndiciesLocal;
   gsVector<index_t> designIndiciesGlobal;

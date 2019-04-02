@@ -1,7 +1,7 @@
 #include <gismo.h>
 #include "shapeOptProblem.h"
 
-shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin): mp(mpin), dJC(mpin), iC(mpin), SE(mpin), pOP(mpin), linOP(&pOP){
+shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin): mp(mpin), dJC(mpin), iC(mpin), SE(mpin), pOP(mpin), mOP(mpin), linOP(&pOP){
   // Calculate number of design variables OBS assuming same n.o. controlpoints in each direction
   index_t n_cc = mp->patch(antennaPatch).coefsSize();
   index_t n_coefsPs = sqrt(n_cc);
@@ -364,7 +364,7 @@ void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVect
   char str [50];
 
   if (counter1 >= 0){
-    sprintf(str,"../results/shapeopt2_winslow/design_%d.txt",counter1++);
+    sprintf(str,"../results/shapeopt5/design_%d.txt",counter1++);
     writeToFile(dJC.getDesignVariables(),std::string(str));
 
     // sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);
@@ -551,11 +551,22 @@ void shapeOptProblem::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVect
 }
 
 void shapeOptProblem::updateReferenceParametrization(){
-  // Reset paraOptProblem
+  // Reset paraOptProblems
   pOP.reset();
+  mOP.reset();
 
-  // Solve the parametrization problem
+  //DONT KNOW WHY IT HELPS ON CONVEGERGENCE TO CALL THIS GUY FIRST
   pOP.solve();
+  // Solve the parametrization problem
+  gsInfo << "\nMax D before updating " << dJC.getDvectors().maxCoeff() << "\n";
+  // Begin by maximizing the determinant
+  mOP.solve();
+  gsInfo << "\nMax D after maxDetJac " << dJC.getDvectors().maxCoeff() << "\n";
+
+  pOP.reset();
+  pOP.solve();
+  gsInfo << "\nMax D after modLiao " << dJC.getDvectors().maxCoeff() << "\n";
+
   gsInfo  << "\n\nReference parametrization is updated \n"
           << "Max of d vectors: " << dJC.getDvectors().maxCoeff() << "\n\n";
 
@@ -564,7 +575,7 @@ void shapeOptProblem::updateReferenceParametrization(){
 
   // Reset m_curDesign and design bounds
   setDesignBounds();
-  m_curDesign.setZero(m_numDesignVars);
+  m_curDesign.setZero(m_numDesignVars,1);
 
 }
 
@@ -576,10 +587,10 @@ void shapeOptProblem::runOptimization(index_t maxiter){
     solve();
 
     // Check if parametrization is good (larger than double of m_eps)
-    real_t maxD = dJC.getDvectors().maxCoeff();
-    if (maxD > 2*m_eps){
-      gsInfo << "\n\nFinal Solution is found, with max d of "
-             << maxD << "\n\n";
+    real_t minD = -dJC.getDvectors().maxCoeff();
+    if (minD > 2*m_eps){
+      gsInfo << "\n\nFinal Solution is found, with min d of "
+             << minD << "\n\n";
       return;
     }
 

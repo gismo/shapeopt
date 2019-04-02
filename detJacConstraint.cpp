@@ -3,7 +3,7 @@
 #include "IpOptSparseMatrix.h"
 using namespace gismo;
 
-detJacConstraint::detJacConstraint(gsMultiPatch<>* mpin): mp(mpin), sp(mpin->patch(0)), m_detJacBasis(sp){
+detJacConstraint::detJacConstraint(gsMultiPatch<>* mpin): mp(mpin), m_detJacBasis(*mpin){
   // Prepare basis for detJac
   // by setting the degree to (p-1)(p-1)
   m_isSolverSetup = false;
@@ -21,78 +21,69 @@ detJacConstraint::detJacConstraint(gsMultiPatch<>* mpin): mp(mpin), sp(mpin->pat
     gsInfo << "Patch " << i << " has " << mp->patch(i).coefsSize() << " cps... \n";
   }
 
-
-  n_constraints = m_detJacBasis.size(0)*mp->nBoxes();
+  n_constraints = m_detJacBasis.size();
 
   gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";
 }
 
-gsVector<> detJacConstraint::generateDResultVector(){
-  int len = 0;
-  for(int i = 0; i < mp->nBoxes(); i++){
-    len += m_detJacBasis.size(0);
-  }
-  gsVector<> result(len);
-  return result;
+void detJacConstraint::getDvectors(gsVector<> &result){
+  result = getDvectors();
 }
 
-void detJacConstraint::getDvectors(gsVector<> &result){
+gsVector<> detJacConstraint::getDvectors(){
+  // gsInfo << "getDvectors\n" << std::flush;
   //gsInfo<<"Active options:\n"<< A.options() <<"\n";
   typedef gsExprAssembler<>::geometryMap geometryMap;
   typedef gsExprAssembler<>::variable    variable;
   typedef gsExprAssembler<>::space       space;
   typedef gsExprAssembler<>::solution    solution;
 
-  for(int i = 0; i < mp->nBoxes(); i++){
-    gsExprAssembler<> A(1,1);
+  gsExprAssembler<> A(1,1);
 
-    // Elements used for numerical integration
-    A.setIntegrationElements(m_detJacBasis);
-    gsExprEvaluator<> ev(A);
+  // Elements used for numerical integration
+  A.setIntegrationElements(m_detJacBasis);
+  gsExprEvaluator<> ev(A);
 
-    space u = A.getSpace(m_detJacBasis);
+  space u = A.getSpace(m_detJacBasis);
 
-    A.initSystem();
-    if (! m_isSolverSetup){
-      A.assemble(u*u.tr());
-      solverMassMatrix.compute(A.matrix());
-      m_isSolverSetup = true;
-    }
+  geometryMap G = A.getMap(*mp);
 
-    gsMatrix<> solVector;
-    solution u_sol = A.getSolution(u, solVector);
-
-    gsJacDetField<real_t> jacDetField(mp->patch(i));
-    variable detJ = ev.getVariable(jacDetField);
-
-    A.assemble(u*detJ);
-
-    solVector = solverMassMatrix.solve(A.rhs());
-
-    // Save result in result vector
-    index_t start = i*m_detJacBasis.size(0);
-    index_t len   = m_detJacBasis.size(0);
-    result.segment(start,len) = solVector;
-
+  A.initSystem();
+  if (! m_isSolverSetup){
+    A.assemble(u*u.tr());
+    solverMassMatrix.compute(A.matrix());
+    m_isSolverSetup = true;
   }
 
+  gsMatrix<> solVector;
+  solution u_sol = A.getSolution(u, solVector);
 
+  gsFunctionExpr<> x("x",2);
+  gsFunctionExpr<> y("y",2);
+  variable fx = A.getCoeff(x);
+  variable fy = A.getCoeff(y);
+  auto j00 = fjac(fx).tr()*jac(G)*fjac(fx);
+  auto j10 = fjac(fy).tr()*jac(G)*fjac(fx);
+  auto j01 = fjac(fx).tr()*jac(G)*fjac(fy);
+  auto j11 = fjac(fy).tr()*jac(G)*fjac(fy);
+
+  auto detJ = j00*j11 - j01*j10;
+
+  A.assemble(u*detJ);
+
+  solVector = solverMassMatrix.solve(A.rhs());
+
+  // gsInfo << "solVector is a (" << solVector.rows() << ", " << solVector.cols() << ")\n";
+  // gsInfo << "return!\n" << std::flush;
+  return solVector;
 
 }
 
-gsVector<> detJacConstraint::getDvectors(){
-  gsVector<> out = generateDResultVector();
-  getDvectors(out);
-  return out;
-
-}
-
-void detJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac){
-  gsMultiPatch<> singlePatch(mp->patch(patch));
-
+IpOptSparseMatrix detJacConstraint::getJacobian(){
+  // gsInfo << "getDetJacJacobian\n" << std::flush;
   // Prepare assembler
   gsExprAssembler<> A(1,1);
-  gsMultiBasis<> dbasis(singlePatch);
+  gsMultiBasis<> dbasis(*mp);
   A.setIntegrationElements(m_detJacBasis);
   gsExprEvaluator<> ev(A);
 
@@ -102,7 +93,7 @@ void detJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJa
   typedef gsExprAssembler<>::space       space;
   typedef gsExprAssembler<>::solution    solution;
 
-  geometryMap G = A.getMap(singlePatch);
+  geometryMap G = A.getMap(*mp);
 
   // Use simple functions to generate standard basis vectors [1,0] and [0,1]
   gsFunctionExpr<> x("x",2);
@@ -130,7 +121,7 @@ void detJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJa
   auto z0gradu = v1 + v2;
   A.assemble(v*z0gradu.tr());
 
-  xJac = A.matrix();
+  gsMatrix<> xRhs = A.matrix();
 
   A.initSystem();
 
@@ -140,38 +131,17 @@ void detJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJa
   auto z1gradu = v3 + v4;
   A.assemble(v*z1gradu.tr());
 
-  yJac = A.matrix();
-}
+  gsMatrix<> yRhs = A.matrix();
 
-void detJacConstraint::getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac){
-  GISMO_ASSERT(m_isSolverSetup,"Solver is not setup before calling detJacConstraint::getJacobianFromPatch");
+  gsMatrix<> xJac = solverMassMatrix.solve(xRhs);
+  gsMatrix<> yJac = solverMassMatrix.solve(yRhs);
 
-  gsSparseMatrix<> xDrhs,yDrhs;
-  getDerivRhsFromPatch(patch,xDrhs,yDrhs);
+  // FIXIT : How to exploit sparsity!!!??? TODO
+  IpOptSparseMatrix xJ(xJac,-1);
+  IpOptSparseMatrix yJ(yJac,-1);
 
-  xJac = solverMassMatrix.solve(xDrhs);
-
-  yJac = solverMassMatrix.solve(yDrhs);
-}
-
-IpOptSparseMatrix detJacConstraint::getJacobian(){
-    // For each patch generate Jacobian with respect to x and y coordinates of geometry
-    memory::unique_ptr<IpOptSparseMatrix> xMat,yMat;         // Store a pointer to the object, to avoid calling the constructor
-    for(index_t i = 0; i < mp->nBoxes(); i++){
-      // get xJac and yJac for patch i
-      gsMatrix<> xJac,yJac;
-      getJacobianFromPatch(i,xJac,yJac);
-      if (i == 0){
-        xMat.reset(new IpOptSparseMatrix(xJac,-1));    // false indicates that IpOptSparseMatrix should generate dense matrix
-        yMat.reset(new IpOptSparseMatrix(yJac,-1));    // --||-- ...
-      } else {
-        xMat->concatenate(IpOptSparseMatrix(xJac,-1),"diag");
-        yMat->concatenate(IpOptSparseMatrix(yJac,-1),"diag");
-      }
-    }
-    xMat->concatenate(*yMat,"row");       // Store full jacobian in xMat
-
-    return *xMat;
+  xJ.concatenate(yJ,"row");       // Store full jacobian in xMat
+  return xJ;
 
 }
 
@@ -221,3 +191,57 @@ gsVector<> detJacConstraint::getUpperBounds(real_t eps){
     out *= -eps;
     return out;
   }
+
+void detJacConstraint::plotDetJ(std::string name){
+  // gsInfo << "getDvectors\n" << std::flush;
+  //gsInfo<<"Active options:\n"<< A.options() <<"\n";
+  typedef gsExprAssembler<>::geometryMap geometryMap;
+  typedef gsExprAssembler<>::variable    variable;
+  typedef gsExprAssembler<>::space       space;
+  typedef gsExprAssembler<>::solution    solution;
+
+  gsExprAssembler<> A(1,1);
+
+  // Elements used for numerical integration
+  A.setIntegrationElements(m_detJacBasis);
+  gsExprEvaluator<> ev(A);
+
+  space u = A.getSpace(m_detJacBasis);
+
+  geometryMap G = A.getMap(*mp);
+
+  A.initSystem();
+  if (! m_isSolverSetup){
+    A.assemble(u*u.tr());
+    solverMassMatrix.compute(A.matrix());
+    m_isSolverSetup = true;
+  }
+
+  gsMatrix<> solVector;
+  solution u_sol = A.getSolution(u, solVector);
+
+  gsFunctionExpr<> x("x",2);
+  gsFunctionExpr<> y("y",2);
+  variable fx = A.getCoeff(x);
+  variable fy = A.getCoeff(y);
+  auto j00 = fjac(fx).tr()*jac(G)*fjac(fx);
+  auto j10 = fjac(fy).tr()*jac(G)*fjac(fx);
+  auto j01 = fjac(fx).tr()*jac(G)*fjac(fy);
+  auto j11 = fjac(fy).tr()*jac(G)*fjac(fy);
+
+  auto detJ = j00*j11 - j01*j10;
+
+  A.assemble(u*detJ);
+
+  solVector = solverMassMatrix.solve(A.rhs());
+
+  gsMultiPatch<> dJ;
+  u_sol.extract(dJ);
+
+  variable out = A.getCoeff(dJ);
+
+	gsInfo<<"Plotting " << name << " in Paraview...\n";
+  ev.writeParaview( out   , G, name);
+	// ev.options().setSwitch("plot.elements", true);
+
+}

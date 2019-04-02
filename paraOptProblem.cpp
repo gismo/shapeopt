@@ -49,14 +49,14 @@ void paraOptProblem::setDesignBounds(){
   if (mp->nBoxes() > 3){
     gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
     m_desUpperBounds = iC.getUpperBounds(3); //Fix patch 3
-    gsInfo << "X vars on west boundaries freed ! (OBS: hardcoded)" << std::flush;
-    iC.freeBoundary(0,boundary::west,2);
-    iC.freeBoundary(1,boundary::west,2);
-    iC.freeBoundary(2,boundary::west,2);
-    // gsInfo << "X vars on south boundaries freed ! (OBS: hardcoded)";
-    // iC.freeBoundary(0,boundary::south,2);
-    // iC.freeBoundary(1,boundary::south,2);
-    // iC.freeBoundary(2,boundary::south,2);
+    // gsInfo << "X vars on west boundaries freed ! (OBS: hardcoded)" << std::flush;
+    // iC.freeBoundary(0,boundary::west,2);
+    // iC.freeBoundary(1,boundary::west,2);
+    // iC.freeBoundary(2,boundary::west,2);
+    gsInfo << "X vars on south boundaries freed ! (OBS: hardcoded)";
+    iC.freeBoundary(0,boundary::south,2);
+    iC.freeBoundary(1,boundary::south,2);
+    iC.freeBoundary(2,boundary::south,2);
   } else {
     gsInfo << "No patch is fixed (OBS: this happens when no. patches is less than 4)\n";
     m_desUpperBounds = iC.getUpperBounds(); //Fix no patch
@@ -73,6 +73,7 @@ void paraOptProblem::updateDesignVariables(gsVector<> des){
 }
 
 real_t paraOptProblem::evalObj() const{
+  // gsInfo << "evalObj\n";
   real_t result = 0;
   for(index_t i = 0; i < mp->nBoxes(); i++){
     result += evaluateOnPatch(i);
@@ -81,6 +82,7 @@ real_t paraOptProblem::evalObj() const{
 }
 
 void paraOptProblem::gradObj_into(const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const{
+  // gsInfo << "gradObj\n";
   // gsInfo << "\n..gradObj_into\n";
   dJC.updateDesignVariables(u);
   index_t ind = 0;
@@ -119,7 +121,7 @@ void paraOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector
 }
 
 void paraOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const {
-  // gsInfo << "...jacobCon_into\n";
+  // gsInfo << "...jacobCon_into\n" << std::flush;
   dJC.updateDesignVariables(u);
   IpOptSparseMatrix J1 = dJC.getJacobian();
   IpOptSparseMatrix J2 = iC.getJacobian();

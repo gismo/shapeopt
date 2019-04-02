@@ -2,7 +2,7 @@
 #define STATEEQUATIONANTENNA_H
 
 #include <math.h>
-#include <complex.h>
+#include <complex>
 #include <sstream>
 #include <string>
 using namespace gismo;
@@ -14,7 +14,7 @@ public:
     // gsInfo << "OBS CHECK DISCRETIZATION OF PDE!!\n";
     dbasis.uniformRefine();
     dbasis.uniformRefine();
-    dbasis.uniformRefine();
+    // dbasis.uniformRefine();
     // dbasis.uniformRefine();
     // dbasis.uniformRefine();
 
@@ -27,7 +27,7 @@ public:
     pde_k0      = 2*M_PI*pde_f*sqrt(pde_eps0*pde_mu0);
 
     pde_eps_rs = pde_eps_rs_real + 1i*pde_eps_rs_imag;
-    pde_eps_crs = pde_eps_crs_real + I*pde_eps_crs_imag;
+    pde_eps_crs = pde_eps_crs_real + 1i*pde_eps_crs_imag;
 
     pde_bnd_const = 1.0/pde_eps_cr*(1i*pde_k0 + 1.0/(2*pde_r_t));
 
@@ -93,7 +93,7 @@ public:
     gsInfo << "\n dHizdn imag: " << d2Hizdndx_imag_str << "\n";
     d2Hizdndx_imag = *(new gsFunctionExpr<>(d2Hizdndx_imag_str,2));
 
-    bcInfo.addCondition(4, boundary::east, condition_type::neumann, &zero);
+    bcInfo.addCondition(4, boundary::south, condition_type::neumann, &zero);
     // bcInfoZero.addCondition(4, boundary::east, condition_type::neumann, &zero); //zero bcs
   	// bcInfo.addCondition(0, boundary::west,  condition_type::dirichlet, &Hiz_real);
   	// bcInfo.addCondition(1, boundary::west, condition_type::dirichlet, &Hiz_real);
@@ -128,6 +128,7 @@ public:
   void assembleAndSolve();
   void solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag);
   void plotSolution(gsMultiPatch<> &sol, std::string name);
+  void plotSolution(std::string name);
   void plotMagnitude(std::string name);
 
   void printConstants();
