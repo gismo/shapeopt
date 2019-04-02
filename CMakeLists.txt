@@ -42,7 +42,19 @@ include( ${GISMO_USE_FILE} )
 set(CMAKE_MODULE_PATH ${GISMO_MODULE_PATH})
 #include(gsConfig) #compiler configuration
 
-# Source file
+if(NOT BASE_FOLDER)
+  set(BASE_FOLDER ${CMAKE_SOURCE_DIR} CACHE STRING "BASE_FOLDER")
+endif()
+  add_definitions(-DBASE_FOLDER="${BASE_FOLDER}")
+  message(STATUS "Paths are relative to ${BASE_FOLDER}")
+ 
+
+# SoelWithDebInfi -->NDEBUG
+# Remove NDEBUG flag from RelWithDebInfo builds
+if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
+
 file(GLOB SOURCES ./*.cpp)
 add_executable(main ${SOURCES})
 set_target_properties(main PROPERTIES LINKER_LANGUAGE CXX)

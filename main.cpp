@@ -26,8 +26,6 @@
 
 using namespace gismo;
 
-std::string BASE_FOLDER = ".";
-
 void readFromTxt(std::string name, gsMatrix<> &matrix){
 	std::ifstream infile;
 	infile.open(name);
@@ -43,7 +41,7 @@ void readFromTxt(std::string name, gsMatrix<> &matrix){
 void loadCoefs(gsMultiPatch<> &mp, size_t i, std::string folder, std::string name){
 
 	gsMatrix<> cc = mp.patch(i).coefs();
-	readFromTxt(BASE_FOLDER + "/parametrizations/"+folder+name, cc);
+	readFromTxt(BASE_FOLDER "/parametrizations/"+folder+name, cc);
 
 	mp.patch(i).setCoefs(cc);
 }
@@ -1332,7 +1330,7 @@ gsMultiPatch<> getGeometry(){
 	gsMatrix<> greville = basis.anchors();
 	gsMatrix<> coefs (greville.cols(), 2);
 
-	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/l.txt", coefs);
+	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/l.txt", coefs);
 
 	gsInfo << coefs;
 
@@ -1344,13 +1342,13 @@ gsMultiPatch<> getGeometry(){
 
 	gsMultiPatch<> patches = gsMultiPatch<>(left);
 
-	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/b.txt", coefs);
+	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/b.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  bottom(basis, coefs);
 	patches.addPatch(bottom);
 
-	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/r.txt", coefs);
+	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/r.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  right(basis, coefs);
@@ -1361,11 +1359,11 @@ gsMultiPatch<> getGeometry(){
 	gsMatrix<> grevilleMid = basisMid.anchors();
 	gsMatrix<> coefsMid (grevilleMid.cols(), 2);
 
-	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/m.txt", coefsMid);
+	readFromTxt(BASE_FOLDER  "/parametrizations/para_x5_y4_p2_q2/m.txt", coefsMid);
 	gsTensorBSpline<2, real_t>  middle(basisMid, coefsMid);
 	patches.addPatch(middle);
 
-	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/t.txt", coefs);
+	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/t.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  top(basis, coefs);
@@ -1462,7 +1460,7 @@ modLiaoOptProblem lOP(&patches);
 // gsInfo << "det Jac : \n " << lOP.dJC.getDvectors() << "\n";
 // gsInfo << lOP.interfaceConstraintMatrix << "\n\n\n";
 gsVector<> des = lOP.getDesignVariables();
-saveVec(des,BASE_FOLDER + "../results/designTest.txt");
+// saveVec(des,BASE_FOLDER "../results/designTest.txt");
 // gsInfo << lOP.interfaceConstraintMatrix*des;
 
 // convergenceTestOfDetJJacobian(lOP.dJC);
@@ -1508,7 +1506,7 @@ sOP.pOP.setNoQuadraturePoints(quA,quB);
 sOP.SE.plotSolution("solTest");
 
 	des = lOP.getDesignVariables();
-	saveVec(des,BASE_FOLDER + "../results/designCoons.txt");
+	// saveVec(des,BASE_FOLDER "../results/designCoons.txt");
 	lOP.dJC.plotDetJ("detJ_Coons");
 
 
@@ -1552,7 +1550,7 @@ if (startDes > 0){
 		gsInfo << "\n...Min of d vector after mdjopt: " << lOP.dJC.getDvectors().minCoeff() << "\n";
 
 		des = lOP.getDesignVariables();
-		saveVec(des,BASE_FOLDER + "../results/designMDJ.txt");
+		// saveVec(des,BASE_FOLDER + "../results/designMDJ.txt");
 
 		lOP.dJC.plotDetJ("detJ_mdj");
 	}
