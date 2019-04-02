@@ -1,4 +1,3 @@
-
 #include <gismo.h>
 #include <stdio.h>
 #include <math.h>       /* pow */
@@ -27,6 +26,8 @@
 
 using namespace gismo;
 
+std::string BASE_FOLDER = ".";
+
 void readFromTxt(std::string name, gsMatrix<> &matrix){
 	std::ifstream infile;
 	infile.open(name);
@@ -42,7 +43,7 @@ void readFromTxt(std::string name, gsMatrix<> &matrix){
 void loadCoefs(gsMultiPatch<> &mp, size_t i, std::string folder, std::string name){
 
 	gsMatrix<> cc = mp.patch(i).coefs();
-	readFromTxt("parametrizations/"+folder+name, cc);
+	readFromTxt(BASE_FOLDER + "/parametrizations/"+folder+name, cc);
 
 	mp.patch(i).setCoefs(cc);
 }
@@ -1331,7 +1332,7 @@ gsMultiPatch<> getGeometry(){
 	gsMatrix<> greville = basis.anchors();
 	gsMatrix<> coefs (greville.cols(), 2);
 
-	readFromTxt("/home/asgl/Documents/MATLAB/GenCPS/para_x5_y4_p2_q2/l.txt", coefs);
+	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/l.txt", coefs);
 
 	gsInfo << coefs;
 
@@ -1343,13 +1344,13 @@ gsMultiPatch<> getGeometry(){
 
 	gsMultiPatch<> patches = gsMultiPatch<>(left);
 
-	readFromTxt("/home/asgl/Documents/MATLAB/GenCPS/para_x5_y4_p2_q2/b.txt", coefs);
+	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/b.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  bottom(basis, coefs);
 	patches.addPatch(bottom);
 
-	readFromTxt("/home/asgl/Documents/MATLAB/GenCPS/para_x5_y4_p2_q2/r.txt", coefs);
+	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/r.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  right(basis, coefs);
@@ -1360,17 +1361,17 @@ gsMultiPatch<> getGeometry(){
 	gsMatrix<> grevilleMid = basisMid.anchors();
 	gsMatrix<> coefsMid (grevilleMid.cols(), 2);
 
-	readFromTxt("/home/asgl/Documents/MATLAB/GenCPS/para_x5_y4_p2_q2/m.txt", coefsMid);
+	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/m.txt", coefsMid);
 	gsTensorBSpline<2, real_t>  middle(basisMid, coefsMid);
 	patches.addPatch(middle);
 
-	readFromTxt("/home/asgl/Documents/MATLAB/GenCPS/para_x5_y4_p2_q2/t.txt", coefs);
+	readFromTxt(BASE_FOLDER + "/parametrizations/para_x5_y4_p2_q2/t.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  top(basis, coefs);
 	patches.addPatch(top);
 
-	double tol = 1e-4;
+	double tol = 1e-2;
 	patches.computeTopology(tol,true);
 	patches.closeGaps(tol);
 
@@ -1461,7 +1462,7 @@ modLiaoOptProblem lOP(&patches);
 // gsInfo << "det Jac : \n " << lOP.dJC.getDvectors() << "\n";
 // gsInfo << lOP.interfaceConstraintMatrix << "\n\n\n";
 gsVector<> des = lOP.getDesignVariables();
-saveVec(des,"../results/designTest.txt");
+saveVec(des,BASE_FOLDER + "../results/designTest.txt");
 // gsInfo << lOP.interfaceConstraintMatrix*des;
 
 // convergenceTestOfDetJJacobian(lOP.dJC);
@@ -1507,45 +1508,15 @@ sOP.pOP.setNoQuadraturePoints(quA,quB);
 sOP.SE.plotSolution("solTest");
 
 	des = lOP.getDesignVariables();
-	saveVec(des,"../results/designCoons.txt");
+	saveVec(des,BASE_FOLDER + "../results/designCoons.txt");
 	lOP.dJC.plotDetJ("detJ_Coons");
 
-// gsInfo << "\n\n\n ====== Test DetJ ====== \n\n\n";
-// gsInfo << "maxCoeff : " << sOP.dJC.getDvectors().maxCoeff() << "\n";
-// convergenceTestOfDetJJacobian(sOP.dJC);
-	// gsInfo << "\n...Max of d vector : " << lOP.dJC.getDvectors().maxCoeff() << "\n";
-	// gsInfo << "\n...Min of d vector : " << lOP.dJC.getDvectors().minCoeff() << "\n";
-	// gsInfo << "\n\n\n ====== solve modLiaoOptProblem ====== \n\n\n";
-	// lOP.solve();
-	// des = lOP.getDesignVariables();
-	// saveVec(des,"../results/designModLiao.txt");
-	// lOP.dJC.plotDetJ("detJ_modLiao");
-	//
-	// if (mDJON) {
-	// 	gsInfo << "\n\n\n ====== solve maxDetJacOptProblem ====== \n\n\n";
-	// 	maxDetJacOptProblem mDJOP(&patches);
-	// 	mDJOP.solve();
-	//
-	// 	gsInfo << "\n...Max of d vector after mdjopt: " << lOP.dJC.getDvectors().maxCoeff() << "\n";
-	// 	gsInfo << "\n...Min of d vector after mdjopt: " << lOP.dJC.getDvectors().minCoeff() << "\n";
-	//
-	// 	des = lOP.getDesignVariables();
-	// 	saveVec(des,"../results/designMDJ.txt");
-	//
-	// 	lOP.dJC.plotDetJ("detJ_mdj");
-	//
-	// 	gsInfo << "\n\n\n ====== solve modLiaoOptProblem ====== \n\n\n";
-	// 	lOP.solve();
-	// 	des = lOP.getDesignVariables();
-	// 	saveVec(des,"../results/designModLiaoAfter.txt");
-	// 	lOP.dJC.plotDetJ("detJ_modLiaoAfter");
-	// }
 
 std::string str;
 gsVector<> x;
 if (startDes > 0){
 	char tmp[200];
-	// snprintf(tmp, 200, "../results/shapeopt5/design_%d.txt", startDes);
+	// snprintf(tmp, 200,BASE_FOLDER + "../results/shapeopt5/design_%d.txt", startDes);
 	// str = tmp;
 	// x = loadVec(sOP.numDesignVars(),str);
 	// sOP.setCurrentDesign(x);
@@ -1581,7 +1552,7 @@ if (startDes > 0){
 		gsInfo << "\n...Min of d vector after mdjopt: " << lOP.dJC.getDvectors().minCoeff() << "\n";
 
 		des = lOP.getDesignVariables();
-		saveVec(des,"../results/designMDJ.txt");
+		saveVec(des,BASE_FOLDER + "../results/designMDJ.txt");
 
 		lOP.dJC.plotDetJ("detJ_mdj");
 	}
@@ -1623,7 +1594,7 @@ gsInfo << "\n\n\n ====== solve maxDetJacOptProblem ====== \n\n\n";
 // mDJOP.solve();
 
 gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
-sOP.updateReferenceParametrization();
+// sOP.updateReferenceParametrization();
 sOP.runOptimization(3);
 
 // shapeOptProblem sOP(&patches);

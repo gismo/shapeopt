@@ -61,7 +61,7 @@ public:
   mutable maxDetJacOptProblem mOP;
   mutable linearizedOptProblem linOP;
   mutable stateEquationAntenna SE;
-  real_t m_eps = 0.01;
+  real_t m_eps = 0.0001;
   index_t antennaPatch = 3;
   gsVector<index_t> designIndiciesLocal;
   gsVector<index_t> designIndiciesGlobal;

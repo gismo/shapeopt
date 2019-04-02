@@ -1,6 +1,7 @@
 #include <gismo.h>
 #include "shapeOptProblem.h"
 
+
 shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin): mp(mpin), dJC(mpin), iC(mpin), SE(mpin), pOP(mpin), mOP(mpin), linOP(&pOP){
   // Calculate number of design variables OBS assuming same n.o. controlpoints in each direction
   index_t n_cc = mp->patch(antennaPatch).coefsSize();
@@ -364,8 +365,8 @@ void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVect
   char str [50];
 
   if (counter1 >= 0){
-    sprintf(str,"../results/shapeopt5/design_%d.txt",counter1++);
-    writeToFile(dJC.getDesignVariables(),std::string(str));
+    // sprintf(str,"../results/shapeopt5/design_%d.txt",counter1++);
+    // writeToFile(dJC.getDesignVariables(),BASE_FOLDER + std::string(str));
 
     // sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);
     // writeToFile(u,std::string(str));
@@ -552,14 +553,14 @@ void shapeOptProblem::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVect
 
 void shapeOptProblem::updateReferenceParametrization(){
   // Reset paraOptProblems
-  pOP.reset();
-  mOP.reset();
+  // pOP.reset();
 
   //DONT KNOW WHY IT HELPS ON CONVEGERGENCE TO CALL THIS GUY FIRST
-  pOP.solve();
+  // pOP.solve();
   // Solve the parametrization problem
   gsInfo << "\nMax D before updating " << dJC.getDvectors().maxCoeff() << "\n";
   // Begin by maximizing the determinant
+  mOP.reset();
   mOP.solve();
   gsInfo << "\nMax D after maxDetJac " << dJC.getDvectors().maxCoeff() << "\n";
 
@@ -582,8 +583,14 @@ void shapeOptProblem::updateReferenceParametrization(){
 void shapeOptProblem::runOptimization(index_t maxiter){
   gsInfo << "DoFs for geometry: " << dJC.n_controlpoints << "\n";
   gsInfo << "DoFs for analysis: " << SE.dbasis.size() << "\n";
+  counter1 -= 10;
   // Run optimization
   for (index_t i = 0; i < maxiter; i++){
+    // Else update parametrization
+    updateReferenceParametrization();
+    gsInfo << "\n New reference parametrization created at " << counter1 << " iteration. \n";
+    counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
+
     solve();
 
     // Check if parametrization is good (larger than double of m_eps)
@@ -594,10 +601,6 @@ void shapeOptProblem::runOptimization(index_t maxiter){
       return;
     }
 
-    // Else update parametrization
-    updateReferenceParametrization();
-    gsInfo << "\n New reference parametrization created at " << counter1 << " iteration. \n";
-    counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
 
 
   }
