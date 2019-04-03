@@ -152,6 +152,8 @@ void maxDetJacOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAs
   // Concatenate J1 and J3 row wise to get the final values
   J1.concatenate(J3,"row");
 
+  // gsInfo << "We expect nnz " << m_numConJacNonZero << "\n";
+  // gsInfo << "We have in J1 " << J1.nnz() << "\n";
   result = J1.values();
 }
 
@@ -176,7 +178,7 @@ void maxDetJacOptProblem::writeToFile(gsMatrix<> mat, std::string name) const{
   std::ofstream f(name);
   for(index_t i = 0; i < mat.rows(); i++){
     for(index_t j = 0; j < mat.cols(); j++){
-      f << mat(i,j) << " ";
+      f << std::setprecision(20) << mat(i,j) << " ";
     }
     f << "\n";
   }

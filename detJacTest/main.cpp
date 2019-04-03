@@ -81,8 +81,8 @@ gsVector<> gradObjImpl1(gsVector<> des,real_t quA,int quB,gsMultiPatch<> &mp,det
 
 	auto signOfDetJ = detJinv*meas(G);
 
-  auto d_detJ_dcx = signOfDetJ*(uxi*j11 - ueta*j10) ;
-  auto d_detJ_dcy = signOfDetJ*(ueta*j00 - uxi*j01) ;
+  auto d_detJ_dcx = signOfDetJ.val()*(uxi*j11.val() - ueta*j10.val()) ;
+  auto d_detJ_dcy = signOfDetJ.val()*(ueta*j00.val() - uxi*j01.val()) ;
 
   A.assemble(d_detJ_dcx);
 
@@ -136,13 +136,13 @@ gsVector<> gradObjImpl2(gsVector<> des,real_t quA,int quB,gsMultiPatch<> &mp,det
   auto uxi = grad(u)*fjac(fx);
   auto ueta = grad(u)*fjac(fy);
 
-  auto detJ = j00*j11 - j10*j01;
+  auto detJ = j00.val()*j11.val() - j10.val()*j01.val();
 	auto detJinv = 1/detJ.val();
 
 	auto signOfDetJ = detJ.sgn();
 
-  auto d_detJ_dcx = signOfDetJ*(uxi*j11 - ueta*j10) ;
-  auto d_detJ_dcy = signOfDetJ*(ueta*j00 - uxi*j01) ;
+  auto d_detJ_dcx = signOfDetJ*(uxi*j11.val() - ueta*j10.val()) ;
+  auto d_detJ_dcy = signOfDetJ*(ueta*j00.val() - uxi*j01.val()) ;
 
   A.assemble(d_detJ_dcx);
 
@@ -183,7 +183,11 @@ gsVector<> gradObjImpl3(gsVector<> des,real_t quA,int quB,gsMultiPatch<> &mp,det
   space u = A.getSpace(dbasis,mp.geoDim()); // We are trying to find a vector expression
 
   A.initSystem();
-  A.assemble(jac(G).det()*matrix_by_space(jac(G).inv(),jac(u)).trace());
+  A.assemble(jac(G).det()*
+  matrix_by_space(jac(G).inv(),jac(u)).trace()
+  // (jac(u)*jac(G).inv()).trace()
+  // (- jac(G).inv() *..under construction.. jac(u) * jac(G).inv())
+  );
 
   return A.rhs();
 }
@@ -206,7 +210,7 @@ void convergenceTestOfJacobian(real_t quA,int quB,gsMultiPatch<> &mp,detJacConst
    } else if (impl == 2) {
 	   grad = gradObjImpl2(des,quA,quB,mp,dJC);
    } else if (impl == 3) {
-	   grad = gradObjImpl2(des,quA,quB,mp,dJC);
+	   grad = gradObjImpl3(des,quA,quB,mp,dJC);
    } else {
      GISMO_ERROR("Wrong impl choice!!!\n");
    }
@@ -341,7 +345,7 @@ int main(int argc, char* argv[])
   disp << grad1, grad2, grad3;
   gsInfo << "\n" << disp << "\n" ;
 
-  // convergenceTestOfJacobian(quA,quB,mp,dJC,impl);
+  convergenceTestOfJacobian(quA,quB,mp,dJC,impl);
 
   if (!output.empty()){
     gsInfo << "Output to " << output << "\n";

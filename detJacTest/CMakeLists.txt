@@ -42,6 +42,11 @@ include( ${GISMO_USE_FILE} )
 set(CMAKE_MODULE_PATH ${GISMO_MODULE_PATH})
 #include(gsConfig) #compiler configuration
 
+# Remove NDEBUG flag from RelWithDebInfo builds
+if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
+
 # Source file
 file(GLOB SOURCES ./*.cpp)
 add_executable(main ${SOURCES})

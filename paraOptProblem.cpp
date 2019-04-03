@@ -163,7 +163,7 @@ void paraOptProblem::writeToFile(gsMatrix<> mat, std::string name) const{
   std::ofstream f(name);
   for(index_t i = 0; i < mat.rows(); i++){
     for(index_t j = 0; j < mat.cols(); j++){
-      f << mat(i,j) << " ";
+      f << std::setprecision(20) << mat(i,j) << " ";
     }
     f << "\n";
   }

@@ -9,4 +9,6 @@ cmake_install.cmake
 Makefile
 main
 
+# Ignore Kcachegrind files
+callgrind*
 

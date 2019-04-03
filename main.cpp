@@ -1451,6 +1451,13 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // }
 
 
+maxDetJacOptProblem mOP(&patches);
+std::clock_t begin = clock();
+mOP.solve();
+std::clock_t end = clock();
+gsInfo << "Time spend: " << double(end - begin) / CLOCKS_PER_SEC << std::flush;
+exit(0);
+
 modLiaoOptProblem lOP(&patches);
 // lOP.solve();
 // detJacConstraint dJC(&patches);
@@ -1592,8 +1599,8 @@ gsInfo << "\n\n\n ====== solve maxDetJacOptProblem ====== \n\n\n";
 // mDJOP.solve();
 
 gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
-// sOP.updateReferenceParametrization();
-sOP.runOptimization(3);
+sOP.updateReferenceParametrization();
+// sOP.runOptimization(10);
 
 // shapeOptProblem sOP(&patches);
 
