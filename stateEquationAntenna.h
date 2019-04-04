@@ -9,14 +9,12 @@ using namespace gismo;
 
 class stateEquationAntenna{
 public:
-  stateEquationAntenna(gsMultiPatch<>* mpin): mp(mpin), dbasis(*mp), zero("0.0",2){
+  stateEquationAntenna(gsMultiPatch<>* mpin, index_t numRefine): mp(mpin), dbasis(*mp), zero("0.0",2){
     dbasis.setDegree(degree);
     // gsInfo << "OBS CHECK DISCRETIZATION OF PDE!!\n";
-    dbasis.uniformRefine();
-    dbasis.uniformRefine();
-    // dbasis.uniformRefine();
-    // dbasis.uniformRefine();
-    // dbasis.uniformRefine();
+    for (index_t i = 0; i < numRefine; i++){
+        dbasis.uniformRefine();
+    }
 
     pde_f       = pde_f/pde_L_f;
     pde_omega   = 2*M_PI*pde_f;

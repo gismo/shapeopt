@@ -2,7 +2,20 @@
 #include "shapeOptProblem.h"
 
 
-shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin): mp(mpin), dJC(mpin), iC(mpin), SE(mpin), pOP(mpin), mOP(mpin), linOP(&pOP){
+shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin,index_t numRefine, std::string output, bool plotDesign,
+    bool plotMagnitude, bool plotSolution, bool saveCps):
+                        mp(mpin),
+                        dJC(mpin),
+                        iC(mpin),
+                        SE(mpin,numRefine),
+                        pOP(mpin),
+                        mOP(mpin),
+                        linOP(&pOP),
+                        m_output(output),
+                        m_plotDesign(plotDesign),
+                        m_plotMagnitude(plotMagnitude),
+                        m_plotSolution(plotSolution),
+                        m_saveCps(saveCps){
   // Calculate number of design variables OBS assuming same n.o. controlpoints in each direction
   index_t n_cc = mp->patch(antennaPatch).coefsSize();
   index_t n_coefsPs = sqrt(n_cc);
@@ -362,17 +375,6 @@ void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVect
   // gsVector<> gradCon = derivVolumeOfPatch(antennaPatch);
   // gsMatrix<> gradTrans = gradCon.transpose();
   // IpOptSparseMatrix J(gradTrans,-1); // Jacobiant of volume constraint
-  char str [50];
-
-  if (counter1 >= 0){
-    // sprintf(str,"../results/shapeopt5/design_%d.txt",counter1++);
-    // writeToFile(dJC.getDesignVariables(),BASE_FOLDER + std::string(str));
-
-    // sprintf(str,"shapeOptProblemGradTest12/x_%d.txt",counter1);
-    // writeToFile(u,std::string(str));
-  } else {
-    counter1++;
-  }
 
   IpOptSparseMatrix J = derivativeOfDetJac(); // Jacobiant of detJ constraints
 
@@ -409,8 +411,9 @@ gsVector<> shapeOptProblem::getUpdateToCps(gsVector<> u) const {
 }
 
 void shapeOptProblem::writeToFile(gsVector<> vec, std::string name) const{
-  std::ofstream f(name);
-  for (auto &e : vec) f << std::setprecision(12) << e << "\n";
+    // gsInfo << "writing to: " << name << "\n";
+    std::ofstream f(name);
+    for (auto &e : vec) f << std::setprecision(12) << e << "\n";
 }
 
 real_t shapeOptProblem::volumeOfPatch(index_t p) const {
@@ -581,30 +584,61 @@ void shapeOptProblem::updateReferenceParametrization(){
 }
 
 void shapeOptProblem::runOptimization(index_t maxiter){
-  gsInfo << "DoFs for geometry: " << dJC.n_controlpoints << "\n";
-  gsInfo << "DoFs for analysis: " << SE.dbasis.size() << "\n";
-  counter1 -= 10;
-  // Run optimization
-  for (index_t i = 0; i < maxiter; i++){
-    // Else update parametrization
-    updateReferenceParametrization();
-    gsInfo << "\n New reference parametrization created at " << counter1 << " iteration. \n";
-    counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
+    gsInfo << "DoFs for geometry: " << dJC.n_controlpoints << "\n";
+    gsInfo << "DoFs for analysis: " << SE.dbasis.size() << "\n";
+    counter1 -= 10;
 
-    solve();
+    index_t counter2 = 0;
+    if (m_plotDesign){
+        plotDesignInParaview(m_output + "/design_0");
+    }
+    // Run optimization
+    for (index_t i = 0; i < maxiter; i++){
+        // Else update parametrization
+        updateReferenceParametrization();
+        gsInfo << "\n New reference parametrization created at " << counter1 << " iteration. \n";
+        counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
 
-    // Check if parametrization is good (larger than double of m_eps)
-    real_t minD = -dJC.getDvectors().maxCoeff();
-    if (minD > 2*m_eps){
-      gsInfo << "\n\nFinal Solution is found, with min d of "
-             << minD << "\n\n";
-      return;
+        solve();
+
+        counter2++;
+        if (m_plotDesign){
+            plotDesignInParaview(m_output + "/design_" + std::to_string(counter2));
+        }
+        if (m_plotMagnitude){
+            SE.plotMagnitude(m_output + "/magnitude_" + std::to_string(counter2));
+        }
+        if (m_plotSolution){
+            SE.plotSolution(m_output + "/sol" + std::to_string(counter2));
+        }
+
+        // Check if parametrization is good (larger than double of m_eps)
+        real_t minD = -dJC.getDvectors().maxCoeff();
+        if (minD > 2*m_eps){
+            gsInfo << "\n\nFinal Solution is found, with min d of "
+            << minD << "\n\n";
+            return;
+        }
+
+
+
     }
 
 
 
-  }
+}
 
+void shapeOptProblem::plotDesignInParaview(std::string name){
+	gsInfo << "Writing the geometry (mp) to a paraview file: " << name
+	<< "\n";
+	gsWriteParaview(*mp, BASE_FOLDER + name);
+}
 
-
+bool shapeOptProblem::intermediateCallback() {
+    if (m_saveCps){
+        char str [50];
+        sprintf(str,"%s/design_%d.txt",m_output.c_str(),counter1++);
+        writeToFile(dJC.getDesignVariables(),BASE_FOLDER + std::string(str));
+    }
+    return true;
 }

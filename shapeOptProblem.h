@@ -14,7 +14,8 @@ using namespace gismo;
 
 class shapeOptProblem: public gsOptProblem<real_t>{
 public:
-  shapeOptProblem(gsMultiPatch<>* mpin);
+  shapeOptProblem(gsMultiPatch<>* mpin,index_t numRefine, std::string output, bool plotDesign,
+    bool plotMagnitude, bool plotSolution, bool saveCps);
   real_t evalObj() const ;
   gsVector<> gradientObj() const ;
   real_t evalObj( const gsAsConstVector<real_t> & u ) const;
@@ -38,6 +39,7 @@ public:
   gsMatrix<> derivativeOfDesignUpdate() const;
   IpOptSparseMatrix derivativeOfDetJac() const;
   void writeToFile(gsVector<> vec, std::string name) const;
+  void plotDesignInParaview(std::string name);
 
   real_t volumeOfPatch(index_t p) const;
   gsMatrix<> derivVolumeOfPatch(index_t p) const;
@@ -48,6 +50,7 @@ public:
 
   // Method to run full optimization strategy (including reparametrization)
   void runOptimization(index_t maxiter);
+  bool intermediateCallback();
 
 public:
   gsFunctionExpr<> delta;
@@ -71,6 +74,13 @@ public:
   real_t d_bh = 546.25*1e-9;    // Height of bounding box
 
   mutable index_t counter1 = 0;
+
+  // Some options regarding output
+  bool m_plotDesign;
+  bool m_plotMagnitude;
+  bool m_plotSolution;
+  bool m_saveCps;
+  std::string m_output;
 
 
 };

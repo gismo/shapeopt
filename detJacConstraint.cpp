@@ -23,12 +23,12 @@ detJacConstraint::detJacConstraint(gsMultiPatch<>* mpin): mp(mpin), m_detJacBasi
     for(int i = 0; i < mp->nBoxes(); i++){
         n_controlpoints += mp->patch(i).coefsSize();
         n_constraints += m_detJacBasis.size(i);
-        gsInfo << "Patch " << i << " has " << mp->patch(i).coefsSize() << " cps... \n";
-        gsInfo << "Patch " << i << " gets " << m_detJacBasis.size(i) << " constraints... \n";
+        // gsInfo << "Patch " << i << " has " << mp->patch(i).coefsSize() << " cps... \n";
+        // gsInfo << "Patch " << i << " gets " << m_detJacBasis.size(i) << " constraints... \n";
     }
 
-    gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";
-    gsInfo << "n_constraints = " << n_controlpoints << "\n \n";
+    // gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";
+    // gsInfo << "n_constraints = " << n_controlpoints << "\n \n";
 }
 
 gsVector<> detJacConstraint::generateDResultVector(){
@@ -93,62 +93,47 @@ gsVector<> detJacConstraint::getDvectors(){
 
 }
 
-void detJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac){
-    gsMultiPatch<> singlePatch(mp->patch(patch));
-
-    gsMultiBasis<> dJbas(m_detJacBasis.basis(patch));
-
-    // Prepare assembler
-    gsExprAssembler<> A(1,1);
-    gsMultiBasis<> dbasis(singlePatch);
-    A.setIntegrationElements(dJbas);
-    gsExprEvaluator<> ev(A);
-
-    // Define types
-    typedef gsExprAssembler<>::geometryMap geometryMap;
-    typedef gsExprAssembler<>::variable    variable;
-    typedef gsExprAssembler<>::space       space;
-    typedef gsExprAssembler<>::solution    solution;
-
-    geometryMap G = A.getMap(singlePatch);
-
-    // Use simple functions to generate standard basis vectors [1,0] and [0,1]
-    gsFunctionExpr<> x("x",2);
-    gsFunctionExpr<> y("y",2);
-    variable fx = ev.getVariable(x);
-    variable fy = ev.getVariable(y);
-
-    // Setup and assemble the two matricies
-    space u = A.getSpace(dbasis);
-    space v = A.getTestSpace(u,dJbas);
-
-    A.initMatrix();
-    auto j00 = grad(fx)*jac(G)*grad(fx).tr();
-    auto j10 = grad(fy)*jac(G)*grad(fx).tr();
-    auto j01 = grad(fx)*jac(G)*grad(fy).tr();
-    auto j11 = grad(fy)*jac(G)*grad(fy).tr();
-
-    auto dxiR = grad(u)*grad(fx).tr();
-    auto detaR = grad(u)*grad(fy).tr();
-
-    auto v1 = dxiR*j11;
-    auto v2 = -detaR*j10;
-
-    auto z0gradu = v1 + v2;
-    A.assemble(v*z0gradu.tr());
-
-    xJac = A.matrix();
-
-    A.initSystem();
-
-    auto v3 = -dxiR*j01;
-    auto v4 = detaR*j00;
-
-    auto z1gradu = v3 + v4;
-    A.assemble(v*z1gradu.tr());
-
-    yJac = A.matrix();
-}
+// void detJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac){
+//     gsMultiPatch<> singlePatch(mp->patch(patch));
+//
+//     gsMultiBasis<> dJbas(m_detJacBasis.basis(patch));
+//
+//     // Prepare assembler
+//     gsExprAssembler<> A(1,1);
+//     gsMultiBasis<> dbasis(singlePatch);
+//     A.setIntegrationElements(dJbas);
+//     gsExprEvaluator<> ev(A);
+//
+//     // Define types
+//     typedef gsExprAssembler<>::geometryMap geometryMap;
+//     typedef gsExprAssembler<>::variable    variable;
+//     typedef gsExprAssembler<>::space       space;
+//     typedef gsExprAssembler<>::solution    solution;
+//
+//     geometryMap G = A.getMap(singlePatch);
+//
+//     // Setup and assemble the two matricies
+//     space u = A.getSpace(dbasis,mp->geoDim());
+//     space v = A.getTestSpace(u,dJbas,1);
+//
+//     gsFunctionExpr<> f("1","1",2);
+//     variable ff = A.getCoeff(f);
+//     // space v = A.getSpace(dJbas);
+//
+//     gsInfo << "dJbas.size : " << dJbas.size() << "\n";
+//     gsInfo << "dbasis.size : " << dbasis.size() << "\n";
+//
+//     A.initSystem();
+//     A.assemble(v*matrix_by_space(jac(G).inv(),jac(u)).trace().tr()*jac(G).det());
+//     // A.assemble(matrix_by_space(jac(G).inv(),jac(u)).trace()*jac(G).det());
+//     // A.assemble(v);
+//     // A.assemble(v*u.tr());
+//
+//     gsInfo << "\nsize (" << A.rhs().rows() << ", " << A.rhs().cols() << ")\n";
+//     // gsInfo << "\nsize " << A.matrix().rows() << ", " << A.matrix().cols() << ")\n";
+//     exit(0);
+//
+// }
 
 void detJacConstraint::getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac){
     GISMO_ASSERT(m_areSolversSetup[patch],"Solver is not setup before calling detJacConstraint::getJacobianFromPatch");
@@ -279,4 +264,61 @@ void detJacConstraint::plotDetJ(std::string name){
   ev.writeParaview( out   , G, name);
 	// ev.options().setSwitch("plot.elements", true);
 
+}
+
+void detJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac){
+    gsMultiPatch<> singlePatch(mp->patch(patch));
+
+    gsMultiBasis<> dJbas(m_detJacBasis.basis(patch));
+
+    // Prepare assembler
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(singlePatch);
+    A.setIntegrationElements(dJbas);
+    gsExprEvaluator<> ev(A);
+
+    // Define types
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    geometryMap G = A.getMap(singlePatch);
+
+    // Use simple functions to generate standard basis vectors [1,0] and [0,1]
+    gsFunctionExpr<> x("x",2);
+    gsFunctionExpr<> y("y",2);
+    variable fx = ev.getVariable(x);
+    variable fy = ev.getVariable(y);
+
+    // Setup and assemble the two matricies
+    space u = A.getSpace(dbasis);
+    space v = A.getTestSpace(u,dJbas);
+
+    A.initMatrix();
+    auto j00 = grad(fx)*jac(G)*grad(fx).tr();
+    auto j10 = grad(fy)*jac(G)*grad(fx).tr();
+    auto j01 = grad(fx)*jac(G)*grad(fy).tr();
+    auto j11 = grad(fy)*jac(G)*grad(fy).tr();
+
+    auto dxiR = grad(u)*grad(fx).tr();
+    auto detaR = grad(u)*grad(fy).tr();
+
+    auto v1 = dxiR*j11;
+    auto v2 = -detaR*j10;
+
+    auto z0gradu = v1 + v2;
+    A.assemble(v*z0gradu.tr());
+
+    xJac = A.matrix();
+
+    A.initSystem();
+
+    auto v3 = -dxiR*j01;
+    auto v4 = detaR*j00;
+
+    auto z1gradu = v3 + v4;
+    A.assemble(v*z1gradu.tr());
+
+    yJac = A.matrix();
 }
