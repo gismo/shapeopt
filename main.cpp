@@ -29,7 +29,7 @@ using namespace gismo;
 void readFromTxt(std::string name, gsMatrix<> &matrix){
 	std::ifstream infile;
 	infile.open(name);
-	//gsInfo << "Loading from " << name << "\n";
+	gsInfo << "Loading from " << name << "\n";
 	for(int i = 0; i < matrix.rows(); i++){
 		for(int j = 0; j < matrix.cols(); j++){
 			infile >> matrix(i,j);
@@ -712,258 +712,258 @@ void convergenceTestOfParaJacobianToFile(paraOptProblem &lOP, std::string name){
 //
 // }
 
+void convergenceTestOfSEAuJacobian(index_t realOrImag,paraOptProblem &lOP, stateEquationAntenna &SE){
+    gsMultiPatch<> u,u_real,u_imag;
+    SE.solve(u_real,u_imag);
+    if (realOrImag == 0){
+        u = u_real;
+    } else {
+        u = u_imag;
+    }
+    gsMatrix<> U = SE.getU(realOrImag);
 
-// void convergenceTestOfSEAuJacobian(index_t realOrImag,paraOptProblem &lOP, stateEquationAntenna &SE){
-// 	gsMultiPatch<> u,u_real,u_imag;
-// 	SE.solve(u_real,u_imag);
-// 	if (realOrImag == 0){
-// 		u = u_real;
-// 	} else {
-// 		u = u_imag;
-// 	}
-// 	gsMatrix<> U = SE.getU(realOrImag);
-//
-// 	gsMatrix<> Ku = SE.getAu(realOrImag,U);
-//
-// 	gsMatrix<> dKu = SE.getDerivativeOfAu(realOrImag,u);
-// 	gsInfo << "dKu is obtained\n";
-//
-// 	// std::srand((unsigned int) std::time(0));
-// 	gsVector<> ran;
-// 	ran.setRandom(lOP.numDesignVars());
-//
-// 	gsVector<> des = lOP.dJC.getDesignVariables();
-// 	gsInfo << "\n Size of design vector : " << des.size() << "\n";
-//
-// 	index_t n = 15;
-// 	gsVector<> Eps(n);
-// 	gsVector<> Error0(n);
-// 	gsVector<> Error1(n);
-// 	gsVector<> Error2(n);
-//
-// 	Error2.setZero(n);
-//
-// 	for(index_t i = 0; i < n; i++){
-// 		// Generate pertubation
-// 		real_t eps = pow(2,-i);
-// 		Eps[i] = eps;
-//
-// 		gsVector<> perturp;
-// 		perturp.setZero(lOP.numDesignVars());
-//
-// 		gsVector<> lb = lOP.desLowerBounds();
-// 		gsVector<> ub = lOP.desUpperBounds();
-//
-// 		for(index_t i = 0; i < lOP.numDesignVars(); i++){
-// 				perturp[i] = ran[i];
-// 		}
-//
-// 		perturp /= perturp.norm();
-//
-// 		perturp *= eps;
-//
-// 		gsVector<> newDes = des + perturp;
-//
-// 		lOP.updateDesignVariables(newDes);
-//
-// 		gsMatrix<> newKu = SE.getAu(realOrImag,U);
-// 		gsMatrix<> guess0 = Ku;
-// 		gsMatrix<> guess1 = Ku + dKu.transpose()*perturp;
-// 		// real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
-//
-// 		if (i == 10 or false){
-	// 			gsMatrix<> disp1;
-	// 			disp1.setZero(Ku.rows(),3);
-	// 			disp1 << guess0, guess1, newKu;
-	// 			// gsInfo << disp1;
-	// 		}
-	//
-	// 		real_t error0 = (guess0 - newKu).norm();
-	// 		real_t error1 = (guess1 - newKu).norm();
-	// 		// real_t error2 = std::abs(guess2 - newLiao);
-	//
-	// 		Error0[i] = error0;
-	// 		Error1[i] = error1;
-	// 		// Error2[i] = error2;
-	// 	}
-	//
-	// 	gsVector<> rate;
-	// 	rate.setZero(n);
-	// 	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
-	// 	gsVector<> rate2;
-	// 	rate2.setZero(n);
-	// 	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
-	// 	gsMatrix<> disp(n,6);
-	// 	disp << Eps,Error0,Error1,rate,Error2,rate2;
-	// 	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
-	// 	gsInfo << disp << "\n";
-	//
-	// }
-	//
-	// void convergenceTestOfSERhsJacobian(index_t realOrImag, paraOptProblem &lOP, stateEquationAntenna &SE){
-		// 	gsMatrix<> rhs = SE.getRhsZeroBC(realOrImag);
-		// 	gsMatrix<> drhs = SE.getDerivativeOfRhsZeroBC(realOrImag);
-		//
-		// 	// for (index_t i = 0; i < lOP.numDesignVars(); i++){
-			// 	// 	for (index_t j = 0; j < lOP.numDesignVars(); j++){
-				// 	// 		if (hess(i,j) == 0){ gsInfo << " ";
-				// 	// 	} else {
-					// 	// 		gsInfo << 1;
-					// 	// 	}
-					// 	// 		;
-					// 	// 	}
-					// 	// 	gsInfo <<"\n";
-					// 	// }
-					//
-					// 	std::srand((unsigned int) std::time(0));
-					// 	gsVector<> ran;
-					// 	ran.setRandom(lOP.numDesignVars());
-					//
-					// 	gsVector<> des = lOP.dJC.getDesignVariables();
-					// 	gsInfo << "\n Size of design vector : " << des.size() << "\n";
-					//
-					// 	index_t n = 10;
-					// 	gsVector<> Eps(n);
-					// 	gsVector<> Error0(n);
-					// 	gsVector<> Error1(n);
-					// 	gsVector<> Error2(n);
-					//
-					// 	Error2.setZero(n);
-					//
-					// 	for(index_t i = 0; i < n; i++){
-						// 		// Generate pertubation
-						// 		real_t eps = pow(2,-i);
-						// 		Eps[i] = eps;
-						//
-						// 		gsVector<> perturp;
-						// 		perturp.setZero(lOP.numDesignVars());
-						// 		for(index_t i = 0; i < lOP.numDesignVars()/2; i++){
-							// 			perturp[i] = ran[i];
-							// 		}
-							//
-							// 		perturp /= perturp.norm();
-							//
-							// 		perturp *= eps;
-							//
-							// 		gsVector<> newDes = des + perturp;
-							//
-							//
-							// 		lOP.updateDesignVariables(newDes);
-							//
-							// 		gsMatrix<> newRhs = SE.getRhsZeroBC(realOrImag);
-							// 		gsMatrix<> guess0 = rhs;
-							// 		gsMatrix<> guess1 = rhs + drhs.transpose()*perturp;
-							// 		// real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
-							//
-							// 		if (i == 5 or false){
-								// 			gsMatrix<> disp1;
-								// 			disp1.setZero(rhs.rows(),3);
-								// 			disp1 << guess0, guess1, newRhs;
-								// 			gsInfo << disp1;
-								// 		}
-								// 		// gsInfo << newRhs <<" " << guess1 << " " << guess2 << "\n";
-								//
-								// 		real_t error0 = (guess0 - newRhs).norm();
-								// 		real_t error1 = (guess1 - newRhs).norm();
-								// 		// real_t error2 = std::abs(guess2 - newLiao);
-								//
-								// 		Error0[i] = error0;
-								// 		Error1[i] = error1;
-								// 		// Error2[i] = error2;
-								// 	}
-								//
-								// 	gsVector<> rate;
-								// 	rate.setZero(n);
-								// 	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
-								// 	gsVector<> rate2;
-								// 	rate2.setZero(n);
-								// 	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
-								// 	gsMatrix<> disp(n,6);
-								// 	disp << Eps,Error0,Error1,rate,Error2,rate2;
-								// 	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
-								// 	gsInfo << disp << "\n";
-								//
-								// }
-								//
-								// void convergenceTestOfUJacobian(paraOptProblem &lOP, stateEquationAntenna &SE){
-									// 	gsMatrix<> u = SE.getU();
-									// 	gsMatrix<> du = SE.getDerivativeOfU();
-									// 	gsInfo << "du is obtained\n";
-									//
-									// 	// std::srand((unsigned int) std::time(0));
-									// 	gsVector<> ran;
-									// 	ran.setRandom(lOP.numDesignVars());
-									//
-									// 	gsVector<> des = lOP.dJC.getDesignVariables();
-									// 	gsInfo << "\n Size of design vector : " << des.size() << "\n";
-									//
-									// 	index_t n = 20;
-									// 	gsVector<> Eps(n);
-									// 	gsVector<> Error0(n);
-									// 	gsVector<> Error1(n);
-									// 	gsVector<> Error2(n);
-									//
-									// 	Error2.setZero(n);
-									//
-									// 	for(index_t i = 0; i < n; i++){
-										// 		// Generate pertubation
-										// 		real_t eps = pow(2,-i);
-										// 		Eps[i] = eps;
-										//
-										// 		gsVector<> perturp;
-										// 		perturp.setZero(lOP.numDesignVars());
-										//
-										// 		gsVector<> lb = lOP.desLowerBounds();
-										// 		gsVector<> ub = lOP.desUpperBounds();
-										//
-										// 		for(index_t i = 0; i < lOP.numDesignVars(); i++){
-											// 			if( ub[i] != lb[i]){
-												// 				perturp[i] = ran[i];
-												// 			}
-												// 		}
-												//
-												// 		perturp /= perturp.norm();
-												//
-												// 		perturp *= eps;
-												//
-												// 		gsVector<> newDes = des + perturp;
-												//
-												//
-												// 		lOP.updateDesignVariables(newDes);
-												//
-												// 		gsMatrix<> newU = SE.getU();
-												// 		gsMatrix<> guess0 = u;
-												// 		gsMatrix<> guess1 = u + du.transpose()*perturp;
-												// 		// real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
-												//
-												// 		if (i == 2 or false){
-													// 			gsMatrix<> disp1;
-													// 			disp1.setZero(u.rows(),3);
-													// 			disp1 << guess0, guess1, newU;
-													// 			gsInfo << disp1;
-													// 		}
-													//
-													// 		real_t error0 = (guess0 - newU).norm();
-													// 		real_t error1 = (guess1 - newU).norm();
-													// 		// real_t error2 = std::abs(guess2 - newLiao);
-													//
-													// 		Error0[i] = error0;
-													// 		Error1[i] = error1;
-													// 		// Error2[i] = error2;
-													// 	}
-													//
-													// 	gsVector<> rate;
-													// 	rate.setZero(n);
-													// 	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
-													// 	gsVector<> rate2;
-													// 	rate2.setZero(n);
-													// 	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
-													// 	gsMatrix<> disp(n,6);
-													// 	disp << Eps,Error0,Error1,rate,Error2,rate2;
-													// 	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
-													// 	gsInfo << disp << "\n";
-													//
-													// }
+    gsMatrix<> Ku = SE.getAu(realOrImag,U);
+
+    gsMatrix<> dKu = SE.getDerivativeOfAu(realOrImag,u);
+    gsInfo << "dKu is obtained\n";
+
+    // std::srand((unsigned int) std::time(0));
+    gsVector<> ran;
+    ran.setRandom(lOP.numDesignVars());
+
+    gsVector<> des = lOP.dJC.getDesignVariables();
+    gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+    index_t n = 15;
+    gsVector<> Eps(n);
+    gsVector<> Error0(n);
+    gsVector<> Error1(n);
+    gsVector<> Error2(n);
+
+    Error2.setZero(n);
+
+    for(index_t i = 0; i < n; i++){
+        // Generate pertubation
+        real_t eps = pow(2,-i);
+        Eps[i] = eps;
+
+        gsVector<> perturp;
+        perturp.setZero(lOP.numDesignVars());
+
+        gsVector<> lb = lOP.desLowerBounds();
+        gsVector<> ub = lOP.desUpperBounds();
+
+        for(index_t i = 0; i < lOP.numDesignVars(); i++){
+            perturp[i] = ran[i];
+        }
+
+        perturp /= perturp.norm();
+
+        perturp *= eps;
+
+        gsVector<> newDes = des + perturp;
+
+        lOP.updateDesignVariables(newDes);
+
+        gsMatrix<> newKu = SE.getAu(realOrImag,U);
+        gsMatrix<> guess0 = Ku;
+        gsMatrix<> guess1 = Ku + dKu.transpose()*perturp;
+        // real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
+
+        if (i == 10 or false){
+            gsMatrix<> disp1;
+            disp1.setZero(Ku.rows(),3);
+            disp1 << guess0, guess1, newKu;
+            // gsInfo << disp1;
+        }
+
+        real_t error0 = (guess0 - newKu).norm();
+        real_t error1 = (guess1 - newKu).norm();
+        // real_t error2 = std::abs(guess2 - newLiao);
+
+        Error0[i] = error0;
+        Error1[i] = error1;
+        // Error2[i] = error2;
+    }
+
+    gsVector<> rate;
+    rate.setZero(n);
+    rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+    gsVector<> rate2;
+    rate2.setZero(n);
+    rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+    gsMatrix<> disp(n,6);
+    disp << Eps,Error0,Error1,rate,Error2,rate2;
+    gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+    gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfSERhsJacobian(index_t realOrImag, paraOptProblem &lOP, stateEquationAntenna &SE){
+    gsMatrix<> rhs = SE.getRhsZeroBC(realOrImag);
+    gsMatrix<> drhs = SE.getDerivativeOfRhsZeroBC(realOrImag);
+
+    // for (index_t i = 0; i < lOP.numDesignVars(); i++){
+    // 	for (index_t j = 0; j < lOP.numDesignVars(); j++){
+    // 		if (hess(i,j) == 0){ gsInfo << " ";
+    // 	} else {
+    // 		gsInfo << 1;
+    // 	}
+    // 		;
+    // 	}
+    // 	gsInfo <<"\n";
+    // }
+
+    std::srand((unsigned int) std::time(0));
+    gsVector<> ran;
+    ran.setRandom(lOP.numDesignVars());
+
+    gsVector<> des = lOP.dJC.getDesignVariables();
+    gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+    index_t n = 10;
+    gsVector<> Eps(n);
+    gsVector<> Error0(n);
+    gsVector<> Error1(n);
+    gsVector<> Error2(n);
+
+    Error2.setZero(n);
+
+    for(index_t i = 0; i < n; i++){
+        // Generate pertubation
+        real_t eps = pow(2,-i);
+        Eps[i] = eps;
+
+        gsVector<> perturp;
+        perturp.setZero(lOP.numDesignVars());
+        for(index_t i = 0; i < lOP.numDesignVars()/2; i++){
+            perturp[i] = ran[i];
+        }
+
+        perturp /= perturp.norm();
+
+        perturp *= eps;
+
+        gsVector<> newDes = des + perturp;
+
+
+        lOP.updateDesignVariables(newDes);
+
+        gsMatrix<> newRhs = SE.getRhsZeroBC(realOrImag);
+        gsMatrix<> guess0 = rhs;
+        gsMatrix<> guess1 = rhs + drhs.transpose()*perturp;
+        // real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
+
+        if (i == 5 and false){
+            gsMatrix<> disp1;
+            disp1.setZero(rhs.rows(),3);
+            disp1 << guess0, guess1, newRhs;
+            gsInfo << disp1;
+        }
+        // gsInfo << newRhs <<" " << guess1 << " " << guess2 << "\n";
+
+        real_t error0 = (guess0 - newRhs).norm();
+        real_t error1 = (guess1 - newRhs).norm();
+        // real_t error2 = std::abs(guess2 - newLiao);
+
+        Error0[i] = error0;
+        Error1[i] = error1;
+        // Error2[i] = error2;
+    }
+
+    gsVector<> rate;
+    rate.setZero(n);
+    rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+    gsVector<> rate2;
+    rate2.setZero(n);
+    rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+    gsMatrix<> disp(n,6);
+    disp << Eps,Error0,Error1,rate,Error2,rate2;
+    gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+    gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfUJacobian(paraOptProblem &lOP, stateEquationAntenna &SE){
+    gsMatrix<> u = SE.getU();
+    gsMatrix<> du = SE.getDerivativeOfU();
+    gsInfo << "du is obtained\n";
+
+    // std::srand((unsigned int) std::time(0));
+    gsVector<> ran;
+    ran.setRandom(lOP.numDesignVars());
+
+    gsVector<> des = lOP.dJC.getDesignVariables();
+    gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+    index_t n = 20;
+    gsVector<> Eps(n);
+    gsVector<> Error0(n);
+    gsVector<> Error1(n);
+    gsVector<> Error2(n);
+
+    Error2.setZero(n);
+
+    for(index_t i = 0; i < n; i++){
+        // Generate pertubation
+        real_t eps = pow(2,-i);
+        Eps[i] = eps;
+
+        gsVector<> perturp;
+        perturp.setZero(lOP.numDesignVars());
+
+        gsVector<> lb = lOP.desLowerBounds();
+        gsVector<> ub = lOP.desUpperBounds();
+
+        for(index_t i = 0; i < lOP.numDesignVars(); i++){
+            if( ub[i] != lb[i]){
+                perturp[i] = ran[i];
+            }
+        }
+
+        perturp /= perturp.norm();
+
+        perturp *= eps;
+
+        gsVector<> newDes = des + perturp;
+
+
+        lOP.updateDesignVariables(newDes);
+
+        gsMatrix<> newU = SE.getU();
+        gsMatrix<> guess0 = u;
+        gsMatrix<> guess1 = u + du.transpose()*perturp;
+        // real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
+
+        if (i == 2 or false){
+            gsMatrix<> disp1;
+            disp1.setZero(u.rows(),3);
+            disp1 << guess0, guess1, newU;
+            gsInfo << disp1;
+        }
+
+        real_t error0 = (guess0 - newU).norm();
+        real_t error1 = (guess1 - newU).norm();
+        // real_t error2 = std::abs(guess2 - newLiao);
+
+        Error0[i] = error0;
+        Error1[i] = error1;
+        // Error2[i] = error2;
+    }
+
+    gsVector<> rate;
+    rate.setZero(n);
+    rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+    gsVector<> rate2;
+    rate2.setZero(n);
+    rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+    gsMatrix<> disp(n,6);
+    disp << Eps,Error0,Error1,rate,Error2,rate2;
+    gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+    gsInfo << disp << "\n";
+
+}
+
 void convergenceTestOfDesignUpdateJacobian(shapeOptProblem &sOP){
 	std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
@@ -1312,9 +1312,16 @@ void testOfHelmhotz(gsMultiPatch<> mp, real_t k0, real_t r){
 
 gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
-    if (n != 5 || m != 4 || degree != 2){
+    std::string folder;
+    if (n == 5 && m == 4 && degree == 2){
+        folder = "/parametrizations/para_x5_y4_p2_q2/";
+    } else if (n == 4 && m == 4 && degree == 2){
+        folder = "/parametrizations/para_x4_y4_p2_q2/";
+    } else {
         GISMO_ERROR("Parametrization is not generated with these parameters..\n");
     }
+
+
 
 	gsInfo << "----------------------\n\n"
 	<< "n: " << n << "\n\n"
@@ -1331,9 +1338,9 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 	gsMatrix<> greville = basis.anchors();
 	gsMatrix<> coefs (greville.cols(), 2);
 
-	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/l.txt", coefs);
+	readFromTxt(BASE_FOLDER + folder + "l.txt", coefs);
 
-	// gsInfo << coefs;
+	gsInfo << coefs;
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  left(basis, coefs);
@@ -1343,13 +1350,13 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
 	gsMultiPatch<> patches = gsMultiPatch<>(left);
 
-	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/b.txt", coefs);
+	readFromTxt(BASE_FOLDER + folder + "b.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  bottom(basis, coefs);
 	patches.addPatch(bottom);
 
-	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/r.txt", coefs);
+	readFromTxt(BASE_FOLDER + folder + "r.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  right(basis, coefs);
@@ -1360,11 +1367,11 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 	gsMatrix<> grevilleMid = basisMid.anchors();
 	gsMatrix<> coefsMid (grevilleMid.cols(), 2);
 
-	readFromTxt(BASE_FOLDER  "/parametrizations/para_x5_y4_p2_q2/m.txt", coefsMid);
+	readFromTxt(BASE_FOLDER + folder + "m.txt", coefsMid);
 	gsTensorBSpline<2, real_t>  middle(basisMid, coefsMid);
 	patches.addPatch(middle);
 
-	readFromTxt(BASE_FOLDER "/parametrizations/para_x5_y4_p2_q2/t.txt", coefs);
+	readFromTxt(BASE_FOLDER + folder + "t.txt", coefs);
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  top(basis, coefs);
@@ -1394,7 +1401,7 @@ int degree = 2;
 int nx = 5;
 int ny = 4;
 
-int numRefine = 0;
+int numRefine = 1;
 int maxiter = 10;
 
 bool plotDesign = false;
@@ -1434,19 +1441,18 @@ gsInfo << buffer;
 
 gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 
-// gsMultiPatch<> patches = gsNurbsCreator<>::BSplineSquareGrid(2, 2, 1);
 // gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
 // patches.basis(0).setDegree(degree);
-
-// for(int i = 0; i < numRefine; i++){
-	// patches.uniformRefine();
-// }
-
-// int len = patches[0].coefsSize();
 //
+// for(int i = 0; i < numRefine; i++){
+// 	patches.uniformRefine();
+// }
+//
+// int len = patches[0].coefsSize();
+// //
 // int pm = 1;
 // setupAntennaDomain(patches,degree,sqrt(len),pm);
-
+//
 // std::string out = "Geometry";
 // gsInfo << "Writing the gsMultiPatch to a paraview file: " << out
 // << "\n\n";
@@ -1535,6 +1541,10 @@ shapeOptProblem sOP(&patches,numRefine,output,plotDesign,plotMagnitude,plotSolut
 sOP.pOP.setNoQuadraturePoints(quA,quB);
 // sOP.SE.plotSolution("solTest");
 
+convergenceTestOfJacobian(sOP);
+// convergenceTestOfSEAuJacobian(0,sOP.pOP,sOP.SE);
+// convergenceTestOfSERhsJacobian(1,sOP.pOP,sOP.SE);
+exit(0);
 std::clock_t begin = clock();
 sOP.solve();
 std::clock_t end = clock();

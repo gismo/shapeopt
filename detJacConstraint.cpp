@@ -70,9 +70,9 @@ void detJacConstraint::getDvectors(gsVector<> &result){
 
         // gsJacDetField<real_t> jacDetField(mp->patch(i));
         // variable detJ = ev.getVariable(jacDetField);
+        // A.assemble(u*detJ);
 
         geometryMap G = A.getMap(mp->patch(i));
-
         A.assemble(u*jac(G).det());
 
         solVector = solversMassMatrix[i].solve(A.rhs());

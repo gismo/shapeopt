@@ -163,7 +163,6 @@ public:
   typedef gsExprAssembler<>::solution    solution;
 
 	gsSparseSolver<>::LU solver;
-  // gsSparseSolver<>::CGDiagonal solver;
 	gsMatrix<> solVector;
 
   // Physical parameters

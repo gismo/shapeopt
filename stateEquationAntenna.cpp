@@ -65,7 +65,7 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
 	auto signOfDetJ = detJinv*meas(G);
 
 	// FIXIT: veta here is due to the boundary we integrate over are east or west, TODO try to generalize...
-	auto term_1x = veta*j01/nv(G).norm()*u.tr();
+	auto term_1x = vxi*j00/nv(G).norm()*u.tr();
 	auto term_2x = v*u.tr()*nv(G).norm();
 
 	// gsInfo << "x terms\n" << std::flush;
@@ -80,7 +80,7 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
 
 	gsMatrix<> xJac = A.matrix();
 
-	auto term_1y = v*j11/nv(G).norm()*u.tr();
+	auto term_1y = v*j10/nv(G).norm()*u.tr();
 
 	// gsInfo << "y terms\n" << std::flush;
 	A.initSystem();
@@ -236,8 +236,8 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfAu(index_t realOrImag, gsMultiPa
     auto term_4x = -k0sq*d_detJ_dcx*solVar.val()*u.tr();
 
     // Bnd part
-    auto term_5x = veta*j01/nv(G).norm()*solVar.val()*u.tr();
-
+    // auto term_5x = veta*j01/nv(G).norm()*solVar.val()*u.tr();
+	auto term_5x = vxi*j00/nv(G).norm()*solVar.val()*u.tr();
     // gsInfo << "x terms\n";
 
     A.initSystem();
@@ -264,7 +264,8 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfAu(index_t realOrImag, gsMultiPa
     auto term_4y = -k0sq*d_detJ_dcy*solVar.val()*u.tr();
 
     // Bnd part
-    auto term_5y = veta*j11/nv(G).norm()*solVar.val()*u.tr();
+    // auto term_5y = veta*j11/nv(G).norm()*solVar.val()*u.tr();
+	auto term_5y = vxi*j10/nv(G).norm()*solVar.val()*u.tr();
 
     // gsInfo << "y terms\n";
     if (realOrImag == 0){
@@ -524,22 +525,22 @@ void stateEquationAntenna::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gs
 	gsExprAssembler<> A(1,1);
 	gsExprEvaluator<> ev(A);
 
-	geometryMap G = A.getMap(*mp);
+    geometryMap G = A.getMap(*mp);
 
-	A.setIntegrationElements(dbasis);
+    A.setIntegrationElements(dbasis);
 
-  space u = A.getSpace(dbasis);
-  u.setInterfaceCont(0);
+    space u = A.getSpace(dbasis);
+    u.setInterfaceCont(0);
 
-	// Setup terms
+    // Setup terms
 
-	// Laplace Term
+    // Laplace Term
 
-	variable fun_real = ev.getVariable(pde_eps_cr_fun_real);
-	variable fun_imag = ev.getVariable(pde_eps_cr_fun_imag);
+    variable fun_real = ev.getVariable(pde_eps_cr_fun_real);
+    variable fun_imag = ev.getVariable(pde_eps_cr_fun_imag);
 
-	auto laplace_term_real =	fun_real.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
-	auto laplace_term_imag =	fun_imag.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
+    auto laplace_term_real =	fun_real.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
+    auto laplace_term_imag =	fun_imag.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
 
 	// Helmholtz Term
 
