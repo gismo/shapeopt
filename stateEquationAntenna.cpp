@@ -122,181 +122,181 @@ gsMatrix<> stateEquationAntenna::getRhsZeroBC(index_t realOrImag){
 };
 //
 gsMatrix<> stateEquationAntenna::getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol){
-	// gsInfo << "f = " << *f << "\n" << std::flush;
-	// gsInfo << "ms = " << *ms << "\n" << std::flush;
+    // gsInfo << "f = " << *f << "\n" << std::flush;
+    // gsInfo << "ms = " << *ms << "\n" << std::flush;
 
-	gsFunctionExpr<> gN("0.0",2);
-	gsFunctionExpr<> zero("0.0",2);
-  //! [Boundary conditions]
+    gsFunctionExpr<> gN("0.0",2);
+    gsFunctionExpr<> zero("0.0",2);
+    //! [Boundary conditions]
 
-	gsExprAssembler<> A(1,1);
-  typedef gsExprAssembler<>::geometryMap geometryMap;
-  typedef gsExprAssembler<>::variable    variable;
-  typedef gsExprAssembler<>::space       space;
-  typedef gsExprAssembler<>::solution    solution;
+    gsExprAssembler<> A(1,1);
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
 
-	geometryMap G = A.getMap(*mp);
+    geometryMap G = A.getMap(*mp);
 
-  gsExprEvaluator<> ev(A);
-	A.setIntegrationElements(dbasis);
+    gsExprEvaluator<> ev(A);
+    A.setIntegrationElements(dbasis);
 
-  space u = A.getSpace(dbasis);
-  u.setInterfaceCont(0);
-  u.addBc(bcInfoZero.get("Dirichlet"));
+    space u = A.getSpace(dbasis);
+    u.setInterfaceCont(0);
+    u.addBc(bcInfoZero.get("Dirichlet"));
 
-	gsMultiBasis<> geom_basis(*mp);
+    gsMultiBasis<> geom_basis(*mp);
 
-  space v = A.getTestSpace(u,geom_basis);
-  // v.setInterfaceCont(0);
+    space v = A.getTestSpace(u,geom_basis);
+    // v.setInterfaceCont(0);
 
-	// variable ff = ev.getVariable(f,G);
-	// variable dff_dx = A.getCoeff(*df_dx, G);
-	// variable dff_dy = A.getCoeff(*df_dy, G);
+    // variable ff = ev.getVariable(f,G);
+    // variable dff_dx = A.getCoeff(*df_dx, G);
+    // variable dff_dy = A.getCoeff(*df_dy, G);
 
-	variable solVar = A.getCoeff(sol);
-	variable ffzero = A.getCoeff(zero,G);
+    variable solVar = A.getCoeff(sol);
+    variable ffzero = A.getCoeff(zero,G);
 
-	A.initSystem();
+    A.initSystem();
 
-  gsFunctionExpr<> x("x",2);
-  gsFunctionExpr<> y("y",2);
-  variable fx = A.getCoeff(x);
-  variable fy = A.getCoeff(y);
-  auto j00 = fjac(fx).tr()*jac(G)*fjac(fx);
-  auto j10 = fjac(fy).tr()*jac(G)*fjac(fx);
-  auto j01 = fjac(fx).tr()*jac(G)*fjac(fy);
-  auto j11 = fjac(fy).tr()*jac(G)*fjac(fy);
+    gsFunctionExpr<> x("x",2);
+    gsFunctionExpr<> y("y",2);
+    variable fx = A.getCoeff(x);
+    variable fy = A.getCoeff(y);
+    auto j00 = fjac(fx).tr()*jac(G)*fjac(fx);
+    auto j10 = fjac(fy).tr()*jac(G)*fjac(fx);
+    auto j01 = fjac(fx).tr()*jac(G)*fjac(fy);
+    auto j11 = fjac(fy).tr()*jac(G)*fjac(fy);
 
-  auto vxi = grad(v)*fjac(fx);
-  auto veta = grad(v)*fjac(fy);
+    auto vxi = grad(v)*fjac(fx);
+    auto veta = grad(v)*fjac(fy);
 
-  auto uxi = grad(u)*fjac(fx);
-  auto ueta = grad(u)*fjac(fy);
+    auto uxi = grad(u)*fjac(fx);
+    auto ueta = grad(u)*fjac(fy);
 
-	variable geom = A.getCoeff(*mp);
+    variable geom = A.getCoeff(*mp);
 
-	// auto G_x = fjac(fx).tr()*geom;
-	// auto G_y = fjac(fy).tr()*geom;
+    // auto G_x = fjac(fx).tr()*geom;
+    // auto G_y = fjac(fy).tr()*geom;
 
-	// gsInfo << "Initialize Solxi and Soleta\n";
-  auto solxi = (fjac(solVar).tr()*jac(G).inv())*fjac(fx);
-  auto soleta = (fjac(solVar).tr()*jac(G).inv())*fjac(fy);
+    // gsInfo << "Initialize Solxi and Soleta\n";
+    auto solxi = (fjac(solVar).tr()*jac(G).inv())*fjac(fx);
+    auto soleta = (fjac(solVar).tr()*jac(G).inv())*fjac(fy);
 
-	gsFunctionExpr<> ff3("y","-x",2);
-	variable f3 = A.getCoeff(ff3);
-	auto mat3 = fjac(f3);
+    gsFunctionExpr<> ff3("y","-x",2);
+    variable f3 = A.getCoeff(ff3);
+    auto mat3 = fjac(f3);
 
-  auto detJ = j00*j11 - j10*j01;
-	auto detJinv = 1/detJ.val();
+    auto detJ = j00*j11 - j10*j01;
+    auto detJinv = 1/detJ.val();
 
-	auto signOfDetJ = detJinv*meas(G);
+    auto signOfDetJ = detJinv*meas(G);
 
-  auto d_detJ_dcx = signOfDetJ*(vxi*j11 - veta*j10) ;
-  auto d_detJ_dcy = signOfDetJ*(veta*j00 - vxi*j01) ;
+    auto d_detJ_dcx = signOfDetJ*(vxi*j11 - veta*j10) ;
+    auto d_detJ_dcy = signOfDetJ*(veta*j00 - vxi*j01) ;
 
-	auto igradsoltr = jac(G).inv().tr()*fjac(solVar);
-	auto igradsol = fjac(solVar).tr()*jac(G).inv();
+    auto igradsoltr = jac(G).inv().tr()*fjac(solVar);
+    auto igradsol = fjac(solVar).tr()*jac(G).inv();
 
-	auto igradsol0 = (igradsol*fjac(fx)).val();
-	auto igradsol1 = (igradsol*fjac(fy)).val();
+    auto igradsol0 = (igradsol*fjac(fx)).val();
+    auto igradsol1 = (igradsol*fjac(fy)).val();
 
-	variable fun_real = ev.getVariable(pde_eps_cr_fun_real);
-	variable fun_imag = ev.getVariable(pde_eps_cr_fun_imag);
+    variable fun_real = ev.getVariable(pde_eps_cr_fun_real);
+    variable fun_imag = ev.getVariable(pde_eps_cr_fun_imag);
 
-	auto laplace_term_real =	fun_real.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
-	auto laplace_term_imag =	fun_imag.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
+    auto laplace_term_real =	fun_real.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
+    auto laplace_term_imag =	fun_imag.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
 
-	// Helmholtz Term
-	variable fun2_real = ev.getVariable(pde_mu_r_fun_real);
-	real_t k0sq = pde_k0*pde_k0;
+    // Helmholtz Term
+    variable fun2_real = ev.getVariable(pde_mu_r_fun_real);
+    real_t k0sq = pde_k0*pde_k0;
 
-	auto helmholtz_term_real = -k0sq*fun2_real.val()*u*u.tr()*meas(G);
+    auto helmholtz_term_real = -k0sq*fun2_real.val()*u*u.tr()*meas(G);
 
-	// Boundary part
-	auto bnd_term_real = pde_bnd_const.real()*u*u.tr()*nv(G).norm();
-	auto bnd_term_imag = pde_bnd_const.imag()*u*u.tr()*nv(G).norm();
+    // Boundary part
+    auto bnd_term_real = pde_bnd_const.real()*u*u.tr()*nv(G).norm();
+    auto bnd_term_imag = pde_bnd_const.imag()*u*u.tr()*nv(G).norm();
 
-	// Rhs
-	variable Hiz_re = A.getCoeff(Hiz_real,G);
-	variable Hiz_im = A.getCoeff(Hiz_imag,G);
-	variable dHizdn_re = A.getCoeff(dHizdn_real,G);
-	variable dHizdn_im = A.getCoeff(dHizdn_imag,G);
+    // Rhs
+    variable Hiz_re = A.getCoeff(Hiz_real,G);
+    variable Hiz_im = A.getCoeff(Hiz_imag,G);
+    variable dHizdn_re = A.getCoeff(dHizdn_real,G);
+    variable dHizdn_im = A.getCoeff(dHizdn_imag,G);
 
-	auto rhs_term_real = u*(pde_eps_cr_inv*dHizdn_re + pde_bnd_const.real()*Hiz_re - pde_bnd_const.imag()*Hiz_im)*nv(G).norm();
-	auto rhs_term_imag = u*(pde_eps_cr_inv*dHizdn_im + pde_bnd_const.imag()*Hiz_re + pde_bnd_const.real()*Hiz_im)*nv(G).norm();
+    auto rhs_term_real = u*(pde_eps_cr_inv*dHizdn_re + pde_bnd_const.real()*Hiz_re - pde_bnd_const.imag()*Hiz_im)*nv(G).norm();
+    auto rhs_term_imag = u*(pde_eps_cr_inv*dHizdn_im + pde_bnd_const.imag()*Hiz_re + pde_bnd_const.real()*Hiz_im)*nv(G).norm();
 
 
-	// Laplace part
-	//FIXIT check the signs on term 1 and 4
-	auto term_1x = -d_detJ_dcx*igradsol*igrad(u,G).tr();
-	auto term_2x = signOfDetJ*grad(v)*mat3*fjac(solVar)*(fjac(fy).tr()*igrad(u,G).tr());//(grad(v)*mat3)*soleta.val()*igrad(u,G).tr();
-	auto term_3x = signOfDetJ*grad(v)*mat3*grad(u).tr()*igradsol1;//(grad(v)*mat3)*(jac(G).inv().tr()*fjac(solVar))*ueta.tr();;
+    // Laplace part
+    //FIXIT check the signs on term 1 and 4
+    auto term_1x = -d_detJ_dcx*igradsol*igrad(u,G).tr();
+    auto term_2x = signOfDetJ*grad(v)*mat3*fjac(solVar)*(fjac(fy).tr()*igrad(u,G).tr());//(grad(v)*mat3)*soleta.val()*igrad(u,G).tr();
+    auto term_3x = signOfDetJ*grad(v)*mat3*grad(u).tr()*igradsol1;//(grad(v)*mat3)*(jac(G).inv().tr()*fjac(solVar))*ueta.tr();;
 
-	// Helmholtz part
-	auto term_4x = -k0sq*d_detJ_dcx*solVar.val()*u.tr();
+    // Helmholtz part
+    auto term_4x = -k0sq*d_detJ_dcx*solVar.val()*u.tr();
 
-	// Bnd part
-	auto term_5x = veta*j01/nv(G).norm()*solVar.val()*u.tr();
+    // Bnd part
+    auto term_5x = veta*j01/nv(G).norm()*solVar.val()*u.tr();
 
-	// gsInfo << "x terms\n";
+    // gsInfo << "x terms\n";
 
-	A.initSystem();
-	if (realOrImag == 0){
-		A.assemble(fun_real.val()*(term_1x + term_2x + term_3x) + fun2_real.val()*term_4x);
-		A.assembleLhsRhsBc(pde_bnd_const.real()*term_5x,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
-	} else {
-		A.assemble(fun_imag.val()*(term_1x + term_2x + term_3x));
+    A.initSystem();
+    if (realOrImag == 0){
+        A.assemble(fun_real.val()*(term_1x + term_2x + term_3x) + fun2_real.val()*term_4x);
+        A.assembleLhsRhsBc(pde_bnd_const.real()*term_5x,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
+    } else {
+        A.assemble(fun_imag.val()*(term_1x + term_2x + term_3x));
 
-		// A.assemble(laplace_term_imag) ;
-		A.assembleLhsRhsBc(pde_bnd_const.imag()*term_5x, v*ffzero*nv(G).norm(), bcInfo.neumannSides());
-	}
-	gsMatrix<> xJac = A.matrix();
+        // A.assemble(laplace_term_imag) ;
+        A.assembleLhsRhsBc(pde_bnd_const.imag()*term_5x, v*ffzero*nv(G).norm(), bcInfo.neumannSides());
+    }
+    gsMatrix<> xJac = A.matrix();
 
-	A.initSystem();
-	// A.initMatrix();
+    A.initSystem();
+    // A.initMatrix();
 
-	// Laplace part
-	auto term_1y = -d_detJ_dcy*igradsol*igrad(u,G).tr();
-	auto term_2y = -signOfDetJ*grad(v)*mat3*fjac(solVar)*(fjac(fx).tr()*igrad(u,G).tr());//(grad(v)*mat3)*soleta.val()*igrad(u,G).tr();
-	auto term_3y = -signOfDetJ*grad(v)*mat3*grad(u).tr()*igradsol0;//(grad(v)*mat3)*(jac(G).inv().tr()*fjac(solVar))*ueta.tr();;
+    // Laplace part
+    auto term_1y = -d_detJ_dcy*igradsol*igrad(u,G).tr();
+    auto term_2y = -signOfDetJ*grad(v)*mat3*fjac(solVar)*(fjac(fx).tr()*igrad(u,G).tr());//(grad(v)*mat3)*soleta.val()*igrad(u,G).tr();
+    auto term_3y = -signOfDetJ*grad(v)*mat3*grad(u).tr()*igradsol0;//(grad(v)*mat3)*(jac(G).inv().tr()*fjac(solVar))*ueta.tr();;
 
-	// Helmholtz part
-	auto term_4y = -k0sq*d_detJ_dcy*solVar.val()*u.tr();
+    // Helmholtz part
+    auto term_4y = -k0sq*d_detJ_dcy*solVar.val()*u.tr();
 
-	// Bnd part
-	auto term_5y = veta*j11/nv(G).norm()*solVar.val()*u.tr();
+    // Bnd part
+    auto term_5y = veta*j11/nv(G).norm()*solVar.val()*u.tr();
 
-	// gsInfo << "y terms\n";
-	if (realOrImag == 0){
-		A.assemble(fun_real.val()*(term_1y + term_2y + term_3y) + fun2_real.val()*term_4y);
-		A.assembleLhsRhsBc(pde_bnd_const.real()*term_5y,v*ffzero*nv(G).norm(), bcInfo.neumannSides());
-	} else {
-		A.assemble(fun_imag.val()*(term_1y + term_2y + term_3y));
-		A.assembleLhsRhsBc(pde_bnd_const.imag()*term_5y,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
-	}
+    // gsInfo << "y terms\n";
+    if (realOrImag == 0){
+        A.assemble(fun_real.val()*(term_1y + term_2y + term_3y) + fun2_real.val()*term_4y);
+        A.assembleLhsRhsBc(pde_bnd_const.real()*term_5y,v*ffzero*nv(G).norm(), bcInfo.neumannSides());
+    } else {
+        A.assemble(fun_imag.val()*(term_1y + term_2y + term_3y));
+        A.assembleLhsRhsBc(pde_bnd_const.imag()*term_5y,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
+    }
 
-	// gsInfo << "assembly done\n" << std::flush;
+    // gsInfo << "assembly done\n" << std::flush;
 
-	gsMatrix<> yJac = A.matrix();
+    gsMatrix<> yJac = A.matrix();
 
-	// gsInfo << "collect x and y terms\n";
-	gsMatrix<> out;
-	out.setZero(xJac.rows()*2,xJac.cols());
+    // gsInfo << "collect x and y terms\n";
+    gsMatrix<> out;
+    out.setZero(xJac.rows()*2,xJac.cols());
 
-	// printMatSize(xJac,"xJac");
-	// printMatSize(yJac,"yJac");
-	// printMatSize(out,"out");
+    // printMatSize(xJac,"xJac");
+    // printMatSize(yJac,"yJac");
+    // printMatSize(out,"out");
 
-	out << xJac,
-	 			 yJac;
+    out << xJac,
+    yJac;
 
-  // delete f;
-	// delete ms;
-	// delete df_dx;
-	// delete df_dy;
+    // delete f;
+    // delete ms;
+    // delete df_dx;
+    // delete df_dy;
 
-	// gsInfo << "Return dKu \n";
-	return out;
+    // gsInfo << "Return dKu \n";
+    return out;
 
 }
 //
@@ -786,3 +786,182 @@ void stateEquationAntenna::printConstants(){
 		gsInfo << "\n\n ========== \n\n";
 
 }
+
+// gsMatrix<> stateEquationAntenna::getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol){
+//     // gsInfo << "f = " << *f << "\n" << std::flush;
+//     // gsInfo << "ms = " << *ms << "\n" << std::flush;
+//
+//     gsFunctionExpr<> gN("0.0",2);
+//     gsFunctionExpr<> zero("0.0",2);
+//     //! [Boundary conditions]
+//
+//     gsExprAssembler<> A(1,1);
+//     typedef gsExprAssembler<>::geometryMap geometryMap;
+//     typedef gsExprAssembler<>::variable    variable;
+//     typedef gsExprAssembler<>::space       space;
+//     typedef gsExprAssembler<>::solution    solution;
+//
+//     geometryMap G = A.getMap(*mp);
+//
+//     gsExprEvaluator<> ev(A);
+//     A.setIntegrationElements(dbasis);
+//
+//     space u = A.getSpace(dbasis);
+//     u.setInterfaceCont(0);
+//     u.addBc(bcInfoZero.get("Dirichlet"));
+//
+//     gsMultiBasis<> geom_basis(*mp);
+//
+//     space v = A.getTestSpace(u,geom_basis);
+//     // v.setInterfaceCont(0);
+//
+//     // variable ff = ev.getVariable(f,G);
+//     // variable dff_dx = A.getCoeff(*df_dx, G);
+//     // variable dff_dy = A.getCoeff(*df_dy, G);
+//
+//     variable solVar = A.getCoeff(sol);
+//     variable ffzero = A.getCoeff(zero,G);
+//
+//     A.initSystem();
+//
+//     gsFunctionExpr<> x("x",2);
+//     gsFunctionExpr<> y("y",2);
+//     variable fx = A.getCoeff(x);
+//     variable fy = A.getCoeff(y);
+//     auto j00 = fjac(fx).tr()*jac(G)*fjac(fx);
+//     auto j10 = fjac(fy).tr()*jac(G)*fjac(fx);
+//     auto j01 = fjac(fx).tr()*jac(G)*fjac(fy);
+//     auto j11 = fjac(fy).tr()*jac(G)*fjac(fy);
+//
+//     auto vxi = grad(v)*fjac(fx);
+//     auto veta = grad(v)*fjac(fy);
+//
+//     auto uxi = grad(u)*fjac(fx);
+//     auto ueta = grad(u)*fjac(fy);
+//
+//     variable geom = A.getCoeff(*mp);
+//
+//     // auto G_x = fjac(fx).tr()*geom;
+//     // auto G_y = fjac(fy).tr()*geom;
+//
+//     // gsInfo << "Initialize Solxi and Soleta\n";
+//     auto solxi = (fjac(solVar).tr()*jac(G).inv())*fjac(fx);
+//     auto soleta = (fjac(solVar).tr()*jac(G).inv())*fjac(fy);
+//
+//     gsFunctionExpr<> ff3("y","-x",2);
+//     variable f3 = A.getCoeff(ff3);
+//     auto mat3 = fjac(f3);
+//
+//     auto detJ = j00*j11 - j10*j01;
+//     auto detJinv = 1/detJ.val();
+//
+//     auto signOfDetJ = detJinv*meas(G);
+//
+//     auto d_detJ_dcx = signOfDetJ*(vxi*j11 - veta*j10) ;
+//     auto d_detJ_dcy = signOfDetJ*(veta*j00 - vxi*j01) ;
+//
+//     auto igradsoltr = jac(G).inv().tr()*fjac(solVar);
+//     auto igradsol = fjac(solVar).tr()*jac(G).inv();
+//
+//     auto igradsol0 = (igradsol*fjac(fx)).val();
+//     auto igradsol1 = (igradsol*fjac(fy)).val();
+//
+//     variable fun_real = ev.getVariable(pde_eps_cr_fun_real);
+//     variable fun_imag = ev.getVariable(pde_eps_cr_fun_imag);
+//
+//     auto laplace_term_real =	fun_real.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
+//     auto laplace_term_imag =	fun_imag.val()*igrad(u,G)*igrad(u,G).tr()*meas(G);
+//
+//     // Helmholtz Term
+//     variable fun2_real = ev.getVariable(pde_mu_r_fun_real);
+//     real_t k0sq = pde_k0*pde_k0;
+//
+//     auto helmholtz_term_real = -k0sq*fun2_real.val()*u*u.tr()*meas(G);
+//
+//     // Boundary part
+//     auto bnd_term_real = pde_bnd_const.real()*u*u.tr()*nv(G).norm();
+//     auto bnd_term_imag = pde_bnd_const.imag()*u*u.tr()*nv(G).norm();
+//
+//     // Rhs
+//     variable Hiz_re = A.getCoeff(Hiz_real,G);
+//     variable Hiz_im = A.getCoeff(Hiz_imag,G);
+//     variable dHizdn_re = A.getCoeff(dHizdn_real,G);
+//     variable dHizdn_im = A.getCoeff(dHizdn_imag,G);
+//
+//     auto rhs_term_real = u*(pde_eps_cr_inv*dHizdn_re + pde_bnd_const.real()*Hiz_re - pde_bnd_const.imag()*Hiz_im)*nv(G).norm();
+//     auto rhs_term_imag = u*(pde_eps_cr_inv*dHizdn_im + pde_bnd_const.imag()*Hiz_re + pde_bnd_const.real()*Hiz_im)*nv(G).norm();
+//
+//
+//     // Laplace part
+//     //FIXIT check the signs on term 1 and 4
+//     auto term_1x = -d_detJ_dcx*igradsol*igrad(u,G).tr();
+//     auto term_2x = signOfDetJ*grad(v)*mat3*fjac(solVar)*(fjac(fy).tr()*igrad(u,G).tr());//(grad(v)*mat3)*soleta.val()*igrad(u,G).tr();
+//     auto term_3x = signOfDetJ*grad(v)*mat3*grad(u).tr()*igradsol1;//(grad(v)*mat3)*(jac(G).inv().tr()*fjac(solVar))*ueta.tr();;
+//
+//     // Helmholtz part
+//     auto term_4x = -k0sq*d_detJ_dcx*solVar.val()*u.tr();
+//
+//     // Bnd part
+//     auto term_5x = veta*j01/nv(G).norm()*solVar.val()*u.tr();
+//
+//     // gsInfo << "x terms\n";
+//
+//     A.initSystem();
+//     if (realOrImag == 0){
+//         A.assemble(fun_real.val()*(term_1x + term_2x + term_3x) + fun2_real.val()*term_4x);
+//         A.assembleLhsRhsBc(pde_bnd_const.real()*term_5x,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
+//     } else {
+//         A.assemble(fun_imag.val()*(term_1x + term_2x + term_3x));
+//
+//         // A.assemble(laplace_term_imag) ;
+//         A.assembleLhsRhsBc(pde_bnd_const.imag()*term_5x, v*ffzero*nv(G).norm(), bcInfo.neumannSides());
+//     }
+//     gsMatrix<> xJac = A.matrix();
+//
+//     A.initSystem();
+//     // A.initMatrix();
+//
+//     // Laplace part
+//     auto term_1y = -d_detJ_dcy*igradsol*igrad(u,G).tr();
+//     auto term_2y = -signOfDetJ*grad(v)*mat3*fjac(solVar)*(fjac(fx).tr()*igrad(u,G).tr());//(grad(v)*mat3)*soleta.val()*igrad(u,G).tr();
+//     auto term_3y = -signOfDetJ*grad(v)*mat3*grad(u).tr()*igradsol0;//(grad(v)*mat3)*(jac(G).inv().tr()*fjac(solVar))*ueta.tr();;
+//
+//     // Helmholtz part
+//     auto term_4y = -k0sq*d_detJ_dcy*solVar.val()*u.tr();
+//
+//     // Bnd part
+//     auto term_5y = veta*j11/nv(G).norm()*solVar.val()*u.tr();
+//
+//     // gsInfo << "y terms\n";
+//     if (realOrImag == 0){
+//         A.assemble(fun_real.val()*(term_1y + term_2y + term_3y) + fun2_real.val()*term_4y);
+//         A.assembleLhsRhsBc(pde_bnd_const.real()*term_5y,v*ffzero*nv(G).norm(), bcInfo.neumannSides());
+//     } else {
+//         A.assemble(fun_imag.val()*(term_1y + term_2y + term_3y));
+//         A.assembleLhsRhsBc(pde_bnd_const.imag()*term_5y,v*ffzero*nv(G).norm(),bcInfo.neumannSides());
+//     }
+//
+//     // gsInfo << "assembly done\n" << std::flush;
+//
+//     gsMatrix<> yJac = A.matrix();
+//
+//     // gsInfo << "collect x and y terms\n";
+//     gsMatrix<> out;
+//     out.setZero(xJac.rows()*2,xJac.cols());
+//
+//     // printMatSize(xJac,"xJac");
+//     // printMatSize(yJac,"yJac");
+//     // printMatSize(out,"out");
+//
+//     out << xJac,
+//     yJac;
+//
+//     // delete f;
+//     // delete ms;
+//     // delete df_dx;
+//     // delete df_dy;
+//
+//     // gsInfo << "Return dKu \n";
+//     return out;
+//
+// }

@@ -629,8 +629,7 @@ void shapeOptProblem::runOptimization(index_t maxiter){
 }
 
 void shapeOptProblem::plotDesignInParaview(std::string name){
-	gsInfo << "Writing the geometry (mp) to a paraview file: " << name
-	<< "\n";
+	gsInfo << "Writing the geometry (mp) to a paraview file: " << BASE_FOLDER + name << "\n";
 	gsWriteParaview(*mp, BASE_FOLDER + name);
 }
 

@@ -1405,7 +1405,7 @@ bool saveCps = false;
 int quA = 1;
 int quB = 1;
 
-int startDes = 0;
+int startDes = -1;
 
 gsCmdLine cmd("A test of lumped mass matricies");
 cmd.addInt("p", "degree", "Degree of B-Splines.", degree);
@@ -1467,8 +1467,8 @@ maxDetJacOptProblem mOP(&patches);
 // mOP.solve();
 // std::clock_t end = clock();
 // gsInfo << "Time spend: " << double(end - begin) / CLOCKS_PER_SEC << std::flush;
-convergenceTestOfDetJJacobian(mOP.dJC);
-exit(0);
+// convergenceTestOfDetJJacobian(mOP.dJC);
+// exit(0);
 
 modLiaoOptProblem lOP(&patches);
 // lOP.solve();
@@ -1516,27 +1516,33 @@ lOP.setNoQuadraturePoints(quA,quB);
 // lOP.solve();
 // gsInfo << "\nmodLiao : " << sOP.pOP.evalObj() << "\n";
 
-gsInfo << "\n\nnum Refine : " << numRefine << "\n\n" << std::flush;
-shapeOptProblem sOP(&patches,numRefine,output,plotDesign,plotMagnitude,plotSolution,saveCps);
-sOP.pOP.setNoQuadraturePoints(quA,quB);
-// sOP.SE.plotSolution("solTest");
-
 std::string str;
-gsVector<> x;
-if (startDes > 0){
+if (startDes >= 0){
 	char tmp[200];
-	// snprintf(tmp, 200,BASE_FOLDER + "../results/shapeopt5/design_%d.txt", startDes);
-	// str = tmp;
-	// des = loadVec(lOP.numDesignVars(),str);
-	// lOP.updateDesignVariables(des);
+	snprintf(tmp, 200,BASE_FOLDER "/../results/test/design_%d.txt", startDes);
+	str = tmp;
+    gsInfo << "Loading from " << str << "\n";
+	des = loadVec(lOP.numDesignVars(),str);
+	lOP.updateDesignVariables(des);
 
 	gsInfo << "\n...Max of d vector : " << lOP.dJC.getDvectors().maxCoeff() << "\n";
 	gsInfo << "\n...Min of d vector : " << lOP.dJC.getDvectors().minCoeff() << "\n";
 
 }
 
-gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
-sOP.runOptimization(maxiter);
+gsInfo << "\n\nnum Refine : " << numRefine << "\n\n" << std::flush;
+shapeOptProblem sOP(&patches,numRefine,output,plotDesign,plotMagnitude,plotSolution,saveCps);
+sOP.pOP.setNoQuadraturePoints(quA,quB);
+// sOP.SE.plotSolution("solTest");
+
+std::clock_t begin = clock();
+sOP.solve();
+std::clock_t end = clock();
+gsInfo << "Time spend: " << double(end - begin) / CLOCKS_PER_SEC << std::flush;
+
+
+// gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
+// sOP.runOptimization(maxiter);
 
 
 gsInfo << "\n ==== DONE ==== \n";
