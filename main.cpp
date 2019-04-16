@@ -1493,7 +1493,7 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // gsInfo << "Time spend: " << double(end - begin) / CLOCKS_PER_SEC << std::flush;
 // convergenceTestOfDetJJacobian(mOP.dJC);
 // exit(0);
-// gsVector<> des;
+gsVector<> des;
 // modLiaoOptProblem l1OP(&patches);
 // //
 // std::string str1 = BASE_FOLDER "/../results/harmonic1161.txt";
@@ -1522,7 +1522,7 @@ gsInfo << "The domain is a "<< patches <<"\n";
 //
 // des = hOP.getDesignVariables();
 // saveVec(des,BASE_FOLDER + output + "harmonic1161.txt");
-// 
+//
 // exit(0);
 
 modLiaoOptProblem lOP(&patches);
