@@ -5,11 +5,11 @@ using namespace gismo;
 
 detJacConstraint::detJacConstraint(gsMultiPatch<>* mpin): mp(mpin), m_detJacBasis(*mp),
         solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes()){
-    // Prepare basis for detJac
-    // by setting the degree to (p-1)(p-1)
     for (index_t i = 0; i < mp->nBoxes(); i++){
         m_areSolversSetup[i] = false;
     }
+    // Prepare basis for detJac
+    // by setting the degree to (2p-1)
     int p = m_detJacBasis.maxCwiseDegree();
     m_detJacBasis.setDegree(2*p-1);
     // by reducing the continuity
@@ -256,6 +256,15 @@ void detJacConstraint::plotDetJ(std::string name){
   A.assemble(u*detJ);
 
   solVector = solver.solve(A.rhs());
+
+  // for (index_t i = 0; i < solVector.size(); i++){
+  //     if (solVector(i,0) > 0){
+  //       gsInfo << "\n i = " << i << "is a problematic point...\n";
+  //       solVector(i,0) = 1;
+  //   } else {
+  //       solVector(i,0) = 0;
+  //   }
+  // }
 
   gsMultiPatch<> dJ;
   u_sol.extract(dJ);

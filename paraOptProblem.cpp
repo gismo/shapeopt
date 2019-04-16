@@ -47,8 +47,6 @@ paraOptProblem::paraOptProblem(gsMultiPatch<>* mpin):mp(mpin), dJC(mpin), iC(mpi
 void paraOptProblem::setDesignBounds(){
   //FIXIT: Patch 3 is hardcoded in paraOptProblem
   if (mp->nBoxes() > 3){
-    gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
-    m_desUpperBounds = iC.getUpperBounds(3); //Fix patch 3
     // gsInfo << "X vars on west boundaries freed ! (OBS: hardcoded)" << std::flush;
     // iC.freeBoundary(0,boundary::west,2);
     // iC.freeBoundary(1,boundary::west,2);
@@ -57,6 +55,8 @@ void paraOptProblem::setDesignBounds(){
     iC.freeBoundary(0,boundary::south,2);
     iC.freeBoundary(1,boundary::south,2);
     iC.freeBoundary(2,boundary::south,2);
+    gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
+    m_desUpperBounds = iC.getUpperBounds(3); //Fix patch 3
   } else {
     gsInfo << "No patch is fixed (OBS: this happens when no. patches is less than 4)\n";
     m_desUpperBounds = iC.getUpperBounds(); //Fix no patch
@@ -155,11 +155,13 @@ void paraOptProblem::print(){
 }
 
 void paraOptProblem::writeToFile(gsVector<> vec, std::string name) const{
+    gsInfo << "WRITING to " << name << "\n";
   std::ofstream f(name);
   for (auto &e : vec) f << std::setprecision(12) << e << "\n";
 }
 
 void paraOptProblem::writeToFile(gsMatrix<> mat, std::string name) const{
+    gsInfo << "WRITING to " << name << "\n";
   std::ofstream f(name);
   for(index_t i = 0; i < mat.rows(); i++){
     for(index_t j = 0; j < mat.cols(); j++){

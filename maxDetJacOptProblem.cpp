@@ -69,8 +69,6 @@ void maxDetJacOptProblem::setDesignBounds(){
   //FIXIT: Patch 3 is (almost) hardcoded in paraOptProblem
   gsVector<> upperBounds;
   if (mp->nBoxes() > fixedPatch){
-    gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
-    upperBounds = iC.getUpperBounds(fixedPatch); //Fix patch 3
     // gsInfo << "X vars on west boundaries freed ! (OBS: hardcoded)" << std::flush;
     // iC.freeBoundary(0,boundary::west,2);
     // iC.freeBoundary(1,boundary::west,2);
@@ -79,6 +77,8 @@ void maxDetJacOptProblem::setDesignBounds(){
     iC.freeBoundary(0,boundary::south,2);
     iC.freeBoundary(1,boundary::south,2);
     iC.freeBoundary(2,boundary::south,2);
+    gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
+    upperBounds = iC.getUpperBounds(fixedPatch); //Fix patch 3
   } else {
     gsInfo << "No patch is fixed (OBS: this happens when no. patches is less than 4)\n";
     upperBounds  = iC.getUpperBounds(); //Fix no patch
@@ -170,11 +170,13 @@ void maxDetJacOptProblem::reset(){
 }
 
 void maxDetJacOptProblem::writeToFile(gsVector<> vec, std::string name) const{
+    gsInfo << "WRITING to " << name << "\n";
   std::ofstream f(name);
   for (auto &e : vec) f << std::setprecision(12) << e << "\n";
 }
 
 void maxDetJacOptProblem::writeToFile(gsMatrix<> mat, std::string name) const{
+    gsInfo << "WRITING to " << name << "\n";
   std::ofstream f(name);
   for(index_t i = 0; i < mat.rows(); i++){
     for(index_t j = 0; j < mat.cols(); j++){

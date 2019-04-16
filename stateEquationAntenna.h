@@ -102,8 +102,15 @@ public:
 
   gsMatrix<> getU(index_t realOrImag);
   gsMatrix<> getAu(index_t realOrImag, gsMatrix<> U);
-  gsMatrix<> getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol);
-  gsMatrix<> getDerivativeWithoutSolving();
+
+  gsMatrix<> getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol){
+      return getDerivativeOfAuPart1(realOrImag,sol) + getDerivativeOfAuPart2(realOrImag,sol);
+  };
+  gsMatrix<> getDerivativeOfAuPart1(index_t realOrImag, gsMultiPatch<> sol); // For implenting new gradients
+  gsMatrix<> getDerivativeOfAuPart2(index_t realOrImag, gsMultiPatch<> sol);
+
+
+  gsMatrix<> getDerivativeWithoutSolving(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag);
   gsVector<> solveAdjoint(gsVector<> &rhs);
 
   gsMatrix<> solve(real_t &err, index_t &numDofs, index_t &numElems, index_t numRefine);
@@ -130,6 +137,17 @@ public:
   void plotMagnitude(std::string name);
 
   void printConstants();
+
+  void writeToFile(gsMatrix<> mat, std::string name) const{
+      gsInfo << "WRITING to " << name << "\n";
+      std::ofstream f(name);
+      for(index_t i = 0; i < mat.rows(); i++){
+          for(index_t j = 0; j < mat.cols(); j++){
+              f << std::setprecision(20) << mat(i,j) << " ";
+          }
+          f << "\n";
+      }
+  }
 
 
 public:

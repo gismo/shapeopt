@@ -192,7 +192,7 @@ gsVector<> shapeOptProblem::gradientObj() const{
 
   gsMatrix<> dcdx = derivativeOfDesignUpdate();
 
-  gsMatrix<> mat = SE.getDerivativeWithoutSolving();
+  gsMatrix<> mat = SE.getDerivativeWithoutSolving(u_real,u_imag);
   gsVector<> dJdu = getObjDerivativeDu(u_real,u_imag);
 
   gsVector<> adjoint = SE.solveAdjoint(dJdu);
@@ -541,7 +541,7 @@ IpOptSparseMatrix shapeOptProblem::derivativeOfDetJac() const{
   gsMatrix<> dcdx = derivativeOfDesignUpdate();
 
   gsMatrix<> dDdx = dDdc*dcdx;
-  IpOptSparseMatrix out(dDdx,-1);
+  IpOptSparseMatrix out(dDdx,-1); // -1 indicates that it is treated as a dense matrix
   return out;
 }
 
@@ -595,8 +595,10 @@ void shapeOptProblem::runOptimization(index_t maxiter){
     // Run optimization
     for (index_t i = 0; i < maxiter; i++){
         // Else update parametrization
+        gsInfo << " Objective function before updating: " << evalObj() << "\n";
         updateReferenceParametrization();
         gsInfo << "\n New reference parametrization created at " << counter1 << " iteration. \n";
+        gsInfo << " Objective function after updating: " << evalObj() << "\n";
         counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
 
         solve();
@@ -606,10 +608,10 @@ void shapeOptProblem::runOptimization(index_t maxiter){
             plotDesignInParaview(m_output + "/design_" + std::to_string(counter2));
         }
         if (m_plotMagnitude){
-            SE.plotMagnitude(m_output + "/magnitude_" + std::to_string(counter2));
+            SE.plotMagnitude(BASE_FOLDER + m_output + "/magnitude_" + std::to_string(counter2));
         }
         if (m_plotSolution){
-            SE.plotSolution(m_output + "/sol" + std::to_string(counter2));
+            SE.plotSolution(BASE_FOLDER + m_output + "/sol" + std::to_string(counter2));
         }
 
         // Check if parametrization is good (larger than double of m_eps)

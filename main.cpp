@@ -15,6 +15,7 @@
 #include "knuppOptProblem.h"
 #include "modLiaoOptProblem.h"
 #include "winslowOptProblem.h"
+#include "harmonicOptProblem.h"
 // #include "errorOptProblem.h"
 // #include "residualOptProblem.h"
 #include "detJacConstraint.h"
@@ -1068,6 +1069,7 @@ gsVector<> loadVec(index_t n,std::string name){
 }
 
 void saveVec(gsVector<> &vec,std::string name){
+        gsInfo << "Save to " << name << "\n";
 		std::ofstream file (name);
 		for(index_t i = 0; i < vec.rows(); i++){
 			file << vec[i];
@@ -1313,10 +1315,28 @@ void testOfHelmhotz(gsMultiPatch<> mp, real_t k0, real_t r){
 gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
     std::string folder;
-    if (n == 5 && m == 4 && degree == 2){
-        folder = "/parametrizations/para_x5_y4_p2_q2/";
-    } else if (n == 4 && m == 4 && degree == 2){
+    if (n == 4 && m == 4 && degree == 2){
         folder = "/parametrizations/para_x4_y4_p2_q2/";
+    } else if (n == 5 && m == 4 && degree == 2){
+        folder = "/parametrizations/para_x5_y4_p2_q2/";
+    } else if (n == 6 && m == 4 && degree == 2){
+        folder = "/parametrizations/para_x6_y4_p2_q2/";
+    } else if (n == 7 && m == 4 && degree == 2){
+        folder = "/parametrizations/para_x7_y4_p2_q2/";
+    } else if (n == 8 && m == 4 && degree == 2){
+        folder = "/parametrizations/para_x8_y4_p2_q2/";
+    } else if (n == 4 && m == 5 && degree == 2){
+        folder = "/parametrizations/para_x4_y5_p2_q2/";
+    } else if (n == 5 && m == 5 && degree == 2){
+        folder = "/parametrizations/para_x5_y5_p2_q2/";
+    } else if (n == 6 && m == 5 && degree == 2){
+        folder = "/parametrizations/para_x6_y5_p2_q2/";
+    } else if (n == 7 && m == 5 && degree == 2){
+        folder = "/parametrizations/para_x7_y5_p2_q2/";
+    } else if (n == 8 && m == 5 && degree == 2){
+        folder = "/parametrizations/para_x8_y5_p2_q2/";
+    }  else if (n == 6 && m == 6 && degree == 2){
+        folder = "/parametrizations/para_x6_y6_p2_q2/";
     } else {
         GISMO_ERROR("Parametrization is not generated with these parameters..\n");
     }
@@ -1391,8 +1411,7 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]){
 gsInfo <<  "Hello G+Smo.\n";
 
 // Parse command line
@@ -1468,12 +1487,42 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // }
 
 
-maxDetJacOptProblem mOP(&patches);
 // std::clock_t begin = clock();
 // mOP.solve();
 // std::clock_t end = clock();
 // gsInfo << "Time spend: " << double(end - begin) / CLOCKS_PER_SEC << std::flush;
 // convergenceTestOfDetJJacobian(mOP.dJC);
+// exit(0);
+// gsVector<> des;
+// modLiaoOptProblem l1OP(&patches);
+// //
+// std::string str1 = BASE_FOLDER "/../results/harmonic1161.txt";
+// gsInfo << "Loading from " << str1 << "\n";
+// des = loadVec(l1OP.numDesignVars(),str1);
+// // gsInfo << des << "\n" << std::flush;
+// l1OP.updateDesignVariables(des);
+//
+// // maxDetJacOptProblem mOP(&patches);
+// // mOP.solve();
+//
+// harmonicOptProblem hOP(&patches);
+// // gsInfo << "\n\nhOP.evalObj(): " << hOP.evalObj() << "\n";
+// //
+// gsInfo << "\n...Max of d vector : " << hOP.dJC.getDvectors().maxCoeff() << "\n";
+// gsInfo << "\n...Min of d vector : " << hOP.dJC.getDvectors().minCoeff() << "\n";
+// //
+// //
+// hOP.dJC.plotDetJ(BASE_FOLDER "/../results/hDetJ");
+// gsWriteParaview(patches, BASE_FOLDER "/../results/patches");
+//
+// // hOP.solve();
+//
+// gsInfo << "\n...Max of d vector : " << hOP.dJC.getDvectors().maxCoeff() << "\n";
+// gsInfo << "\n...Min of d vector : " << hOP.dJC.getDvectors().minCoeff() << "\n";
+//
+// des = hOP.getDesignVariables();
+// saveVec(des,BASE_FOLDER + output + "harmonic1161.txt");
+// 
 // exit(0);
 
 modLiaoOptProblem lOP(&patches);
@@ -1482,7 +1531,7 @@ modLiaoOptProblem lOP(&patches);
 
 // convergenceTestOfParaJacobian(lOP);
 
-gsVector<> des = lOP.getDesignVariables();
+// des = lOP.getDesignVariables();
 
 // convergenceTestOfDetJJacobian(lOP.dJC);
 // convergenceTestOfParaJacobian(lOP);
@@ -1499,7 +1548,7 @@ gsVector<> des = lOP.getDesignVariables();
 // }
 // des.setZero(des.rows());
 //
-lOP.updateDesignVariables(des);
+// lOP.updateDesignVariables(des);
 
 // Move domain upwards
 bool move = false;
@@ -1525,7 +1574,7 @@ lOP.setNoQuadraturePoints(quA,quB);
 std::string str;
 if (startDes >= 0){
 	char tmp[200];
-	snprintf(tmp, 200,BASE_FOLDER "/../results/test/design_%d.txt", startDes);
+	snprintf(tmp, 200,BASE_FOLDER "/../results/shapeopt1/design_%d.txt", startDes);
 	str = tmp;
     gsInfo << "Loading from " << str << "\n";
 	des = loadVec(lOP.numDesignVars(),str);
@@ -1541,10 +1590,11 @@ shapeOptProblem sOP(&patches,numRefine,output,plotDesign,plotMagnitude,plotSolut
 sOP.pOP.setNoQuadraturePoints(quA,quB);
 // sOP.SE.plotSolution("solTest");
 
-convergenceTestOfJacobian(sOP);
+// convergenceTestOfJacobian(sOP);
+// exit(0);
 // convergenceTestOfSEAuJacobian(0,sOP.pOP,sOP.SE);
 // convergenceTestOfSERhsJacobian(1,sOP.pOP,sOP.SE);
-exit(0);
+// exit(0);
 std::clock_t begin = clock();
 sOP.solve();
 std::clock_t end = clock();
