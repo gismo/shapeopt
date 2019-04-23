@@ -14,7 +14,6 @@ detJacConstraint::detJacConstraint(gsMultiPatch<>* mpin): mp(mpin), m_detJacBasi
     m_detJacBasis.setDegree(2*p-1);
     // by reducing the continuity
     m_detJacBasis.reduceContinuity(1);
-    // gsInfo << "\n..detJacBasis.size: " << m_detJacBasis.size(0) << "\n";
     // gsInfo << "\n..detJacBasis degree is: " << 2*p-1 << "\n";
 
     // Count the total number of controlpoints
@@ -49,6 +48,7 @@ void detJacConstraint::getDvectors(gsVector<> &result){
 
     index_t start = 0;
     for(int i = 0; i < mp->nBoxes(); i++){
+        gsInfo << "i = " << i << "\n";
         gsExprAssembler<> A(1,1);
 
         gsMultiBasis<> dbasis(m_detJacBasis.basis(i));
@@ -72,6 +72,7 @@ void detJacConstraint::getDvectors(gsVector<> &result){
         // variable detJ = ev.getVariable(jacDetField);
         // A.assemble(u*detJ);
 
+        gsInfo << "Assemble rhs: \n";
         geometryMap G = A.getMap(mp->patch(i));
         A.assemble(u*jac(G).det());
 
@@ -242,18 +243,7 @@ void detJacConstraint::plotDetJ(std::string name){
   gsMatrix<> solVector;
   solution u_sol = A.getSolution(u, solVector);
 
-  gsFunctionExpr<> x("x",2);
-  gsFunctionExpr<> y("y",2);
-  variable fx = A.getCoeff(x);
-  variable fy = A.getCoeff(y);
-  auto j00 = fjac(fx).tr()*jac(G)*fjac(fx);
-  auto j10 = fjac(fy).tr()*jac(G)*fjac(fx);
-  auto j01 = fjac(fx).tr()*jac(G)*fjac(fy);
-  auto j11 = fjac(fy).tr()*jac(G)*fjac(fy);
-
-  auto detJ = j00*j11 - j01*j10;
-
-  A.assemble(u*detJ);
+  A.assemble(u*jac(G).det());
 
   solVector = solver.solve(A.rhs());
 

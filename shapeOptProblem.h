@@ -8,6 +8,7 @@ using namespace gismo;
 #include "maxDetJacOptProblem.h"
 #include "winslowOptProblem.h"
 #include "linearizedOptProblem.h"
+#include "springMethod.h"
 #include "IpOptSparseMatrix.h"
 #include "stateEquationAntenna.h"
 #include <gsIpopt/gsOptProblem.h>
@@ -63,6 +64,7 @@ public:
   mutable modLiaoOptProblem pOP;
   mutable maxDetJacOptProblem mOP;
   mutable linearizedOptProblem linOP;
+  // mutable springMethod linOP;
   mutable stateEquationAntenna SE;
   real_t m_eps = 0.0001;
   index_t antennaPatch = 3;

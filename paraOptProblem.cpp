@@ -25,13 +25,13 @@ paraOptProblem::paraOptProblem(gsMultiPatch<>* mpin):mp(mpin), dJC(mpin), iC(mpi
   // gsInfo << "dJC.n_constraints = " << dJC.n_constraints << "\n";
   m_conUpperBounds.segment(0,dJC.n_constraints) = dJC.getUpperBounds(m_eps);
 
-  // gsInfo << "m_conLowerBounds  = \n" <<  m_conLowerBounds << "\n";
 
   // Set upper bounds to aBigNumber and 0's
   m_conLowerBounds.setZero(m_numConstraints);
   m_conLowerBounds.segment(0,dJC.n_constraints).setOnes();
   m_conLowerBounds.segment(0,dJC.n_constraints) *= -iC.aBigNumber;
 
+  // gsInfo << "m_conLowerBounds  = \n" <<  m_conLowerBounds << "\n";
   // gsInfo << "m_conUpperBounds  = " <<  m_conUpperBounds << "\n";
 
   // Concatenate J1 and J2 to get the final values
@@ -112,8 +112,6 @@ void paraOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector
   dJC.updateDesignVariables(u);
   dJC.getDvectors(tmp);
 
-  // gsInfo << "max d: " << tmp.maxCoeff() << "\n";
-
   result.segment(0,dJC.n_constraints) = tmp;
   result.segment(dJC.n_constraints,iC.n_constraints) = interfaceConstraintMatrix*u;
 
@@ -142,13 +140,13 @@ void paraOptProblem::print(){
 
   gsInfo << "m_curDesign.size() = " << m_curDesign.size() << "\n";
 
-  // gsMatrix<> disp(m_desUpperBounds.size(),2);
-  // disp << m_desUpperBounds,m_desLowerBounds;
-  // gsInfo << ".. design upper and lower bounds\n";
-  // gsInfo << disp << "\n";
+  gsMatrix<> disp(m_desUpperBounds.size(),2);
+  disp << m_desLowerBounds,m_desUpperBounds;
+  gsInfo << ".. design upper and lower bounds\n";
+  gsInfo << disp << "\n";
   //
   gsMatrix<> disp2(m_conUpperBounds.size(),2);
-  disp2 << m_conUpperBounds,m_conLowerBounds;
+  disp2 << m_conLowerBounds,m_conUpperBounds;
   gsInfo << ".. constraint upper and lower bounds\n";
   gsInfo << disp2 << "\n";
 

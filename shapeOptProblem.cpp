@@ -29,6 +29,8 @@ shapeOptProblem::shapeOptProblem(gsMultiPatch<>* mpin,index_t numRefine, std::st
 
   m_conUpperBounds.segment(0,dJC.n_constraints) = dJC.getUpperBounds(m_eps);
   m_conLowerBounds.segment(0,dJC.n_constraints) *= -iC.aBigNumber;
+  // gsInfo << "clb " << m_conLowerBounds << "\n";
+  // gsInfo << "cub " << m_conUpperBounds << "\n";
 
   // Find design indicies, go through all interfaces and check if bnd to patch
   // FIXIT: you can get patchSides of geometry by copying it to a gsMultiPatch obj.
@@ -361,16 +363,18 @@ gsVector<> shapeOptProblem::evalCon() const {
 }
 
 void shapeOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const {
-  updateDesignVariables(u);
   // gsInfo << "evalCon_into\n" << std::flush;
   // gsInfo << "...evalCon_into" << "\n";
+  updateDesignVariables(u);
 
   result = evalCon();
+  // gsInfo << "max result " << result.maxCoeff() << "\n";
 }
 
 void shapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const {
-  updateDesignVariables(u);
   // gsInfo << "jacobCon_into\n";
+  updateDesignVariables(u);
+  // gsInfo << "detJacConstraint " << dJC.getDvectors().maxCoeff() << "\n";
   // gsInfo << "results size : (" << result.rows() << ", " << result.cols() << ")\n";
   // gsVector<> gradCon = derivVolumeOfPatch(antennaPatch);
   // gsMatrix<> gradTrans = gradCon.transpose();
@@ -394,7 +398,7 @@ void shapeOptProblem::setCurrentDesign(gsVector<> x){
 
 void shapeOptProblem::updateDesignVariables(gsVector<> u) const {
   gsVector<> deltaCps;
-  deltaCps.setZero(linOP.numDesignVars());
+  deltaCps.setZero(pOP.numDesignVars());
   for (index_t j = 0; j < m_numDesignVars; j++){
     deltaCps(designIndiciesGlobal[j]) = u[j];
   }
@@ -403,9 +407,9 @@ void shapeOptProblem::updateDesignVariables(gsVector<> u) const {
 
 gsVector<> shapeOptProblem::getUpdateToCps(gsVector<> u) const {
   gsVector<> deltaCps;
-  deltaCps.setZero(linOP.numDesignVars());
+  deltaCps.setZero(pOP.numDesignVars());
   for (index_t j = 0; j < m_numDesignVars; j++){
-    deltaCps(designIndiciesGlobal[j]) = u[j];
+    deltaCps[designIndiciesGlobal[j]] = u[j];
   }
   return linOP.solve(deltaCps);
 }
@@ -503,7 +507,7 @@ gsMatrix<> shapeOptProblem::derivVolumeOfPatch(index_t p) const {
 }
 
 gsMatrix<> shapeOptProblem::derivativeOfDesignUpdate() const {
-  gsMatrix<> out(linOP.numDesignVars(),m_numDesignVars); //the size is n.o. designvars for linearizedOptProblem times n.o. design variables for this problem
+  gsMatrix<> out(pOP.numDesignVars(),m_numDesignVars); //the size is n.o. designvars for linearizedOptProblem times n.o. design variables for this problem
 
   gsVector<> zers;
   zers.setZero(numDesignVars());
@@ -513,7 +517,7 @@ gsMatrix<> shapeOptProblem::derivativeOfDesignUpdate() const {
     ei.setZero(m_numDesignVars);
     ei[i] = 1;
     gsVector<> ci = getUpdateToCps(ei) - c_zero; // Substract value at zero since it is an affine function
-    for(index_t j = 0; j < linOP.numDesignVars(); j++){
+    for(index_t j = 0; j < pOP.numDesignVars(); j++){
       out(j,i) = ci[j];
     }
   }
@@ -550,6 +554,7 @@ void shapeOptProblem::resetParametrizationToReference(){
 }
 
 void shapeOptProblem::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result ) const{
+    // gsInfo << "gradObj_into\n";
   updateDesignVariables(u);
   result = gradientObj();
 }

@@ -4,68 +4,49 @@
 #include "IpOptSparseMatrix.h"
 using namespace gismo;
 
-harmonicOptProblem::harmonicOptProblem(gsMultiPatch<>* mpin):mp(mpin), dJC(mpin), iC(mpin){
-  m_numDesignVars = dJC.n_controlpoints*2;
-  m_numConstraints = iC.n_constraints;
+harmonicOptProblem::harmonicOptProblem(gsMultiPatch<>* mpin): paraWithMapper(mpin), dJC(mpin){
+  setupMapper(); // Set mapper to fix degrees of freedoms and set current design
+  m_numDesignVars = m_mappers[0].freeSize() + m_mappers[1].freeSize();
+  m_curDesign = getDesignVariables();
 
-  // Call getDvectors to generate LU factorization and stuff
-  gsVector<> tmp(dJC.n_constraints);
-  dJC.getDvectors(tmp);
-  IpOptSparseMatrix J2 = iC.getJacobian();
+  m_desLowerBounds.setOnes(m_numDesignVars);
+  m_desLowerBounds *= -1e9;
+  m_desUpperBounds.setOnes(m_numDesignVars);
+  m_desUpperBounds *= 1e9;
 
-  m_numConJacNonZero = J2.nnz();
+  m_numConstraints = 0;
 
-  setDesignBounds(); //m_desLowerBounds and m_desUpperBounds is set in here.
-  // gsInfo << "m_desUpperBounds  = \n" <<  m_desUpperBounds << "\n";
-
-  // Set lower bounds to eps and 0's
-  m_conUpperBounds.setZero(m_numConstraints);
-
-  // gsInfo << "m_conLowerBounds  = \n" <<  m_conLowerBounds << "\n";
-
-  // Set upper bounds to aBigNumber and 0's
+  computeJacStructure();
   m_conLowerBounds.setZero(m_numConstraints);
-
-  // gsInfo << "m_conUpperBounds  = " <<  m_conUpperBounds << "\n";
-
-  // Concatenate J1 and J2 to get the final values
-  m_conJacRows = J2.rows();
-  m_conJacCols = J2.cols();
-
-  m_curDesign = dJC.getDesignVariables();
-
-  interfaceConstraintMatrix = iC.generateConstraintMatrix();
-}
-
-void harmonicOptProblem::setDesignBounds(){
-  //FIXIT: Patch 3 is hardcoded in paraOptProblem
-  if (mp->nBoxes() > 3){
-    // gsInfo << "X vars on west boundaries freed ! (OBS: hardcoded)" << std::flush;
-    // iC.freeBoundary(0,boundary::west,2);
-    // iC.freeBoundary(1,boundary::west,2);
-    // iC.freeBoundary(2,boundary::west,2);
-    gsInfo << "X vars on south boundaries freed ! (OBS: hardcoded)";
-    iC.freeBoundary(0,boundary::south,2);
-    iC.freeBoundary(1,boundary::south,2);
-    iC.freeBoundary(2,boundary::south,2);
-    gsInfo << "Patch 3 is fixed (OBS: hardcoded)\n" << std::flush;
-    m_desUpperBounds = iC.getUpperBounds(3); //Fix patch 3
-  } else {
-    gsInfo << "No patch is fixed (OBS: this happens when no. patches is less than 4)\n";
-    m_desUpperBounds = iC.getUpperBounds(); //Fix no patch
-  }
-  m_desLowerBounds = iC.getLowerBounds(m_desUpperBounds);
-}
-
-gsVector<> harmonicOptProblem::getDesignVariables() const{
-  return dJC.getDesignVariables();
-}
-
-void harmonicOptProblem::updateDesignVariables(gsVector<> des){
-  return dJC.updateDesignVariables(des);
+  m_conUpperBounds.setZero(m_numConstraints);
 }
 
 real_t harmonicOptProblem::evalObj() const{
+  gsExprAssembler<> A(1,1);
+  gsMultiBasis<> dbasis(*mp);
+  A.setIntegrationElements(dbasis);
+  gsExprEvaluator<> ev(A);
+
+  // ev.options().setReal("quA",quA);
+  // ev.options().setInt("quB",quB);
+  // gsInfo<<"Active options:\n"<< A.options() <<"\n";
+  typedef gsExprAssembler<>::geometryMap geometryMap;
+  typedef gsExprAssembler<>::variable    variable;
+  typedef gsExprAssembler<>::space       space;
+  typedef gsExprAssembler<>::solution    solution;
+
+  geometryMap G = A.getMap(*mp);
+
+  gsFunctionExpr<> f1("x", "-y",2);
+  variable ffun = ev.getVariable(f1);
+  auto D = fjac(ffun);
+
+  // return ev.integral(jac(G).sqNorm());
+  // return ev.integral(hess(G).sqNorm());
+  return ev.integral((D*hess(G)*D*fform(G)).trace().sqNorm().val() + lambda_1 * hess(G).sqNorm() + lambda_2*jac(G).sqNorm());
+}
+
+gsVector<> harmonicOptProblem::gradientObj() const{
   // gsInfo << "evalObj\n";
   gsExprAssembler<> A(1,1);
   gsMultiBasis<> dbasis(*mp);
@@ -82,46 +63,34 @@ real_t harmonicOptProblem::evalObj() const{
 
   geometryMap G = A.getMap(*mp);
 
-  gsFunctionExpr<> x("x",2);
-  gsFunctionExpr<> y("y",2);
-  variable fx = ev.getVariable(x);
-  variable fy = ev.getVariable(y);
-  auto j00 = grad(fx)*jac(G)*grad(fx).tr();
-  auto j10 = grad(fy)*jac(G)*grad(fx).tr();
-  auto j01 = grad(fx)*jac(G)*grad(fy).tr();
-  auto j11 = grad(fy)*jac(G)*grad(fy).tr();
-
-  auto g11 = j00*j00 + j10*j10;
-  auto g12 = j00*j01 + j10*j11;
-  auto g22 = j01*j01 + j11*j11;
+  space u = A.getSpace(dbasis); // Vector space for derivatives, for 2D
 
   gsFunctionExpr<> f1("x", "-y",2);
   variable ffun = ev.getVariable(f1);
   auto D = fjac(ffun);
 
-  gsFunctionExpr<> fe("1.0","1.0",2);
-  variable e = ev.getVariable(fe);
+  gsFunctionExpr<> fe1("1","0",2);
+  variable e1 = ev.getVariable(fe1);
 
-  return ev.integral((D*hess(G)*D*fform(G)).trace().sqNorm().val() + lambda_1 * hess(G).sqNorm() + lambda_2*jac(G).sqNorm());
-  // return ev.integral((D*hess(G)*D*fform(G)).trace().sqNorm().val() + lambda_1 * (e.tr()*(hess(G)*hess(G)).trace()).val() + lambda_2*(jac(G)%jac(G)).val());// + lambda_2*jac(G)%jac(G));
-  // return ev.integral(e.tr()*(hess(G)*hess(G)).trace());
+  A.initSystem();
+  // A.assemble(2*matrix_by_space(jac(G).tr(),jac(u)).trace());
+  A.assemble(2*e1.tr()*collapse(hess(G)[0].tr(),hess(u)));
+
+  return A.rhs();
+  // return ev.integral((D*hess(G)*D*fform(G)).trace().sqNorm().val() + lambda_1 * hess(G).sqNorm() + lambda_2*jac(G).sqNorm());
 }
 
 real_t harmonicOptProblem::evalObj( const gsAsConstVector<real_t> & u) const {
   // gsInfo << "...evalObj\n";
-  dJC.updateDesignVariables(u);
+  updateDesignVariables(u);
   return evalObj();
 }
 
 void harmonicOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const {
-  result = interfaceConstraintMatrix*u;
+    result[0] = 0;
 }
 
 void harmonicOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const {
-  // gsInfo << "...jacobCon_into\n" << std::flush;
-  dJC.updateDesignVariables(u);
-  IpOptSparseMatrix J2 = iC.getJacobian();
-  result = J2.values();
 }
 
 void harmonicOptProblem::print(){
@@ -211,6 +180,6 @@ void harmonicOptProblem::print(){
 // }
 
 void harmonicOptProblem::reset(){
-  setDesignBounds();
-  m_curDesign = dJC.getDesignVariables();
+  // Mapper is already setup
+  m_curDesign = getDesignVariables();
 }

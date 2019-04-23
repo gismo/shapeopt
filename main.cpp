@@ -16,6 +16,7 @@
 #include "modLiaoOptProblem.h"
 #include "winslowOptProblem.h"
 #include "harmonicOptProblem.h"
+#include "springMethod.h"
 // #include "errorOptProblem.h"
 // #include "residualOptProblem.h"
 #include "detJacConstraint.h"
@@ -265,6 +266,95 @@ void convergenceTestOfParaJacobian(paraOptProblem &lOP){
 		Error0[i] = error0;
 		Error1[i] = error1;
 		Error2[i] = error2;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsVector<> rate2;
+	rate2.setZero(n);
+	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,6);
+	disp << Eps,Error0,Error1,rate,Error2,rate2;
+	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfParaJacobian(harmonicOptProblem &lOP){
+	real_t liao = lOP.evalObj();
+	gsVector<> grad = lOP.gradientObj();
+	// gsMatrix<> hess = lOP.hessianObj();
+
+	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
+	// gsInfo << "\n" << grad << "\n";
+
+	// for (index_t i = 0; i < lOP.numDesignVars(); i++){
+	// 	for (index_t j = 0; j < lOP.numDesignVars(); j++){
+	// 		if (hess(i,j) == 0){ gsInfo << " ";
+	// 	} else {
+	// 		gsInfo << 1;
+	// 	}
+	// 		;
+	// 	}
+	// 	gsInfo <<"\n";
+	// }
+
+	// std::srand((unsigned int) std::time(0));
+	gsVector<> ran;
+	ran.setRandom(lOP.numDesignVars());
+
+	gsVector<> des = lOP.dJC.getDesignVariables();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	index_t beg = 0;
+	index_t n = 20;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+	gsVector<> Error2(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(lOP.numDesignVars());
+
+		gsVector<> lb = lOP.desLowerBounds();
+		gsVector<> ub = lOP.desUpperBounds();
+
+		for(index_t i = 0; i < lOP.numDesignVars(); i++){
+			if( ub[i] != lb[i]){
+				perturp[i] = ran[i];
+			}
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+
+		lOP.dJC.updateDesignVariables(newDes);
+
+		real_t newLiao = lOP.evalObj();
+		real_t guess0 = liao;
+		real_t guess1 = liao + grad.transpose()*perturp;
+		real_t guess2 = liao + grad.transpose()*perturp ;//+ 0.5*perturp.transpose()*hess*perturp;
+
+		// gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
+		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
+
+		real_t error0 = std::abs(guess0 - newLiao);
+		real_t error1 = std::abs(guess1 - newLiao);
+		// real_t error2 = std::abs(guess2 - newLiao);
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+		// Error2[i] = error2;
 	}
 
 	gsVector<> rate;
@@ -1411,6 +1501,24 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
 }
 
+gsMultiPatch<> get3DGeometry(){
+    gsMultiPatch<> patches;
+    gsFileData<> data("geometries3D/cube.xml");
+
+    gsInfo  <<"* There is "<< data.count< gsGeometry<> >() <<" "
+            <<data.type< gsGeometry<> >()<<" "<< data.tag< gsGeometry<> >()
+            <<" in the file.\n";
+    for(index_t i = 1; i <= data.count< gsGeometry<> >(); i++){
+        gsGeometry<>::uPtr o = data.getId< gsGeometry<> >(i);
+        o->degreeElevate(1);
+        o->uniformRefine();
+        patches.addPatch(*o);
+    }
+    patches.computeTopology();
+
+    return patches;
+}
+
 int main(int argc, char* argv[]){
 gsInfo <<  "Hello G+Smo.\n";
 
@@ -1459,6 +1567,7 @@ std::sprintf(buffer,"p = %d \n n = %d\n",degree,numRefine);
 gsInfo << buffer;
 
 gsMultiPatch<> patches = getGeometry(nx,ny,degree);
+// gsMultiPatch<> patches = get3DGeometry();
 
 // gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
 // patches.basis(0).setDegree(degree);
@@ -1480,131 +1589,28 @@ gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 gsInfo << "Domain is a: \n" << std::flush;
 gsInfo << "The domain is a "<< patches <<"\n";
 
-// for (index_t i = 0; i < patches.nBoundary(); i++){
-	// patchSide ps = patches.boundaries()[i];
-	// gsInfo << ps << "";
-	// gsInfo << "patch " << ps.patch << "has index " << ps.index() << "\n";
-// }
+gsInfo << "patch 0: " << patches.patch(0) << "\n";
 
+detJacConstraint dJC(&patches);
+gsInfo << "patch 0: " << patches.patch(0) << "\n";
+gsInfo << "det J: " << dJC.getDvectors().maxCoeff();
 
-// std::clock_t begin = clock();
-// mOP.solve();
-// std::clock_t end = clock();
-// gsInfo << "Time spend: " << double(end - begin) / CLOCKS_PER_SEC << std::flush;
-// convergenceTestOfDetJJacobian(mOP.dJC);
-// exit(0);
-gsVector<> des;
-// modLiaoOptProblem l1OP(&patches);
-// //
-// std::string str1 = BASE_FOLDER "/../results/harmonic1161.txt";
-// gsInfo << "Loading from " << str1 << "\n";
-// des = loadVec(l1OP.numDesignVars(),str1);
-// // gsInfo << des << "\n" << std::flush;
-// l1OP.updateDesignVariables(des);
-//
-// // maxDetJacOptProblem mOP(&patches);
-// // mOP.solve();
-//
-// harmonicOptProblem hOP(&patches);
-// // gsInfo << "\n\nhOP.evalObj(): " << hOP.evalObj() << "\n";
-// //
-// gsInfo << "\n...Max of d vector : " << hOP.dJC.getDvectors().maxCoeff() << "\n";
-// gsInfo << "\n...Min of d vector : " << hOP.dJC.getDvectors().minCoeff() << "\n";
-// //
-// //
-// hOP.dJC.plotDetJ(BASE_FOLDER "/../results/hDetJ");
-// gsWriteParaview(patches, BASE_FOLDER "/../results/patches");
-//
-// // hOP.solve();
-//
-// gsInfo << "\n...Max of d vector : " << hOP.dJC.getDvectors().maxCoeff() << "\n";
-// gsInfo << "\n...Min of d vector : " << hOP.dJC.getDvectors().minCoeff() << "\n";
-//
-// des = hOP.getDesignVariables();
-// saveVec(des,BASE_FOLDER + output + "harmonic1161.txt");
-//
-// exit(0);
+// springMethod sM(&patches);
+// sM.solve();
+// gsWriteParaview(patches,BASE_FOLDER "/../results/patchesSpring");
 
-modLiaoOptProblem lOP(&patches);
-// lOP.solve();
-// detJacConstraint dJC(&patches);
+// gsInfo << "size of des: " << sM.getDesignVariables().size() << "\n";
+// gsInfo << "Des: " << sM.getDesignVariables() << "\n";
 
-// convergenceTestOfParaJacobian(lOP);
-
-// des = lOP.getDesignVariables();
-
-// convergenceTestOfDetJJacobian(lOP.dJC);
-// convergenceTestOfParaJacobian(lOP);
-
-// lOP.solve();
-// des = lOP.getDesignVariables();
-// saveVec(des,"ynotfixed_n6_m6/modLiao.txt");
-
-
-// if (numRefine == 2){
-	// des = loadVec(lOP.numDesignVars(),"controlPoints_n2/modLiao.txt");
-// } else {
-	// des = loadVec(lOP.numDesignVars(),"controlPoints_n1/modLiao.txt");
-// }
-// des.setZero(des.rows());
-//
-// lOP.updateDesignVariables(des);
-
-// Move domain upwards
-bool move = false;
-if (move) {
-for(index_t i = 0; i < patches.nPatches(); i++){
-	gsMatrix<> cc = patches.patch(i).coefs();
-	for(index_t j = 0; j < cc.rows(); j++){
-		cc(j,1) += 2; // Move in y direction
-		//FIXIT radius has to be scaled here...
-		cc(j,0) /= 2; // scale by two
-		cc(j,1) /= 2; // scale by two
-	}
-	patches.patch(i).setCoefs(cc);
-}
-}
-
-lOP.setNoQuadraturePoints(quA,quB);
-
-// convergenceTestOfParaJacobian(lOP);
-// lOP.solve();
-// gsInfo << "\nmodLiao : " << sOP.pOP.evalObj() << "\n";
-
-std::string str;
-if (startDes >= 0){
-	char tmp[200];
-	snprintf(tmp, 200,BASE_FOLDER "/../results/shapeopt1/design_%d.txt", startDes);
-	str = tmp;
-    gsInfo << "Loading from " << str << "\n";
-	des = loadVec(lOP.numDesignVars(),str);
-	lOP.updateDesignVariables(des);
-
-	gsInfo << "\n...Max of d vector : " << lOP.dJC.getDvectors().maxCoeff() << "\n";
-	gsInfo << "\n...Min of d vector : " << lOP.dJC.getDvectors().minCoeff() << "\n";
-
-}
-
-gsInfo << "\n\nnum Refine : " << numRefine << "\n\n" << std::flush;
-shapeOptProblem sOP(&patches,numRefine,output,plotDesign,plotMagnitude,plotSolution,saveCps);
-sOP.pOP.setNoQuadraturePoints(quA,quB);
-// sOP.SE.plotSolution("solTest");
-
-// convergenceTestOfJacobian(sOP);
-// exit(0);
-// convergenceTestOfSEAuJacobian(0,sOP.pOP,sOP.SE);
-// convergenceTestOfSERhsJacobian(1,sOP.pOP,sOP.SE);
-// exit(0);
-std::clock_t begin = clock();
-sOP.solve();
-std::clock_t end = clock();
-gsInfo << "Time spend: " << double(end - begin) / CLOCKS_PER_SEC << std::flush;
-
+// gsInfo << "\n\nnum Refine : " << numRefine << "\n\n" << std::flush;
+// shapeOptProblem sOP(&patches,numRefine,output,plotDesign,plotMagnitude,plotSolution,saveCps);
+// sOP.pOP.setNoQuadraturePoints(quA,quB);
+// sOP.solve();
 
 // gsInfo << "\n\n\n ====== Run Optimization ====== \n\n\n";
 // sOP.runOptimization(maxiter);
 
 
-gsInfo << "\n ==== DONE ==== \n";
+// gsInfo << "\n ==== DONE ==== \n";
 return 0;
 }
