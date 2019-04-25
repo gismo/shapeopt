@@ -48,7 +48,6 @@ void detJacConstraint::getDvectors(gsVector<> &result){
 
     index_t start = 0;
     for(int i = 0; i < mp->nBoxes(); i++){
-        gsInfo << "i = " << i << "\n";
         gsExprAssembler<> A(1,1);
 
         gsMultiBasis<> dbasis(m_detJacBasis.basis(i));
@@ -72,7 +71,6 @@ void detJacConstraint::getDvectors(gsVector<> &result){
         // variable detJ = ev.getVariable(jacDetField);
         // A.assemble(u*detJ);
 
-        gsInfo << "Assemble rhs: \n";
         geometryMap G = A.getMap(mp->patch(i));
         A.assemble(u*jac(G).det());
 
