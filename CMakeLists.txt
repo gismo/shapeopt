@@ -29,7 +29,11 @@ endif()
 
 project(main)
 
-set (CMAKE_CXX_STANDARD 11)
+if (NOT DEFINED CMAKE_CXX_STANDARD)
+	set (CMAKE_CXX_STANDARD 14)
+endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-enum-compare")
 
 # G+Smo
 find_package(gismo REQUIRED)
@@ -55,8 +59,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
   string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
-file(GLOB SOURCES ./*.cpp)
-add_executable(main ${SOURCES})
+file(GLOB SOURCES ./gs*.cpp)
+add_executable(main main.cpp ${SOURCES})
 set_target_properties(main PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(main gismo)
 
