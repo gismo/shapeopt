@@ -1,50 +1,67 @@
-#ifndef DETJACCONSTRAINT_H
-#define DETJACCONSTRAINT_H
+/** @file gsDetJacConstraint.h
 
-#include "IpOptSparseMatrix.h"
+@brief  Class to handle constraints on the injectivity of a gsMultiPatch Parametrization
+        It computes spline coefficients for the determinant of the Jacobian
+        which then can be bounded to be always positive
+
+This file is part of the G+Smo library.
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+Author(s): A. Limkilde, A. Mantzaflaris
+*/
+#ifndef GSDETJACCONSTRAINT_H
+#define GSDETJACCONSTRAINT_H
+#include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-class liaoOptProblem;
-
-class detJacConstraint{
+class gsDetJacConstraint{
 public:
-  detJacConstraint(gsMultiPatch<>* mpin);
 
-	gsVector<> generateDResultVector();
+    // Constructs from gsMultiPatch
+    gsDetJacConstraint(gsMultiPatch<>* mpin);
 
-	void getDvectors(gsVector<> &result);
+    // Get constraints (spline coefficients of detJ) by projection
+    // FIXIT: Change the sign if the coefs is negative?
+    void evalCon_into(gsVector<> &result);
+    gsVector<> evalCon();
 
-  gsVector<> getDvectors();
+    // Get derivatives
+    // FIXIT: make dimension independent
+    void getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac);
+    void getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac);
+    gsIpOptSparseMatrix getJacobian();
 
-  void getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac);
+    // Accessors
+    const gsMultiBasis<> & detJacBasis() const { return m_detJacBasis; }
+    const bool & isSolverSetup(index_t i) const { return m_areSolversSetup[i]; }
 
-  void getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac);
+    // set the tolerance
+    void setEps(real_t eps){m_eps = eps;}
 
-  IpOptSparseMatrix getJacobian();
+    // Get the upper and lower bounds of constraint
+    gsVector<> getUpperBounds();
+    gsVector<> getLowerBounds();
 
-  gsVector<> getDesignVariables();
-
-  void updateDesignVariables(gsVector<> des);
-
-  const gsMultiBasis<> & detJacBasis() const { return m_detJacBasis; }
-  const bool & isSolverSetup(index_t i) const { return m_areSolversSetup[i]; }
-  friend class liaoOptProblem;
-
-  gsVector<> getUpperBounds(real_t eps);
-
-  void plotDetJ(std::string name);
+    void plotDetJ(std::string name);
 public:
-    gsMultiPatch<>* mp;
-	gsMultiBasis<> m_detJacBasis;
+    gsMultiPatch<>* m_mp;
+    gsMultiBasis<> m_detJacBasis;
 
-	gsVector<gsSparseSolver<>::LU> solversMassMatrix;
-	gsVector<bool> m_areSolversSetup;
+    real_t m_eps;
 
+    gsVector<gsSparseSolver<>::LU> m_solversMassMatrix;
+    gsVector<bool> m_areSolversSetup;
+
+    index_t m_size;
     index_t n_controlpoints;
     index_t n_constraints;
+
 };
 
 
 
 
-#endif //DETJACCONSTRAINT_H
+#endif //GSDETJACCONSTRAINT_H

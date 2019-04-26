@@ -1,8 +1,8 @@
 #include <gismo.h>
-#include "IpOptSparseMatrix.h"
+#include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-IpOptSparseMatrix::IpOptSparseMatrix(gsSparseMatrix<> mat){
+gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsSparseMatrix<> mat){
   m_nnz = mat.nonZeros();
   m_nrows = mat.rows();
   m_ncols = mat.cols();
@@ -17,7 +17,7 @@ IpOptSparseMatrix::IpOptSparseMatrix(gsSparseMatrix<> mat){
   }
 }
 
-IpOptSparseMatrix::IpOptSparseMatrix(gsMatrix<> &mat,real_t tol){
+gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsMatrix<> &mat,real_t tol){
   m_nnz = 0;
 
   auto zmat = mat.cwiseAbs().array() > tol;
@@ -45,7 +45,7 @@ IpOptSparseMatrix::IpOptSparseMatrix(gsMatrix<> &mat,real_t tol){
 //             B]
 //  str=diag: [A 0
 //             0 B]
-void IpOptSparseMatrix::concatenate(IpOptSparseMatrix m2, std::string str = "diag" ){
+void gsIpOptSparseMatrix::concatenate(gsIpOptSparseMatrix m2, std::string str = "diag" ){
   index_t nnz = m_nnz + m2.nnz();
   gsVector<> values;
   values.setZero(nnz);
@@ -63,7 +63,7 @@ void IpOptSparseMatrix::concatenate(IpOptSparseMatrix m2, std::string str = "dia
     addToRows += m_nrows;
     m_nrows += m2.nrows();
   } else {
-    GISMO_ERROR("IpOptSparseMatrix concatenate constructer expects str to be equal 'diag', 'row' or 'col'");
+    GISMO_ERROR("gsIpOptSparseMatrix concatenate constructer expects str to be equal 'diag', 'row' or 'col'");
   }
 
   index_t i = 0;
@@ -81,21 +81,21 @@ void IpOptSparseMatrix::concatenate(IpOptSparseMatrix m2, std::string str = "dia
   m_values = values;
 }
 
-void IpOptSparseMatrix::print(){
+void gsIpOptSparseMatrix::print(){
   for(index_t i = 0; i < m_nnz; i++){
     gsInfo << "(" << m_rows[i] << ", " << m_cols[i] << "): " << m_values[i] << "\n";
   }
 }
 
-void IpOptSparseMatrix::printSize(){
+void gsIpOptSparseMatrix::printSize(){
   gsInfo << "(" << m_nrows << ", " << m_ncols << ")\n";
 }
 
-void IpOptSparseMatrix::printAsBlock(){
+void gsIpOptSparseMatrix::printAsBlock(){
   gsInfo << this->asDense() << "\n";
 }
 
-gsMatrix<> IpOptSparseMatrix::asDense(){
+gsMatrix<> gsIpOptSparseMatrix::asDense(){
   gsMatrix<> out;
   out.setZero(m_nrows,m_ncols);
   for(index_t i = 0; i < m_nnz; i++){
@@ -104,7 +104,7 @@ gsMatrix<> IpOptSparseMatrix::asDense(){
   return out;
 }
 
-void IpOptSparseMatrix::swap(IpOptSparseMatrix smat){
+void gsIpOptSparseMatrix::swap(gsIpOptSparseMatrix smat){
   this->m_nrows = smat.nrows();
   this->m_ncols = smat.ncols();
   this->m_nnz = smat.nnz();
