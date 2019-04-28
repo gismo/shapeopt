@@ -1,6 +1,6 @@
 #include <gismo.h>
 #include "gsDetJacConstraint.h"
-#include "gsgsIpOptSparseMatrix.h"
+#include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
 gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin): m_mp(mpin), m_detJacBasis(*m_mp),
