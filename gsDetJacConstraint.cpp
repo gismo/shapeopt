@@ -32,7 +32,12 @@ gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin): m_mp(mpin), m_detJ
     // gsInfo << "n_constraints = " << n_controlpoints << "\n \n";
 }
 
-void gsDetJacConstraint::evalCon_into(gsVector<> &result){
+void gsDetJacConstraint::evalCon_into(gsAsVector<real_t> & result)
+{
+    result = evalCon();
+}
+
+gsVector<> gsDetJacConstraint::evalCon(){
     //gsInfo<<"Active options:\n"<< A.options() <<"\n";
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -40,6 +45,7 @@ void gsDetJacConstraint::evalCon_into(gsVector<> &result){
     typedef gsExprAssembler<>::solution    solution;
 
     index_t start = 0;
+    gsVector<> result(m_size);
     for(int i = 0; i < m_mp->nBoxes(); i++){
         gsExprAssembler<> A(1,1);
 
@@ -76,16 +82,11 @@ void gsDetJacConstraint::evalCon_into(gsVector<> &result){
         start += m_detJacBasis.size(i);
     }
 
-
+    return result;
 
 }
 
-gsVector<> gsDetJacConstraint::evalCon(){
-    gsVector<> out(m_size);
-    evalCon_into(out);
-    return out;
-}
-
+// Fixit: make dimension independent
 void gsDetJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac){
     gsMultiPatch<> singlePatch(m_mp->patch(patch));
 
@@ -128,6 +129,7 @@ void gsDetJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &x
 
 }
 
+// Fixit: make dimension independent
 void gsDetJacConstraint::getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac){
     GISMO_ASSERT(m_areSolversSetup[patch],"Solver is not setup before calling detJacConstraint::getJacobianFromPatch");
 
@@ -139,6 +141,7 @@ void gsDetJacConstraint::getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, g
     yJac = m_solversMassMatrix[patch].solve(yDrhs);
 }
 
+// Fixit: make dimension independent
 gsIpOptSparseMatrix gsDetJacConstraint::getJacobian(){
     // For each patch generate Jacobian with respect to x and y coordinates of geometry
     memory::unique_ptr<gsIpOptSparseMatrix> xMat,yMat;         // Store a pointer to the object, to avoid calling the constructor
@@ -158,6 +161,12 @@ gsIpOptSparseMatrix gsDetJacConstraint::getJacobian(){
 
     return *xMat;
 
+}
+
+void gsDetJacConstraint::jacobCon_into(gsAsVector<real_t> & result)
+{
+    gsIpOptSparseMatrix J = getJacobian();
+    result= J.values();
 }
 
 gsVector<> gsDetJacConstraint::getUpperBounds(){

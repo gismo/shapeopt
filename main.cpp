@@ -9,6 +9,9 @@
 #include <ctime>
 
 #include "gsDetJacConstraint.h"
+#include "gsParamMethod.h"
+#include "gsSpringMethod.h"
+#include "gsModLiao.h"
 
 using namespace gismo;
 
@@ -1219,7 +1222,7 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
 	readFromTxt(BASE_FOLDER + folder + "l.txt", coefs);
 
-	gsInfo << coefs;
+	// gsInfo << coefs;
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<2, real_t>  left(basis, coefs);
@@ -1361,6 +1364,17 @@ gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 // gsInfo << "patch 0: " << patches.patch(0) << "\n";
 
 gsDetJacConstraint dJC(&patches);
+gsInfo << "det J: " << dJC.evalCon().maxCoeff();
+
+gsModLiao modLiao(&patches,true);
+modLiao.print();
+modLiao.update();
+
+
+// sM.updateTagged(sM.getTagged() + pert)
+// sM.update();
+// sM.updateDesignVariables(des);
+gsWriteParaview(patches,BASE_FOLDER "/../results/modL");
 gsInfo << "det J: " << dJC.evalCon().maxCoeff();
 
 gsInfo << "\n ==== DONE ==== \n";

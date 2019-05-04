@@ -25,14 +25,15 @@ public:
 
     // Get constraints (spline coefficients of detJ) by projection
     // FIXIT: Change the sign if the coefs is negative?
-    void evalCon_into(gsVector<> &result);
-    gsVector<> evalCon();
+    void evalCon_into(gsAsVector<real_t> & result);
+    gsVector<> evalCon(); // Implementation is in here..
 
     // Get derivatives
     // FIXIT: make dimension independent
     void getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac);
     void getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac);
     gsIpOptSparseMatrix getJacobian();
+    void jacobCon_into(gsAsVector<real_t> & result);
 
     // Accessors
     const gsMultiBasis<> & detJacBasis() const { return m_detJacBasis; }
@@ -44,6 +45,9 @@ public:
     // Get the upper and lower bounds of constraint
     gsVector<> getUpperBounds();
     gsVector<> getLowerBounds();
+
+    // Accessors
+    index_t numConstraints(){ return m_size; };
 
     void plotDetJ(std::string name);
 public:
