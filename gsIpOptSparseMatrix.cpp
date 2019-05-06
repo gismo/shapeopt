@@ -2,6 +2,13 @@
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
+gsIpOptSparseMatrix::gsIpOptSparseMatrix(index_t n, index_t m){
+  m_nnz = 0;
+  m_nrows = n;
+  m_ncols = m;
+  m_values.setZero(m_nnz);
+}
+
 gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsSparseMatrix<> mat){
   m_nnz = mat.nonZeros();
   m_nrows = mat.rows();
@@ -111,4 +118,27 @@ void gsIpOptSparseMatrix::swap(gsIpOptSparseMatrix smat){
   this->m_values = smat.values();
   this->m_rows = smat.rows();
   this->m_cols = smat.cols();
+}
+
+// FIXIT: A bit expensive now, since I need to look through the entire matrix
+// for values in the specified column.
+// A better way would be to have the representation sorted column-wise
+// then you only need to look from the col starts till it ends...
+gsIpOptSparseMatrix gsIpOptSparseMatrix::col(index_t i){
+    gsIpOptSparseMatrix out(m_nrows,1);
+    std::vector<real_t> o_values; // std vector to save the output values
+
+    for(index_t k = 0; k < m_nnz; k++){
+        if (m_cols[k] == i){
+            o_values.push_back(m_values[k]);
+            out.rows().push_back(m_rows[k]);
+            out.cols().push_back(0);
+            out.setNnz(out.nnz() + 1);
+        }
+    }
+    gsAsVector<> values(o_values.data(),out.nnz());
+    out.setValues(values);
+
+    return out;
+
 }

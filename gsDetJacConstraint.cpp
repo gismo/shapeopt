@@ -28,6 +28,20 @@ gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin): m_mp(mpin), m_detJ
         // gsInfo << "Patch " << i << " gets " << m_detJacBasis.size(i) << " constraints... \n";
     }
 
+    // FIXIT: Clean this up
+    // Save mapper
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(*m_mp);
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
+
+    // Define types
+    typedef gsExprAssembler<>::space space;
+    space v = A.getSpace(dbasis);
+
+    A.initSystem();
+    m_space_mapper = v.mapper();
+
     // gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";
     // gsInfo << "n_constraints = " << n_controlpoints << "\n \n";
 }
@@ -109,12 +123,14 @@ void gsDetJacConstraint::getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &x
     // Setup and assemble the two matricies
     space u = A.getSpace(dbasis,m_mp->geoDim());
     space v = A.getTestSpace(u,dJbas,1);
+
     // space v = A.getSpace(dJbas,1);
 
     // gsInfo << "dJbas.size : " << dJbas.size() << "\n";
     // gsInfo << "dbasis.size : " << dbasis.size() << "\n";
 
     A.initSystem();
+
     A.assemble(v*matrix_by_space(jac(G).inv(),jac(u)).trace().tr()*jac(G).det());
     // A.assemble(matrix_by_space(jac(G).inv(),jac(u)).trace()*jac(G).det());
     // A.assemble(v);
@@ -161,12 +177,6 @@ gsIpOptSparseMatrix gsDetJacConstraint::getJacobian(){
 
     return *xMat;
 
-}
-
-void gsDetJacConstraint::jacobCon_into(gsAsVector<real_t> & result)
-{
-    gsIpOptSparseMatrix J = getJacobian();
-    result= J.values();
 }
 
 gsVector<> gsDetJacConstraint::getUpperBounds(){

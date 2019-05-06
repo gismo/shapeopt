@@ -12,6 +12,7 @@
 #include "gsParamMethod.h"
 #include "gsSpringMethod.h"
 #include "gsModLiao.h"
+#include "gsIpOptSparseMatrix.h"
 
 using namespace gismo;
 
@@ -35,162 +36,173 @@ void loadCoefs(gsMultiPatch<> &mp, size_t i, std::string folder, std::string nam
 	mp.patch(i).setCoefs(cc);
 }
 
-// void convergenceTestOfDetJJacobian(detJacConstraint &dJC){
-// 	// gsVector<> result = dJC.generateDResultVector();
-// 	// dJC.getDvectors(result);
-// 	gsVector<> result = dJC.getDvectors();
+void saveVec(gsVector<> &vec, std::string name){
+        gsInfo << "Save to " << name << "\n";
+		std::ofstream file (name);
+		for(index_t i = 0; i < vec.rows(); i++){
+			file << vec[i];
+			file << "\n";
+		}
+		file.close();
+}
+
+void saveMat(gsMatrix<> mat, std::string name){
+        gsInfo << "Save to " << name << "\n";
+		std::ofstream file (name);
+		for(index_t i = 0; i < mat.rows(); i++){
+            for (index_t j = 0; j < mat.cols(); j++){
+			    file << mat(i,j);
+                file << " ";
+            }
+			file << "\n";
+		}
+		file.close();
+}
+
+void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
+	// gsVector<> result = dJC.generateDResultVector();
+	// dJC.getDvectors(result);
+	gsVector<> result = pM.m_dJC.evalCon();
+
+    saveMat(pM.m_dJC.getJacobian().asDense(),BASE_FOLDER "/../results/J1.txt");
+
+    gsIpOptSparseMatrix J = pM.mapMatrix(pM.m_dJC.space_mapper(),pM.m_dJC.getJacobian());
+    saveMat(J.asDense(),BASE_FOLDER "/../results/J2.txt");
+	gsMatrix<> Jac = J.asDense();
+	gsInfo << "\n Size of D vector : " << result.size() << "\n";
+	gsInfo << " Size of Jacobian : ( " << Jac.rows() << ", " << Jac.cols() << ")\n";
+
+	gsVector<> des = pM.getFree();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	index_t n = 10;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+
+	gsVector<> ran;
+	std::srand((unsigned int) std::time(0));
+	ran.setRandom(des.size());
+
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(des.size());
+		for(index_t i = 0; i < des.size(); i++){
+			perturp[i] = ran[i];
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+
+		pM.updateFree(newDes);
+
+
+		// gsVector<> newres = dJC.generateDResultVector();
+		// dJC.getDvectors(newres);
+		gsVector<> newres = pM.m_dJC.evalCon();
+
+		gsVector<> guess = result + Jac*perturp;
+
+		real_t error0 = (result - newres).norm();
+		real_t error1 = (guess - newres).norm();
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,4);
+	disp << Eps,Error0,Error1,rate;
+	gsInfo << "eps \tErr0 \tErr1 \trate\n";
+	gsInfo << disp << "\n";
+
+}
 //
-// 	IpOptSparseMatrix jac = dJC.getJacobian();
-// 	gsMatrix<> Jac = jac.asDense();
-// 	gsInfo << "\n Size of D vector : " << result.size() << "\n";
-// 	gsInfo << " Size of Jacobian : ( " << Jac.rows() << ", " << Jac.cols() << ")\n";
-//
-// 	gsVector<> des = dJC.getDesignVariables();
-// 	gsInfo << "\n Size of design vector : " << des.size() << "\n";
-//
-// 	index_t n = 10;
-// 	gsVector<> Eps(n);
-// 	gsVector<> Error0(n);
-// 	gsVector<> Error1(n);
-//
-// 	gsVector<> ran;
-// 	std::srand((unsigned int) std::time(0));
-// 	ran.setRandom(des.size());
-//
-//
-// 	for(index_t i = 0; i < n; i++){
-// 		// Generate pertubation
-// 		real_t eps = pow(2,-i);
-// 		Eps[i] = eps;
-//
-// 		gsVector<> perturp;
-// 		perturp.setZero(des.size());
-// 		for(index_t i = 0; i < des.size(); i++){
-// 			perturp[i] = ran[i];
-// 		}
-//
-// 		perturp /= perturp.norm();
-//
-// 		perturp *= eps;
-//
-// 		gsVector<> newDes = des + perturp;
-//
-//
-// 		dJC.updateDesignVariables(newDes);
-//
-//
-// 		// gsVector<> newres = dJC.generateDResultVector();
-// 		// dJC.getDvectors(newres);
-// 		gsVector<> newres = dJC.getDvectors();
-//
-//
-// 		gsVector<> guess = result + Jac*perturp;
-//
-// 		real_t error0 = (result - newres).norm();
-// 		real_t error1 = (guess - newres).norm();
-//
-// 		Error0[i] = error0;
-// 		Error1[i] = error1;
-// 	}
-//
-// 	gsVector<> rate;
-// 	rate.setZero(n);
-// 	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
-// 	gsMatrix<> disp(n,4);
-// 	disp << Eps,Error0,Error1,rate;
-// 	gsInfo << "eps \tErr0 \tErr1 \trate\n";
-// 	gsInfo << disp << "\n";
-//
-// }
-//
-// void convergenceTestOfParaJacobian(paraOptProblem &lOP){
-// 	real_t liao = lOP.evalObj();
-// 	gsVector<> grad = lOP.gradientObj();
-// 	gsMatrix<> hess = lOP.hessianObj();
-//
-// 	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
-// 	// gsInfo << "\n" << grad << "\n";
-//
-// 	// for (index_t i = 0; i < lOP.numDesignVars(); i++){
-// 	// 	for (index_t j = 0; j < lOP.numDesignVars(); j++){
-// 	// 		if (hess(i,j) == 0){ gsInfo << " ";
-// 	// 	} else {
-// 	// 		gsInfo << 1;
-// 	// 	}
-// 	// 		;
-// 	// 	}
-// 	// 	gsInfo <<"\n";
-// 	// }
-//
-// 	// std::srand((unsigned int) std::time(0));
-// 	gsVector<> ran;
-// 	ran.setRandom(lOP.numDesignVars());
-//
-// 	gsVector<> des = lOP.dJC.getDesignVariables();
-// 	gsInfo << "\n Size of design vector : " << des.size() << "\n";
-//
-// 	index_t beg = 0;
-// 	index_t n = 20;
-// 	gsVector<> Eps(n);
-// 	gsVector<> Error0(n);
-// 	gsVector<> Error1(n);
-// 	gsVector<> Error2(n);
-//
-// 	for(index_t i = 0; i < n; i++){
-// 		// Generate pertubation
-// 		real_t eps = pow(2,-beg-i);
-// 		Eps[i] = eps;
-//
-// 		gsVector<> perturp;
-// 		perturp.setZero(lOP.numDesignVars());
-//
-// 		gsVector<> lb = lOP.desLowerBounds();
-// 		gsVector<> ub = lOP.desUpperBounds();
-//
-// 		for(index_t i = 0; i < lOP.numDesignVars(); i++){
-// 			if( ub[i] != lb[i]){
-// 				perturp[i] = ran[i];
-// 			}
-// 		}
-//
-// 		perturp /= perturp.norm();
-//
-// 		perturp *= eps;
-//
-// 		gsVector<> newDes = des + perturp;
-//
-//
-// 		lOP.dJC.updateDesignVariables(newDes);
-//
-// 		real_t newLiao = lOP.evalObj();
-// 		real_t guess0 = liao;
-// 		real_t guess1 = liao + grad.transpose()*perturp;
-// 		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
-//
-// 		// gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
-// 		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
-//
-// 		real_t error0 = std::abs(guess0 - newLiao);
-// 		real_t error1 = std::abs(guess1 - newLiao);
-// 		real_t error2 = std::abs(guess2 - newLiao);
-//
-// 		Error0[i] = error0;
-// 		Error1[i] = error1;
-// 		Error2[i] = error2;
-// 	}
-//
-// 	gsVector<> rate;
-// 	rate.setZero(n);
-// 	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
-// 	gsVector<> rate2;
-// 	rate2.setZero(n);
-// 	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
-// 	gsMatrix<> disp(n,6);
-// 	disp << Eps,Error0,Error1,rate,Error2,rate2;
-// 	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
-// 	gsInfo << disp << "\n";
-//
-// }
+void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
+	real_t liao = lOP.evalObj();
+	gsVector<> grad = lOP.gradObj();
+	gsMatrix<> hess = lOP.hessObj();
+
+	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
+	// gsInfo << "\n" << grad << "\n";
+    gsDebugVar(hess.rows());
+    gsDebugVar(hess.cols());
+
+	// std::srand((unsigned int) std::time(0));
+	gsVector<> ran;
+	ran.setRandom(lOP.n_free);
+
+	gsVector<> des = lOP.getFree();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	index_t beg = 0;
+	index_t n = 20;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+	gsVector<> Error2(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(lOP.n_free);
+
+		for(index_t i = 0; i < lOP.n_free; i++){
+			perturp[i] = ran[i];
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+
+		lOP.updateFree(newDes);
+
+		real_t newLiao = lOP.evalObj();
+		real_t guess0 = liao;
+		real_t guess1 = liao + grad.transpose()*perturp;
+		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
+
+		gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
+		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
+
+		real_t error0 = std::abs(guess0 - newLiao);
+		real_t error1 = std::abs(guess1 - newLiao);
+		real_t error2 = std::abs(guess2 - newLiao);
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+		Error2[i] = error2;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsVector<> rate2;
+	rate2.setZero(n);
+	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,6);
+	disp << Eps,Error0,Error1,rate,Error2,rate2;
+	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+	gsInfo << disp << "\n";
+
+}
 //
 // void convergenceTestOfParaJacobian(harmonicOptProblem &lOP){
 // 	real_t liao = lOP.evalObj();
@@ -1069,15 +1081,6 @@ gsVector<> loadVec(index_t n,std::string name){
 
 }
 
-void saveVec(gsVector<> &vec,std::string name){
-        gsInfo << "Save to " << name << "\n";
-		std::ofstream file (name);
-		for(index_t i = 0; i < vec.rows(); i++){
-			file << vec[i];
-			file << "\n";
-		}
-		file.close();
-}
 
 inline bool exists (const std::string& name) {
   struct stat buffer;
@@ -1307,6 +1310,7 @@ bool plotDesign = false;
 bool plotMagnitude = false;
 bool plotSolution = false;
 bool saveCps = false;
+bool useDJC = false;
 
 int quA = 1;
 int quB = 1;
@@ -1326,6 +1330,7 @@ cmd.addInt("B", "quB", "quB", quB);
 cmd.addString("o","output","Name of the output folder (relative to BASE_FOLDER)",output);
 
 cmd.addSwitch("plot", "Create a ParaView visualization file of designs", plotDesign);
+cmd.addSwitch("dJC", "Use det jac constraints", useDJC);
 cmd.addSwitch("plotmag", "Create a ParaView visualization file of magnitude (obj function)", plotMagnitude);
 cmd.addSwitch("plotsol", "Create a ParaView visualization file of solution (real and imag)", plotSolution);
 cmd.addSwitch("savecps", "save controlpoinst for design during optimization", saveCps);
@@ -1339,6 +1344,7 @@ std::sprintf(buffer,"p = %d \n n = %d\n",degree,numRefine);
 gsInfo << buffer;
 
 gsMultiPatch<> patches = getGeometry(nx,ny,degree);
+
 // gsMultiPatch<> patches = get3DGeometry();
 
 // gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
@@ -1363,20 +1369,22 @@ gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 
 // gsInfo << "patch 0: " << patches.patch(0) << "\n";
 
-gsDetJacConstraint dJC(&patches);
-gsInfo << "det J: " << dJC.evalCon().maxCoeff();
-
-gsModLiao modLiao(&patches,true);
-modLiao.print();
-modLiao.update();
-
-
+// gsDetJacConstraint dJC(&patches);
+// gsInfo << "det J: " << dJC.evalCon().maxCoeff();
+//
+gsModLiao modLiao(&patches,useDJC);
+// modLiao.print();
+// modLiao.update();
+// convergenceTestOfDetJJacobian(modLiao);
+convergenceTestOfParaJacobian(modLiao);
+//
+//
 // sM.updateTagged(sM.getTagged() + pert)
 // sM.update();
 // sM.updateDesignVariables(des);
 gsWriteParaview(patches,BASE_FOLDER "/../results/modL");
-gsInfo << "det J: " << dJC.evalCon().maxCoeff();
+// gsInfo << "det J: " << dJC.evalCon().maxCoeff();
 
-gsInfo << "\n ==== DONE ==== \n";
+// gsInfo << "\n ==== DONE ==== \n";
 return 0;
 }

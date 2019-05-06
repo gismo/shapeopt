@@ -33,11 +33,11 @@ public:
     void getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac);
     void getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac);
     gsIpOptSparseMatrix getJacobian();
-    void jacobCon_into(gsAsVector<real_t> & result);
 
     // Accessors
     const gsMultiBasis<> & detJacBasis() const { return m_detJacBasis; }
     const bool & isSolverSetup(index_t i) const { return m_areSolversSetup[i]; }
+    const gsDofMapper & space_mapper() const { return m_space_mapper; }
 
     // set the tolerance
     void setEps(real_t eps){m_eps = eps;}
@@ -53,6 +53,10 @@ public:
 public:
     gsMultiPatch<>* m_mp;
     gsMultiBasis<> m_detJacBasis;
+
+    // Holds the mapper used to compute the jacobian of the constraint
+    // for extracting DoFs later
+    gsDofMapper m_space_mapper;
 
     real_t m_eps;
 

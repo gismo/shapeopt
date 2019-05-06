@@ -48,11 +48,11 @@ public:
     // Uses FD as default
     // Should be overloaded in inherited class, if exact gradient is achievable
     // FIXIT use FD as default
-    gsVector<> gradObj() const;
+    virtual gsVector<> gradObj() const;
 
     // Evaluation of hessian of objective. Should be overloaded in inherited class
     // FIXIT use FD as default
-    gsMatrix<> hessObj() const {};
+    virtual gsMatrix<> hessObj() const {};
 
     // Method overloaded from gsOptProblem<>
     real_t evalObj ( const gsAsConstVector<real_t> & u) const;
@@ -71,6 +71,16 @@ public:
     // Method overloaded from gsOptProblem<>
     // Uses gsDetJacConstraint depending on the flag use_detJacConstraint
     void computeJacStructure();
+
+    // Maps a vector from mapper_in indexing, to m_mappers.
+    // E.g. used to map gradients with respect to all cps to be respect to free
+    // DoFs...
+    gsMatrix<> mapMatrix(gsDofMapper mapper_in, gsMatrix<> mat) const;
+
+    // Maps a gsIpOptSparseMatrix from mapper_in indexing, to m_mappers.
+    // E.g. used to map gradients with respect to all cps to be respect to free
+    // DoFs...
+    gsIpOptSparseMatrix mapMatrix(gsDofMapper mapper_in, gsIpOptSparseMatrix M) const;
 
     // Method to print optimization parameters
     void print();

@@ -1,46 +1,23 @@
 #include <gismo.h>
-#include <fstream>
-#include "paraOptProblem.h"
-#include "linearizedOptProblem.h"
+#include "gsAffineParamMethod.h"
 using namespace gismo;
 
-linearizedOptProblem::linearizedOptProblem(paraOptProblem* problem):m_problem(problem){
-  m_cMatrix = problem->interfaceConstraintMatrix;
-	index_t nfd = problem->iC.n_constraints;
-  gsInfo << "nfd = " << nfd << "\n";
-  m_cValues.setZero(nfd);
+gsAffineOptParamMethod::gsAffineOptParamMethod(gsOptParamMethod* pM): m_pM(pM)
+{
 
-  obj = m_problem->evalObj();
-  grad = m_problem->gradientObj();
-  hess = m_problem->hessianObj();
-  refCps = m_problem->getDesignVariables();
+  m_obj = m_optParamMethod->evalObj();
+  m_grad = m_optParamMethod->gradObj();
+  m_hess = m_optParamMethod->hessObj();
 
-  nconst = m_cMatrix.rows();
-  ndesign = m_cMatrix.cols();
+  m_refFree = getFree();
+  m_refTagged = getTagged();
 
-  diffInBounds = m_problem->desUpperBounds() - m_problem->desLowerBounds();
-  nz = (diffInBounds.array() == 0).count();
+  // For now we dont have any constraints so the KKT-system is simply the hessian
+  KKTsystem = hess;
 
-  M.setZero(nz,ndesign);
+  // I problably have to inforce c_tagged = x, to allow change of tagge DoFs...
 
-  index_t ind = 0;
-  for(index_t i = 0; i < ndesign; i++){
-      if (diffInBounds[i] == 0){
-        M(ind,i) = 1;
-        ind++;
-      }
-
-  }
-
-  KKTsystem.setZero(nconst+ndesign+nz,nconst+ndesign+nz);
-
-  KKTsystem.block(0,0,ndesign,ndesign) = hess;
-  KKTsystem.block(0,ndesign,ndesign,nconst) = m_cMatrix.transpose();
-  KKTsystem.block(ndesign,0,nconst,ndesign) = m_cMatrix;
-  KKTsystem.block(ndesign+nconst,0,nz,ndesign) = M;
-  KKTsystem.block(0,ndesign+nconst,ndesign,nz) = M.transpose();
-
-  rhs.setZero(nconst + ndesign + nz);
+  rhs.setZero();
   rhs.segment(0,ndesign) = -grad ;
 
   solver.compute(KKTsystem);

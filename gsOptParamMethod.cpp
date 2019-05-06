@@ -56,16 +56,15 @@ real_t gsOptParamMethod::evalObj ( const gsAsConstVector<real_t> & u) const
 
 void gsOptParamMethod::gradObj_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const
 {
-    gsInfo << "gradObj_into\n" << std::flush;
+    // gsInfo << "gradObj_into\n" << std::flush;
     updateFree(u);
-    gsInfo << "call grad Obj:" << std::flush;
     result = gradObj();
 };
 
 // Implement
 void gsOptParamMethod::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const
 {
-    gsInfo << "evalCon_into\n" << std::flush;
+    // gsInfo << "evalCon_into\n" << std::flush;
     updateFree(u);
     if (use_detJacConstraint){
         m_dJC.evalCon_into(result);
@@ -77,10 +76,11 @@ void gsOptParamMethod::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVect
 // Implement
 void gsOptParamMethod::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const
 {
-    gsInfo << "jacobCon_into\n" << std::flush;
+    // gsInfo << "jacobCon_into\n" << std::flush;
     updateFree(u);
     if (use_detJacConstraint){
-        m_dJC.jacobCon_into(result);
+        gsIpOptSparseMatrix J = mapMatrix(m_dJC.space_mapper(),m_dJC.getJacobian());
+        result = J.values();
     } else {
         return;
     }
@@ -92,7 +92,9 @@ void gsOptParamMethod::computeJacStructure()
 {
     // Use the sparsity provided by gsDetJacConstraint m_dJC
     if (use_detJacConstraint){
-        gsIpOptSparseMatrix J = m_dJC.getJacobian();
+        gsIpOptSparseMatrix J = mapMatrix(m_dJC.space_mapper(),m_dJC.getJacobian());
+        gsDebugVar(J.nrows());
+        gsDebugVar(J.ncols());
 
         m_numConJacNonZero = J.nnz();
         m_conJacRows = J.rows();
@@ -100,6 +102,69 @@ void gsOptParamMethod::computeJacStructure()
     } else {
         m_numConJacNonZero = 0;
     }
+
+};
+
+// FIXIT: looses sparse structure, implement to keep sparsity structure, the
+// structure can be predicted by adding two matrices with 1 at nonzeros
+gsIpOptSparseMatrix gsOptParamMethod::mapMatrix(gsDofMapper mapper_in, gsIpOptSparseMatrix M) const
+{
+    gsMatrix<> mat_in = M.asDense();
+
+    gsMatrix<> mat_out = mapMatrix(mapper_in,mat_in);
+
+    gsIpOptSparseMatrix out(mat_out,-1);
+
+    return out;
+
+};
+
+gsMatrix<> gsOptParamMethod::mapMatrix(gsDofMapper mapper_in, gsMatrix<> mat_in) const
+{
+    // Set shifts of input mapper
+    gsVector<> mapper_in_shifts;
+    mapper_in_shifts.setZero(m_mp->targetDim());
+
+    for(index_t d = 1; d < m_mp->targetDim(); d++){
+        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
+    }
+
+    // FIXIT: take this information as input instead..
+    bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
+    bool col = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
+    gsMatrix<> mat_out;
+
+    if(row){
+        mat_out.setZero(n_free,mat_in.cols());
+    } else if (col) {
+        mat_out.setZero(mat_in.rows(),n_free);
+    }
+
+    for(index_t d = 0; d < m_mp->targetDim(); d++){
+        // Iterate through free indices
+        for (index_t ii = 0; ii < m_mappers[d].freeSize(); ii++){
+            // Get a local index
+            std::vector<std::pair<index_t,index_t> > result;
+            m_mappers[d].preImage(ii, result);
+
+            for(std::vector<std::pair<index_t,index_t>>::iterator it=result.begin(); it != result.end(); ++it)
+            {
+                // Get local index and patch
+                index_t p = it->first;
+                index_t i = it->second;
+
+                // Convert to global to find the right column
+                index_t ii2 = mapper_in.index(i,p) + mapper_in_shifts[d];
+
+                if (row){ // If right no colms
+                    mat_out.row(ii + m_shift_free[d]) += mat_in.row(ii2);
+                } else if (col){
+                    mat_out.col(ii + m_shift_free[d]) += mat_in.col(ii2);
+                }
+            }
+        }
+    }
+    return mat_out;
 
 };
 
@@ -131,7 +196,6 @@ gsVector<> gsOptParamMethod::gradObj() const{
         result[c++]= ( 8 * (e1 - e2) + e4 - e3 ) / real_t(0.00012);
     }
 
-    gsInfo << "Return \n" << std::flush;
     return result;
 }
 

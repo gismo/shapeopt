@@ -17,8 +17,11 @@ using namespace gismo;
 class gsIpOptSparseMatrix
 {
 public:
-    // Default empty constructor
+    // default empty constructer
     gsIpOptSparseMatrix(){};
+
+    // Constructs empty (nxm) matrix
+    gsIpOptSparseMatrix(index_t n, index_t m);
 
     // Constructs from a gsSparseMatrix using its sparsity pattern
     gsIpOptSparseMatrix(gsSparseMatrix<> mat);
@@ -33,16 +36,59 @@ public:
     void swap(gsIpOptSparseMatrix smat);
     gsIpOptSparseMatrix& operator-(){ m_values *= -1; return *this; }
 
+    // FIXIT: Expensive!!
+    // gsIpOptSparseMatrix& operator+=(gsIpOptSparseMatrix const& mat)
+    // {
+    //     std::vector<real_t> v;
+    //     m_rows.clear();
+    //     m_cols.clear();
+    //
+    //     for(index i = 0; i < m_nrows(); i++){
+    //         for(index_t j = 0; j < m_ncols; j++){
+    //             for(index_t k = 0; k < )
+    //         }
+    //     }
+    //     // For each non zero value in this
+    //     for(index_t j = 0; j < mat.nnz(); i++){
+    //         for(index_t i = 0; i < m_nnz; i++){
+    //             // If both has a value
+    //             if (m_rows[i] = mat.rows(j) && m_cols[i] == mat.cols(j)){
+    //                 m_values[i] += mat.values(i);
+    //             } else {
+    //                 m_rows.push_back(mat.rows(j));
+    //                 m_cols.push_back(mat.cols(j));
+    //                 m_nnz += 1;
+    //
+    //                 gsVector<> newVals(m_nnz);
+    //                 newVals << m_values, mat.values(j);
+    //             }
+    //         }
+    //     }
+    //     return *this;
+    // }
+
     // Returns the matrix as dense
     gsMatrix<> asDense();
 
     // Accessors
-    const std::vector<index_t> & rows() const { return m_rows; }
-    const std::vector<index_t> & cols() const { return m_cols; }
+    // FIXIT: think about the naming such that it is similar to the gsMatrx
+    std::vector<index_t> & rows() { return m_rows; }
+    std::vector<index_t> & cols() { return m_cols; }
     const index_t & nnz() const { return m_nnz; }
-    const index_t & nrows() const { return m_nrows; }
-    const index_t & ncols() const { return m_ncols; }
+    index_t & nrows() { return m_nrows; }
+    index_t & ncols() { return m_ncols; }
     const gsVector<> & values() const { return m_values; }
+
+    const index_t rows(index_t i) const { return m_rows[i]; }
+    const index_t cols(index_t i) const { return m_cols[i]; }
+    const real_t values(index_t i) const { return m_values[i]; }
+
+    // Setters
+    void setValues(gsVector<> values) { m_values = values; }
+    void setNnz(index_t nnz) { m_nnz = nnz; }
+
+    // Extract a column of the matrix
+    gsIpOptSparseMatrix col(index_t i);
 
     // Print
     void printAsBlock();

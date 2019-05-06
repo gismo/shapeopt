@@ -12,6 +12,10 @@ public:
     // evaluation of objective
     real_t evalObj() const;
 
+    gsVector<> gradObj() const;
+
+    gsMatrix<> hessObj() const;
+
 
 };
 
