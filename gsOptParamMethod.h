@@ -23,11 +23,12 @@ using namespace gismo;
 class gsOptParamMethod: public gsParamMethod, public gsOptProblem<real_t>{
 public:
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging bnd
+    // FIXIT: implement functionality
     gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
     // design variables for shape optimization tagged.
-    gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers);
+    gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     void setupOptParameters();
@@ -47,12 +48,11 @@ public:
     // Evaluation of gradient of objective.
     // Uses FD as default
     // Should be overloaded in inherited class, if exact gradient is achievable
-    // FIXIT use FD as default
     virtual gsVector<> gradObj() const;
 
     // Evaluation of hessian of objective. Should be overloaded in inherited class
     // FIXIT use FD as default
-    virtual gsMatrix<> hessObj() const {};
+    virtual gsMatrix<> hessObj(gsMatrix<> &hessObjTagged) const {};
 
     // Method overloaded from gsOptProblem<>
     real_t evalObj ( const gsAsConstVector<real_t> & u) const;
@@ -75,7 +75,11 @@ public:
     // Maps a vector from mapper_in indexing, to m_mappers.
     // E.g. used to map gradients with respect to all cps to be respect to free
     // DoFs...
+    // FIXIT: maybe find a more elegant way to handle all of this..
+    //      Maybe always assemble wrt. specific mapper, and hold a permutation
+    //      in a matrix, that we only need to multiply to map...
     gsMatrix<> mapMatrix(gsDofMapper mapper_in, gsMatrix<> mat) const;
+    gsMatrix<> mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> mat) const;
 
     // Maps a gsIpOptSparseMatrix from mapper_in indexing, to m_mappers.
     // E.g. used to map gradients with respect to all cps to be respect to free

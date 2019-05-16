@@ -1,74 +1,44 @@
 #include <gismo.h>
-#include "gsAffineParamMethod.h"
+#include "gsAffineOptParamMethod.h"
 using namespace gismo;
 
-gsAffineOptParamMethod::gsAffineOptParamMethod(gsOptParamMethod* pM): m_pM(pM)
+gsAffineOptParamMethod::gsAffineOptParamMethod(gsOptParamMethod* optParamMethod):
+    gsAffineParamMethod(optParamMethod->mp(),optParamMethod->mappers()),m_optParamMethod(optParamMethod)
 {
-
-  m_obj = m_optParamMethod->evalObj();
-  m_grad = m_optParamMethod->gradObj();
-  m_hess = m_optParamMethod->hessObj();
-
-  m_refFree = getFree();
-  m_refTagged = getTagged();
-
-  // For now we dont have any constraints so the KKT-system is simply the hessian
-  KKTsystem = hess;
-
-  // I problably have to inforce c_tagged = x, to allow change of tagge DoFs...
-
-  rhs.setZero();
-  rhs.segment(0,ndesign) = -grad ;
-
-  solver.compute(KKTsystem);
+    reset(); //Setup the problem with the parametrization hold on m_pM->m_mp as reference
 };
 
-void linearizedOptProblem::reset(){
-  obj = m_problem->evalObj();
-  grad = m_problem->gradientObj();
-  hess = m_problem->hessianObj();
-  refCps = m_problem->getDesignVariables();
+void gsAffineOptParamMethod::reset(){
+    m_obj = m_optParamMethod->evalObj();
+    m_grad = m_optParamMethod->gradObj();
+    m_hess = m_optParamMethod->hessObj(m_hessTagged);
 
-  // The only part of KKTsystem that depends on the reference parametrization are the hessian part
-  KKTsystem.block(0,0,ndesign,ndesign) = hess;
+    m_refFree = getFree();
+    m_refTagged = getTagged();
 
-  // Compute factorization of the new matrix
-  solver.compute(KKTsystem);
+    // For now we dont have any constraints so the KKT-system is simply the hessian
+    m_KKTsystem = m_hess;
 
-  // Similarly rhs depends on grad
-  rhs.segment(0,ndesign) = -grad ;
+    // I problably have to inforce c_tagged = x, to allow change of tagge DoFs...
+
+    m_rhs = -m_grad; // This rhs only works when the tagged has not been changed
+
+    m_solver.compute(m_KKTsystem);
+}
+
+gsVector<> gsAffineOptParamMethod::getUpdate(gsVector<> x){
+    // Setup rhs
+    m_rhs = -m_grad - m_hessTagged*(x-m_refTagged); // This rhs only works when the tagged has not been changed
+
+    // Solve optimality conditions to find an update to the free vars
+    gsVector<> deltaFree = m_solver.solve(m_rhs);
+
+    return m_refFree + deltaFree; // Return the new controlpoints ..
 
 }
 
-gsVector<> linearizedOptProblem::solve(gsVector<> deltaCps){
-
-  // gsInfo << "Linearized obj BEFORE : " << evalObj(0,grad,hess,refCps,refCps) << "\n";
-  // gsInfo << "Obj BEFORE : " << obj << "\n";
-
-  gsVector<> Mrhs;
-  Mrhs.setZero(nz);
-  index_t ind = 0;
-  for(index_t i = 0; i < ndesign; i++){
-      if (diffInBounds[i] == 0){
-        Mrhs(ind) = deltaCps[i];
-        ind++;
-      }
-
-  }
-
-  rhs.segment(ndesign + nconst,nz) = Mrhs;
-  gsVector<> out = solver.solve(rhs);
-
-  return out.segment(0,ndesign);
-  // gsInfo << "Linearized obj AFTER : " << evalObj(0,grad,hess,m_problem->getDesignVariables(),refCps) << "\n";
-  // gsInfo << "Liao obj AFTER : " << m_problem->evalObj() << "\n";
-
-}
-
-void linearizedOptProblem::solveAndUpdate(gsVector<> deltaCps){
-  m_problem->updateDesignVariables(refCps + solve(deltaCps));
-}
-
-real_t linearizedOptProblem::evalObj(real_t obj, gsVector<> grad, gsMatrix<> hess, gsVector<> x, gsVector<> x0){
-  return obj + grad.transpose()*(x-x0) + 0.5*(x-x0).transpose()*hess*(x-x0);
+real_t gsAffineOptParamMethod::evalObj(gsVector<> c, gsVector<> x){
+    return m_obj + m_grad.transpose()*(c-m_refFree) +
+        0.5*(c-m_refFree).transpose()*m_hess*(c-m_refFree) +
+        (x-m_refTagged).transpose()*m_hessTagged*(c-m_refFree);
 }

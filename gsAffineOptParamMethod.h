@@ -3,6 +3,7 @@
 #define GSAFFINEOPTPARAMMETHOD_H
 using namespace gismo;
 
+#include "gsOptParamMethod.h"
 #include "gsAffineParamMethod.h"
 
 // FIXIT: Think of a better name for this class? QuadProg?
@@ -17,9 +18,15 @@ public:
     gsVector<> getUpdate(gsVector<> x);
 
     // Evaluation of affine objective function
-    real_t evalObj(real_t obj, gsVector<> grad, gsMatrix<> hess, gsVector<> x, gsVector<> x0);
+    // c should hold the free cps and x the tagged
+    real_t evalObj(gsVector<> c, gsVector<> x);
+
+    // Update Reference parametrization by first solving m_optParamMethod and then reset
+    void updateAndReset() { m_optParamMethod->update(); reset(); };
 
     // Updates the reference parametrization to the one currently hold in m_problem;
+    // FIXIT:   This should perhaps compute also a new parametrization by calling
+    //          gsOptParamMethod.update();
     void reset();
 
     // Accesors
@@ -37,9 +44,10 @@ protected:
 
     // Entities that define the map
     // grad and hess with respect to free variables
+    real_t m_obj;
     gsVector<> m_grad;
     gsMatrix<> m_hess;
-    real_t obj;
+    gsMatrix<> m_hessTagged; // Holds the second order derivatives wrt free and tagged
 
     // FIXIT: Is there a sparse structure to exploit here?
     // KKT system

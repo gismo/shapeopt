@@ -4,7 +4,17 @@
 using namespace gismo;
 
 gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin,std::vector< gsDofMapper > mappers):
-    m_mp(mpin)
+m_mp(mpin)
+{
+    setMappers(mappers);
+}
+
+gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin): m_mp(mpin), m_mappers(m_mp->targetDim())
+{
+    // FIXIT: implement some default behavior to generate mappers
+}
+
+void gsParamMethod::setMappers(std::vector< gsDofMapper > mappers)
 {
     m_mappers = mappers;
 
@@ -14,32 +24,15 @@ gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin,std::vector< gsDofMapper > map
     n_free = 0;
     n_cps = 0;
     n_tagged = 0;
+    n_flat = 0;
     for(index_t i = 0; i < m_mp->targetDim(); i++){
         n_free += m_mappers[i].freeSize();
         n_cps += m_mappers[i].size();
         n_tagged += m_mappers[i].taggedSize();
 
-        // Set shifts
-        if (i > 0){
-            m_shift_free[i] = m_shift_free[i-1] + m_mappers[i-1].freeSize();
-            m_shift_all[i] = m_shift_all[i-1] + m_mappers[i-1].size();
+        for(index_t p = 0; p < m_mp->nBoxes(); p++){
+            n_flat += m_mp->patch(p).coefsSize();
         }
-    }
-}
-
-gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin): m_mp(mpin), m_mappers(m_mp->targetDim())
-{
-    setupMapper(); // FIXIT should be changed to general setup rather than hardcoded for antenna
-    m_shift_free.setZero(m_mp->targetDim());
-    m_shift_all.setZero(m_mp->targetDim());
-
-    n_free = 0;
-    n_cps = 0;
-    n_tagged = 0;
-    for(index_t i = 0; i < m_mp->targetDim(); i++){
-        n_free += m_mappers[i].freeSize();
-        n_cps += m_mappers[i].size();
-        n_tagged += m_mappers[i].taggedSize();
 
         // Set shifts
         if (i > 0){
@@ -108,65 +101,63 @@ void gsParamMethod::updateTagged(gsVector<> x) const
 
 void gsParamMethod::setupMapper()
 {
-  //FIXIT: Patch 3 is hardcoded in paraOptProblem
+    gsInfo << "\n\nSETUP MAPPER in param method IS CALLED!!\n\n";
 
-  // Get mappers from multibasis with interfaces glued
-  gsMultiBasis<> geoBasis(*m_mp);
-  geoBasis.getMapper(iFace::glue,m_mappers[0],false); // False means that we do not finalize
-  geoBasis.getMapper(iFace::glue,m_mappers[1],false); // False means that we do not finalize
+    // Get mappers from multibasis with interfaces glued
+    gsMultiBasis<> geoBasis(*m_mp);
+    geoBasis.getMapper(iFace::glue,m_mappers[0],false); // False means that we do not finalize
+    geoBasis.getMapper(iFace::glue,m_mappers[1],false); // False means that we do not finalize
 
-  // Fix y coordinate for all boundaries
-  for (index_t i = 0; i < m_mp->nBoundary(); i ++){
-    patchSide ps = m_mp->boundaries()[i];
-    gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
-    // gsInfo << ps << " is fixed in y direction \n\n";
-    // gsInfo << "boundaryDofs on patch " << ps.patch << "\n"<< boundaryDofs << "\n\n";
-    m_mappers[1].markBoundary(ps.patch,boundaryDofs);
+    // Fix y coordinate for all boundaries
+    for (index_t i = 0; i < m_mp->nBoundary(); i ++){
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+        // gsInfo << ps << " is fixed in y direction \n\n";
+        // gsInfo << "boundaryDofs on patch " << ps.patch << "\n"<< boundaryDofs << "\n\n";
+        m_mappers[1].markBoundary(ps.patch,boundaryDofs);
 
-    // FIXIT it is hardcoded that only xcoordinates of top bnd is fixed
-    if (m_mp->nBoxes() > 3){
-        if (ps.patch == 4){
+        if (m_mp->nBoxes() > 3){
+            if (ps.patch == 4){
+                m_mappers[0].markBoundary(ps.patch,boundaryDofs);
+            }
+        } else {
+            // If there is less than 3 patches then all boundaries is fixed
             m_mappers[0].markBoundary(ps.patch,boundaryDofs);
         }
-    } else {
-        // If there is less than 3 patches then all boundaries is fixed
-        m_mappers[0].markBoundary(ps.patch,boundaryDofs);
     }
-  }
 
-  // Fix boundary of the fixedPatch
-  gsMultiPatch<> fixedGeom(m_mp->patch(fixedPatch));
+    // Fix boundary of the fixedPatch
+    gsMultiPatch<> fixedGeom(m_mp->patch(fixedPatch));
 
-  for(index_t i = 0; i < fixedGeom.nBoundary(); i++){
-    patchSide ps = fixedGeom.boundaries()[i];
-    gsVector<unsigned> boundaryDofs = m_mp->basis(fixedPatch).boundary(ps);
-    m_mappers[0].markBoundary(fixedPatch,boundaryDofs); // Mark xcoord of boundaries of fixed patch
-    m_mappers[1].markBoundary(fixedPatch,boundaryDofs); // Mark ycoord of boundaries of
-  }
-
-  // Finalize mappers
-  m_mappers[0].finalize();
-  m_mappers[1].finalize();
-
-  n_controlpoints = m_mappers[0].mapSize();
-  gsInfo << "n cps: " << n_controlpoints << "\n";
-
-  // Tag fixed bnds
-  for(index_t i = 0; i < fixedGeom.nBoundary(); i++){
-    patchSide ps = fixedGeom.boundaries()[i];
-    gsVector<unsigned> boundaryDofs = m_mp->basis(fixedPatch).boundary(ps);
-    for (index_t j = 0; j < boundaryDofs.size(); j ++){
-        m_mappers[0].markTagged(boundaryDofs[j],fixedPatch); // Mark xcoord of boundaries of fixed patch
-        m_mappers[1].markTagged(boundaryDofs[j],fixedPatch); // Mark ycoord of boundaries of
-
+    for(index_t i = 0; i < fixedGeom.nBoundary(); i++){
+        patchSide ps = fixedGeom.boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(fixedPatch).boundary(ps);
+        m_mappers[0].markBoundary(fixedPatch,boundaryDofs); // Mark xcoord of boundaries of fixed patch
+        m_mappers[1].markBoundary(fixedPatch,boundaryDofs); // Mark ycoord of boundaries of
     }
-  }
 
-  // count number of free dofs
-  n_free = 0;
-  for(index_t i = 0; i < m_mp->targetDim(); i++){
-      n_free += m_mappers[i].freeSize();
-  }
+    // Finalize mappers
+    m_mappers[0].finalize();
+    m_mappers[1].finalize();
+
+    gsInfo << "n controlpoints: " << m_mappers[0].mapSize() << "\n";
+
+    // Tag fixed bnds
+    for(index_t i = 0; i < fixedGeom.nBoundary(); i++){
+        patchSide ps = fixedGeom.boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(fixedPatch).boundary(ps);
+        for (index_t j = 0; j < boundaryDofs.size(); j ++){
+            m_mappers[0].markTagged(boundaryDofs[j],fixedPatch); // Mark xcoord of boundaries of fixed patch
+            m_mappers[1].markTagged(boundaryDofs[j],fixedPatch); // Mark ycoord of boundaries of
+
+        }
+    }
+
+    // count number of free dofs
+    n_free = 0;
+    for(index_t i = 0; i < m_mp->targetDim(); i++){
+        n_free += m_mappers[i].freeSize();
+    }
 }
 
 gsVector<> gsParamMethod::getFree() const
@@ -256,12 +247,47 @@ gsVector<> gsParamMethod::getControlPoints(gsVector<> des) const
     return out;
 }
 
+gsVector<> gsParamMethod::getFlat() const
+{
+
+    gsVector<> out(n_flat);
+    index_t j = 0;
+    for ( index_t d = 0; d < m_mp->targetDim(); d++)
+    {
+        for ( index_t p = 0; p < m_mp->nBoxes(); p++ )
+        {
+            for (index_t i = 0; i < m_mp->patch(p).coefsSize(); i++)
+            {
+                out[j] = m_mp->patch(p).coef(i,d);
+                j++;
+            }
+        }
+    }
+    return out;
+}
+
+void gsParamMethod::updateFlat(gsVector<> flat) const
+{
+    index_t j = 0;
+    for ( index_t d = 0; d < m_mp->targetDim(); d++)
+    {
+        for ( index_t p = 0; m_mp->nBoxes(); p++ )
+        {
+            for (index_t i = 0; i < m_mp->patch(p).coefsSize(); i++)
+            {
+                m_mp->patch(p).coef(i,d) = flat[j];
+                j++;
+            }
+        }
+    }
+}
+
 void gsParamMethod::updateControlPoints(gsVector<> cps)
 {
     for(index_t p = 0; p < m_mp->nBoxes(); p++){
         for(index_t i = 0; i < m_mp->patch(i).coefsSize(); i++){
             for(index_t d = 0; d < m_mp->targetDim(); d++){
-               index_t  ii = m_mappers[d].index(i,p) + m_shift_all[d];
+                index_t  ii = m_mappers[d].index(i,p) + m_shift_all[d];
                 m_mp->patch(p).coef(i,d) = cps[ii];
             }
         }

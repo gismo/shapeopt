@@ -12,7 +12,11 @@
 #include "gsParamMethod.h"
 #include "gsSpringMethod.h"
 #include "gsModLiao.h"
+#include "gsAffineOptParamMethod.h"
 #include "gsIpOptSparseMatrix.h"
+#include "gsShapeOptProblem.h"
+#include "gsOptAntenna.h"
+#include "gsShapeOptLog.h"
 
 using namespace gismo;
 
@@ -132,7 +136,9 @@ void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
 void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
 	real_t liao = lOP.evalObj();
 	gsVector<> grad = lOP.gradObj();
-	gsMatrix<> hess = lOP.hessObj();
+
+    gsMatrix<> tmp;
+	gsMatrix<> hess = lOP.hessObj(tmp);
 
 	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
 	// gsInfo << "\n" << grad << "\n";
@@ -293,71 +299,69 @@ void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
 //
 // }
 //
-// void convergenceTestOfJacobian(shapeOptProblem &sOP){
-// 	// std::srand((unsigned int) std::time(0));
-// 	gsVector<> ran;
-// 	ran.setRandom(sOP.numDesignVars());
-//
-// 	gsVector<> des = sOP.getDesignVariables();
-// 	gsInfo << "\n Size of design vector : " << des.size() << "\n";
-//
-// 	sOP.updateDesignVariables(des);
-// 	real_t obj = sOP.evalObj();
-// 	gsVector<> grad = sOP.gradientObj();
-//
-// 	index_t beg = 0;
-// 	index_t n = 20;
-// 	gsVector<> Eps(n);
-// 	gsVector<> Error0(n);
-// 	gsVector<> Error1(n);
-//
-// 	for(index_t i = 0; i < n; i++){
-// 		// Generate pertubation
-// 		real_t eps = pow(2,-beg-i);
-// 		Eps[i] = eps;
-//
-// 		gsVector<> perturp;
-// 		perturp.setZero(sOP.numDesignVars());
-//
-// 		index_t k = sOP.numDesignVars()/8;
-// 		for(index_t i = 0; i < sOP.numDesignVars(); i++){
-// 			if(i != 0 && i != k && i != 2*k && i != 3*k ){
-// 				perturp[i] = ran[i];
-// 			}
-// 		}
-//
-// 		perturp /= perturp.norm();
-//
-// 		perturp *= eps;
-//
-// 		gsVector<> newDes = des + perturp;
-//
-// 		// sOP.resetParametrizationToReference();
-// 		sOP.updateDesignVariables(newDes);
-// 		if (i == 1) sOP.writeToFile(sOP.dJC.getDesignVariables(),"cpsPerturb.txt");
-//
-// 		real_t newObj = sOP.evalObj();
-// 		real_t guess0 = obj;
-// 		real_t guess1 = obj + grad.transpose()*perturp;
-//
-// 		gsInfo << guess0 <<" " << guess1 << " " << newObj << "\n";
-//
-// 		real_t error0 = std::abs(guess0 - newObj);
-// 		real_t error1 = std::abs(guess1 - newObj);
-//
-// 		Error0[i] = error0;
-// 		Error1[i] = error1;
-// 	}
-//
-// 	gsVector<> rate;
-// 	rate.setZero(n);
-// 	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
-// 	gsMatrix<> disp(n,4);
-// 	disp << Eps,Error0,Error1,rate;
-// 	gsInfo << "\neps \tErr0 \tErr1 \trate";
-// 	gsInfo << disp << "\n";
-//
-// }
+void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
+	// std::srand((unsigned int) std::time(0));
+	gsVector<> ran;
+	ran.setRandom(sOP.numDesignVars());
+
+	gsVector<> des = sOP.getDesignVariables();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	sOP.updateDesignVariables(des);
+	real_t obj = sOP.evalObj();
+	gsVector<> grad = sOP.gradObj();
+
+	index_t beg = 0;
+	index_t n = 20;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(sOP.numDesignVars());
+
+		index_t k = sOP.numDesignVars()/8;
+		for(index_t i = 0; i < sOP.numDesignVars(); i++){
+			perturp[i] = ran[i];
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+		// sOP.resetParametrizationToReference();
+		sOP.updateDesignVariables(newDes);
+		// if (i == 1) sOP.writeToFile(sOP.getFlat(),"cpsPerturb.txt");
+
+		real_t newObj = sOP.evalObj();
+		real_t guess0 = obj;
+		real_t guess1 = obj + grad.transpose()*perturp;
+
+		gsInfo << guess0 <<" " << guess1 << " " << newObj << "\n";
+
+		real_t error0 = std::abs(guess0 - newObj);
+		real_t error1 = std::abs(guess1 - newObj);
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,4);
+	disp << Eps,Error0,Error1,rate;
+	gsInfo << "\neps \tErr0 \tErr1 \trate";
+	gsInfo << disp << "\n";
+
+}
 //
 // void convergenceTestOfParaJacobianToFile(paraOptProblem &lOP, std::string name){
 //
@@ -1310,7 +1314,7 @@ bool plotDesign = false;
 bool plotMagnitude = false;
 bool plotSolution = false;
 bool saveCps = false;
-bool useDJC = false;
+bool useDJC = true;
 
 int quA = 1;
 int quB = 1;
@@ -1330,7 +1334,7 @@ cmd.addInt("B", "quB", "quB", quB);
 cmd.addString("o","output","Name of the output folder (relative to BASE_FOLDER)",output);
 
 cmd.addSwitch("plot", "Create a ParaView visualization file of designs", plotDesign);
-cmd.addSwitch("dJC", "Use det jac constraints", useDJC);
+cmd.addSwitch("noDJC", "Dont use det jac constraints", useDJC);
 cmd.addSwitch("plotmag", "Create a ParaView visualization file of magnitude (obj function)", plotMagnitude);
 cmd.addSwitch("plotsol", "Create a ParaView visualization file of solution (real and imag)", plotSolution);
 cmd.addSwitch("savecps", "save controlpoinst for design during optimization", saveCps);
@@ -1369,20 +1373,48 @@ gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 
 // gsInfo << "patch 0: " << patches.patch(0) << "\n";
 
+// gsModLiao modLiao(&patches,useDJC);
+gsShapeOptLog slog("/../results/test/");
+gsOptAntenna optA(&patches,numRefine,&slog);
+
+
+// optA.solve();
+optA.runOptimization(maxiter);
+// gsInfo << "obj = " << optA.evalObj() << "\n";
+
+// convergenceTestOfJacobian(optA);
+
 // gsDetJacConstraint dJC(&patches);
 // gsInfo << "det J: " << dJC.evalCon().maxCoeff();
 //
-gsModLiao modLiao(&patches,useDJC);
+// gsModLiao modLiao(&patches,useDJC);
 // modLiao.print();
 // modLiao.update();
 // convergenceTestOfDetJJacobian(modLiao);
-convergenceTestOfParaJacobian(modLiao);
+// convergenceTestOfParaJacobian(modLiao);
+
+// modLiao.solve();
+// gsWriteParaview(patches,BASE_FOLDER "/../results/modL");
+
+// gsAffineOptParamMethod affModLiao(&modLiao);
+// affModLiao.computeMap();
+// affModLiao.update();
+// gsVector<> ran;
+// ran.setRandom(modLiao.n_tagged);
+// ran *= 0.05;
+// gsInfo << ran;
+// affModLiao.update(modLiao.getTagged() + ran);
+// gsWriteParaview(patches,BASE_FOLDER "/../results/affModL");
+
+// gsMatrix<> hOT;
+// modLiao.hessObj(hOT);
+// gsDebugVar(hOT.rows());
+// gsDebugVar(hOT.cols());
 //
 //
 // sM.updateTagged(sM.getTagged() + pert)
 // sM.update();
 // sM.updateDesignVariables(des);
-gsWriteParaview(patches,BASE_FOLDER "/../results/modL");
 // gsInfo << "det J: " << dJC.evalCon().maxCoeff();
 
 // gsInfo << "\n ==== DONE ==== \n";

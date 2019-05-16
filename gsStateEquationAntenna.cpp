@@ -1,9 +1,9 @@
 #include <gismo.h>
-#include "stateEquationAntenna.h"
+#include "gsStateEquationAntenna.h"
 using namespace gismo;
 
 
-gsMatrix<> stateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
+gsMatrix<> gsStateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
 	// gsInfo << "getDerivativeOfRhsZeroBC\n" << std::flush;
 	// Method to generate system matrices and rhs
 	// Input 0 for real part of matrix, and 1 for imaginary part of matrix
@@ -114,14 +114,14 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
 
 }
 
-gsMatrix<> stateEquationAntenna::getRhsZeroBC(index_t realOrImag){
+gsMatrix<> gsStateEquationAntenna::getRhsZeroBC(index_t realOrImag){
 	gsSparseMatrix<> mat;
 	gsVector<> rhs;
 	getTerm(realOrImag,mat,rhs);
 	return rhs;
 };
 //
-gsMatrix<> stateEquationAntenna::getDerivativeOfAuPart2(index_t realOrImag, gsMultiPatch<> sol){
+gsMatrix<> gsStateEquationAntenna::getDerivativeOfAuPart2(index_t realOrImag, gsMultiPatch<> sol){
     // gsInfo << "f = " << *f << "\n" << std::flush;
     // gsInfo << "ms = " << *ms << "\n" << std::flush;
 
@@ -239,7 +239,7 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfAuPart2(index_t realOrImag, gsMu
 
 }
 //
-// gsMatrix<> stateEquationAntenna::getKu(gsMultiPatch<> sol){
+// gsMatrix<> gsStateEquationAntenna::getKu(gsMultiPatch<> sol){
 // 	// gsInfo << "f = " << *f << "\n" << std::flush;
 // 	// gsInfo << "ms = " << *ms << "\n" << std::flush;
 //
@@ -272,7 +272,7 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfAuPart2(index_t realOrImag, gsMu
 //
 // }
 //
-gsMatrix<> stateEquationAntenna::getDerivativeOfU(){
+gsMatrix<> gsStateEquationAntenna::getDerivativeOfU(){
 	// gsInfo << "Get derivative of u\n";
 	// gsInfo << "Get sol\n";
 	gsMultiPatch<> u_real, u_imag;
@@ -302,7 +302,7 @@ gsMatrix<> stateEquationAntenna::getDerivativeOfU(){
 }
 
 // Get the rhs of the sytem you need to solve to obtain dudc, without solving
-gsMatrix<> stateEquationAntenna::getDerivativeWithoutSolving(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag){
+gsMatrix<> gsStateEquationAntenna::getDerivativeWithoutSolving(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag){
 	// gsInfo << "Get derivative of u\n";
 	// gsInfo << "Get sol\n";
 
@@ -328,11 +328,11 @@ gsMatrix<> stateEquationAntenna::getDerivativeWithoutSolving(gsMultiPatch<> &u_r
 }
 
 // Assumes the system is already factorized, e.g. if you have called getDerivativeWithoutSolving firts;
-gsVector<> stateEquationAntenna::solveAdjoint(gsVector<> &rhs){
+gsVector<> gsStateEquationAntenna::solveAdjoint(gsVector<> &rhs){
 	return solver.solve(rhs);
 }
 //
-// void stateEquationAntenna::plotMesh(gsMatrix<> solVector){
+// void gsStateEquationAntenna::plotMesh(gsMatrix<> solVector){
 //
 //
 //   // gsMultiBasis<> dbasis(*mp);
@@ -371,23 +371,23 @@ gsVector<> stateEquationAntenna::solveAdjoint(gsVector<> &rhs){
 //
 // }
 //
-void stateEquationAntenna::printMatSize(gsMatrix<> mat, std::string name){
+void gsStateEquationAntenna::printMatSize(gsMatrix<> mat, std::string name){
 	gsInfo << "Size of " << name << ":\t (" << mat.rows() << ", " << mat.cols() << ")\n";
 }
 //
-// void stateEquationAntenna::getFandMS(gsFunctionExpr<> *&fin, gsFunctionExpr<> *&msin, gsFunctionExpr<> *&df_dxin, gsFunctionExpr<> *&df_dyin){
+// void gsStateEquationAntenna::getFandMS(gsFunctionExpr<> *&fin, gsFunctionExpr<> *&msin, gsFunctionExpr<> *&df_dxin, gsFunctionExpr<> *&df_dyin){
 // 	fin = &f;
 // 	msin = &ms;
 // 	df_dxin = &df_dx;
 // 	df_dyin= &df_dy;
 // }
 //
-// void stateEquationAntenna::getMSDerivatives(gsFunctionExpr<> *&dms_dxin, gsFunctionExpr<> *&dms_dyin){
+// void gsStateEquationAntenna::getMSDerivatives(gsFunctionExpr<> *&dms_dxin, gsFunctionExpr<> *&dms_dyin){
 // 	dms_dxin = &dms_dx;
 // 	dms_dyin = &dms_dy;
 // }
 //
-void stateEquationAntenna::plotSolution(gsMultiPatch<> &sol, std::string name){
+void gsStateEquationAntenna::plotSolution(gsMultiPatch<> &sol, std::string name){
 	gsExprAssembler<> A(1,1);
 	gsExprEvaluator<> ev(A);
   A.setIntegrationElements(dbasis);
@@ -401,14 +401,14 @@ void stateEquationAntenna::plotSolution(gsMultiPatch<> &sol, std::string name){
 	ev.writeParaview( u_sol   , G, name);
 }
 
-void stateEquationAntenna::plotSolution(std::string name){
+void gsStateEquationAntenna::plotSolution(std::string name){
 	gsMultiPatch<> ur,ui;
 	solve(ur,ui);
 	plotSolution(ur,name + "_re");
 	plotSolution(ui,name + "_im");
 }
 
-void stateEquationAntenna::plotMagnitude(std::string name){
+void gsStateEquationAntenna::plotMagnitude(std::string name){
 	gsMultiPatch<> u_real, u_imag;
 	solve(u_real,u_imag);
 
@@ -426,7 +426,7 @@ void stateEquationAntenna::plotMagnitude(std::string name){
 	ev.writeParaview( u_re*u_re + u_im*u_im   , G, name);
 }
 
-gsMultiPatch<> stateEquationAntenna::getPieceWiseFunctionOnPatch(index_t nBoxes, index_t patch, real_t val_on_patch, real_t val_elsewhere){
+gsMultiPatch<> gsStateEquationAntenna::getPieceWiseFunctionOnPatch(index_t nBoxes, index_t patch, real_t val_on_patch, real_t val_elsewhere){
 	gsKnotVector<> u_knots(0,1,0,1);
 	gsKnotVector<> v_knots(0,1,0,1);
 
@@ -454,7 +454,7 @@ gsMultiPatch<> stateEquationAntenna::getPieceWiseFunctionOnPatch(index_t nBoxes,
 	return pw;
 }
 
-void stateEquationAntenna::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gsVector<> &rhs){
+void gsStateEquationAntenna::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gsVector<> &rhs){
 	// Method to generate system matrices and rhs
 	// Input 0 for real part of matrix, and 1 for imaginary part of matrix
 
@@ -516,7 +516,7 @@ void stateEquationAntenna::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gs
 	rhs = A.rhs();
 }
 
-void stateEquationAntenna::getSystem(gsSparseMatrix<> &mat, gsVector<> &rhs){
+void gsStateEquationAntenna::getSystem(gsSparseMatrix<> &mat, gsVector<> &rhs){
 	gsSparseMatrix<> matReal,matImag;
 	gsVector<> rhsReal, rhsImag;
 
@@ -571,7 +571,7 @@ void stateEquationAntenna::getSystem(gsSparseMatrix<> &mat, gsVector<> &rhs){
 
 }
 
-void stateEquationAntenna::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag){
+void gsStateEquationAntenna::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag){
 		gsSparseMatrix<> mat;
 		gsVector<> rhs;
 		getSystem(mat,rhs);
@@ -612,7 +612,7 @@ void stateEquationAntenna::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag)
 		u_sol_imag.extract(u_imag);
 }
 
-gsMatrix<> stateEquationAntenna::getU(index_t realOrImag){
+gsMatrix<> gsStateEquationAntenna::getU(index_t realOrImag){
 		gsSparseMatrix<> mat;
 		gsVector<> rhs;
 		getSystem(mat,rhs);
@@ -633,7 +633,7 @@ gsMatrix<> stateEquationAntenna::getU(index_t realOrImag){
 		}
 }
 
-gsMatrix<> stateEquationAntenna::getU(){
+gsMatrix<> gsStateEquationAntenna::getU(){
 		gsSparseMatrix<> mat;
 		gsVector<> rhs;
 		getSystem(mat,rhs);
@@ -645,7 +645,7 @@ gsMatrix<> stateEquationAntenna::getU(){
 		return solVector;
 }
 
-gsMatrix<> stateEquationAntenna::getAu(index_t realOrImag, gsMatrix<> U){
+gsMatrix<> gsStateEquationAntenna::getAu(index_t realOrImag, gsMatrix<> U){
 		gsSparseMatrix<> mat;
 		gsVector<> rhs;
 		getSystem(mat,rhs);
@@ -659,7 +659,7 @@ gsMatrix<> stateEquationAntenna::getAu(index_t realOrImag, gsMatrix<> U){
 		}
 }
 
-void stateEquationAntenna::assembleAndSolve(){
+void gsStateEquationAntenna::assembleAndSolve(){
 		gsSparseMatrix<> mat;
 		gsVector<> rhs;
 		getSystem(mat,rhs);
@@ -692,7 +692,7 @@ void stateEquationAntenna::assembleAndSolve(){
 
 	}
 
-void stateEquationAntenna::printConstants(){
+void gsStateEquationAntenna::printConstants(){
 		gsInfo << "\n\n CONSTANTS: \n\n";
 
 	  gsInfo << "r_t = " << pde_r_t << "\n";
@@ -724,7 +724,7 @@ void stateEquationAntenna::printConstants(){
 
 }
 
-gsMatrix<> stateEquationAntenna::getDerivativeOfAuPart1(index_t realOrImag, gsMultiPatch<> sol){
+gsMatrix<> gsStateEquationAntenna::getDerivativeOfAuPart1(index_t realOrImag, gsMultiPatch<> sol){
     // gsInfo << "f = " << *f << "\n" << std::flush;
     // gsInfo << "ms = " << *ms << "\n" << std::flush;
 

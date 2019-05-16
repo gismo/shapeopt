@@ -58,7 +58,7 @@ public:
     // for extracting DoFs later
     gsDofMapper m_space_mapper;
 
-    real_t m_eps;
+    real_t m_eps = 0.001;
 
     gsVector<gsSparseSolver<>::LU> m_solversMassMatrix;
     gsVector<bool> m_areSolversSetup;

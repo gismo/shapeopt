@@ -10,14 +10,13 @@ gsAffineParamMethod::gsAffineParamMethod(gsMultiPatch<>* mpin): gsParamMethod(mp
 gsAffineParamMethod::gsAffineParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers):
         gsParamMethod(mpin, mappers)
 {
-    computeMap();
+    // computeMap();
 };
 
-// FIXIT:   Is there any problem with linearizing around 0?
-//          Does spring method work for this weird parametrization??
-//          Does linearized method work for this weird parametrization??
-//              In principle it shouldn't matter since we dont want to find good parametrizations
-//              but just map out the action of the affine function...
+// We linearize around 0 to obtain an affine map. The method doesnt make sense at 0,
+// since all cps of patch will be 0.
+// But it doesnt matter since we dont want to find good parametrizations at 0
+// but just map out the affine function...
 void gsAffineParamMethod::computeMap()
 {
     // Compute b
@@ -53,6 +52,8 @@ void gsAffineParamMethod::update()
     updateFree(free_cps);
 }
 
+// FIXIT.   Compute map has to be called before this method..
+//          can we fix this? or at least
 gsMatrix<> gsAffineParamMethod::jacobUpdate(gsVector<> x)
 {
     // result doesnt depend on x..

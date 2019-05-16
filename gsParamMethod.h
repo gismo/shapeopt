@@ -26,18 +26,28 @@ public:
   // Constructs from list of mappers
   gsParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers);
 
+  // Sets the mappers and (re-)computes n_free, n_tagged, n_cps, and shifts
+  void setMappers(std::vector< gsDofMapper > mappers);
+
+  // Methods to reset the parametrization method
+  // Currently only used for the gsAffineOptParamMethod, but it might be needed in other classes as well.
+  // The default behaviour is to do nothing.
+  virtual void reset(){};
+
+  virtual void updateAndReset() { GISMO_NO_IMPLEMENTATION; };
+
   // FIXIT: Think about which one of these functions is the best to have virtual...
   //        i.e. one could be implemented generic by the other one...
   // Method to update inner controlpoints. Should be implemented in inherited classes
-  virtual void update() = 0;
+  virtual void update(){ GISMO_NO_IMPLEMENTATION; };
 
   // Method to update inner controlpoints, given tagged Dofs (x).
   // Should be implemented in inherited classes
-  virtual void update(gsVector<> x) = 0;
+  virtual void update(gsVector<> x){ GISMO_NO_IMPLEMENTATION; };
 
   // Method to get the jacobian of the update (free Dofs) with respect to x (the tagged Dofs)
   // Should be implemented in inherited classes
-  virtual gsMatrix<> jacobUpdate(gsVector<> x) = 0;
+  virtual gsMatrix<> jacobUpdate(gsVector<> x){ GISMO_NO_IMPLEMENTATION; };
 
   // Get a vector of the tagged control points.
   gsVector<> getTagged();
@@ -64,8 +74,22 @@ public:
   // OBS: also updates eliminated DoFs...
   void updateControlPoints(gsVector<> cps);
 
+  // Get the vector of all control points in flat layout (one patch at a time)
+  gsVector<> getFlat() const;
+
+  // Update from vector of all control points in flat layout (one patch at a time)
+  void updateFlat(gsVector<> flat) const;
+
   // Mappers for antenna problem, FIXIT: should be moved to gsOptAntenna at some point.
-  void setupMapper();
+  virtual void setupMapper();
+
+  // Method overloaded by gsAffineParamMethod
+  virtual void computeMap(){ GISMO_NO_IMPLEMENTATION; };
+
+  // Accessors
+  std::vector< gsDofMapper > mappers() { return m_mappers; };
+  gsMultiPatch<>* mp() { return m_mp; };
+
 
 
 public:
@@ -78,8 +102,9 @@ public:
 
   index_t n_free; // sum over coordinates
   index_t n_cps; // sum over coordinates
+  index_t n_flat; // sum over coordinates
   index_t n_tagged; // sum over coordinates
-  index_t n_controlpoints;
+  // index_t n_controlpoints;
   index_t fixedPatch = 3; // FIXIT: Should be moved to gsOptAntenna.
 
 };
