@@ -108,6 +108,7 @@ public:
     std::vector< gsDofMapper > m_mappers; // Mapper for each coordinate
 
     index_t n_free;
+    index_t n_flat;
     index_t n_tagged;
     index_t n_cps;
 

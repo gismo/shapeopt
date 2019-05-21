@@ -9,13 +9,16 @@ gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog):
     m_mappers(mp->targetDim()),
     m_log(slog)
 {
+    gsInfo << "\n Constructor 1 \n";
 };
 
 // Implement
 gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog):
     m_mp(mp), m_mappers(mappers), m_dJC(m_mp), m_log(slog)
 {
+    gsInfo << "\n Constructor 2 \n";
     n_free = m_paramMethod->n_free;
+    n_flat = m_paramMethod->n_flat;
     n_tagged = m_paramMethod->n_tagged;
     n_cps = m_paramMethod->n_cps;
     setupOptParameters();
@@ -212,6 +215,7 @@ void gsShapeOptProblem::runOptimization(index_t maxiter){
     *m_log << "N.o. cps: " << n_cps << "\n";
     *m_log << "N.o. free cps: " << n_free<< "\n";
     *m_log << "N.o. tagged cps: " << n_tagged << "\n";
+    *m_log << "N.o. flat cps: " << n_flat << "\n";
     // gsInfo << "DoFs for analysis: " << m_stateEq.dbasis.size() << "\n";
 
     counter2 = 0;
@@ -233,17 +237,27 @@ void gsShapeOptProblem::runOptimization(index_t maxiter){
         // FIXIT: log whether param was succesful
         *m_log << " Objective function after updating: " << evalObj() << "\n";
         *m_log << " Min d after updating: " << -m_dJC.evalCon().maxCoeff() << "\n\n";
-        counter1 += 10; // Add 10 to the interation counter to indicate new parametrization
+
+        std::string nameAU = "cps_afterUpdate";
+        m_log->saveVec(getFlat(),nameAU ,counter2);
+
+        gsMultiPatch<> dJ = m_dJC.getDetJ();
+        std::string namedj = "detJ";
+        m_log->plotMultiPatchOnGeometry(*m_mp,dJ,namedj,counter2);
+
+        namedj = "detJ_act";
+        m_log->plotActiveMultiPatchOnGeometry(*m_mp,dJ,m_dJC.eps(),namedj,counter2);
 
         // Solve the current optimization problem
         solve();
 
-        counter2++;
         if (m_log->plotDesign()){
             // Plot m_mp with name design_counter1.pvd
             std::string name = "design";
             m_log->plotInParaview(*m_mp,name,counter2);
         }
+
+        counter2++;
 
         // Check if parametrization is good (larger than double of m_eps)
         // real_t minD = -m_dJC.evalCon().maxCoeff();
@@ -258,7 +272,8 @@ void gsShapeOptProblem::runOptimization(index_t maxiter){
 bool gsShapeOptProblem::intermediateCallback() {
     if (m_log->saveCps()){
         std::string name = "cps";
-        m_log->saveVec(getFlat(),name,counter2,counter1);
+        m_log->saveVec(getFlat(),name,counter2,counter1++);
+        m_log->logObj(evalObj()); // Recalculated, is there a better way?
     }
     return true;
 }

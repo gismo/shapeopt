@@ -2,24 +2,32 @@
 #include "gsOptAntenna.h"
 
 // Implement
-gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog): gsShapeOptProblem(mp,slog), m_stateEq(mp,numRefine)
+gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB):
+    gsShapeOptProblem(mp,slog), m_stateEq(mp,numRefine)
 {
     setupMappers();
 
     // Allocate parametrization method
-    if (false){
+    if (param == 0){
         m_paramMethod = new gsSpringMethod(m_mp,m_mappers);
         m_paramMethod->computeMap();
-    } else {
+    } else if (param == 1) {
         gsModLiao *opt_param = new gsModLiao(m_mp,m_mappers,true);
+        opt_param->setQuad(quA,quB);
         m_paramMethod = new gsAffineOptParamMethod(opt_param);
-        // opt_param->update();
-        // m_paramMethod->reset();
         m_paramMethod->computeMap();
+    } else if (param == 2) {
+        gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,true);
+        opt_param->setQuad(quA,quB);
+        m_paramMethod = new gsAffineOptParamMethod(opt_param);
+        m_paramMethod->computeMap();
+    } else{
+        GISMO_ERROR("Param value is not 0 or 1 or 2... wrong input..\n");
     }
 
     // Copy some data from m_paramMethod for ease of use
     n_free = m_paramMethod->n_free;
+    n_flat = m_paramMethod->n_flat;
     n_tagged = m_paramMethod->n_tagged;
     n_cps = m_paramMethod->n_cps;
 
@@ -69,8 +77,8 @@ real_t gsOptAntenna::evalObj() const {
     gsExprEvaluator<> ev(A);
 
     gsOptionList opts = A.options();
-    opts.setInt("quB",20);
-    opts.setReal("quA",20);
+    opts.setInt("quB",20); // FIXIT lower no points
+    opts.setReal("quA",20); // FIXIT lower no points
     A.setOptions(opts);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;

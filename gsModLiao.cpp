@@ -8,6 +8,9 @@ real_t gsModLiao::evalObj() const {
     A.setIntegrationElements(dbasis);
     gsExprEvaluator<> ev(A);
 
+    ev.options().setInt("quB",m_quB);
+    ev.options().setReal("quA",m_quA);
+
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
     typedef gsExprAssembler<>::space       space;
@@ -39,6 +42,9 @@ gsVector<> gsModLiao::gradObj() const{
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(dbasis);
     gsExprEvaluator<> ev(A);
+
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -93,6 +99,9 @@ gsMatrix<> gsModLiao::hessObj(gsMatrix<> &hessObjTagged) const{
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(dbasis);
     gsExprEvaluator<> ev(A);
+
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;

@@ -93,8 +93,6 @@ void gsOptParamMethod::computeJacStructure()
     // Use the sparsity provided by gsDetJacConstraint m_dJC
     if (use_detJacConstraint){
         gsIpOptSparseMatrix J = mapMatrix(m_dJC.space_mapper(),m_dJC.getJacobian());
-        gsDebugVar(J.nrows());
-        gsDebugVar(J.ncols());
 
         m_numConJacNonZero = J.nnz();
         m_conJacRows = J.rows();

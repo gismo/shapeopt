@@ -48,7 +48,12 @@ public:
 
     // Accessors
     index_t numConstraints(){ return m_size; };
+    real_t eps(){ return m_eps; };
 
+    // Get det J as a multipatch
+    gsMultiPatch<> getDetJ();
+
+    // Plot det J in paraview with filename "name"
     void plotDetJ(std::string name);
 public:
     gsMultiPatch<>* m_mp;

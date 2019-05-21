@@ -32,6 +32,8 @@ public:
     gsShapeOptLog& operator << (index_t i);
     gsShapeOptLog& operator << (real_t r);
 
+    void logObj(real_t obj); // Logs the objective value
+
     // Deletes what is already in the log
     void resetLog();
 
@@ -53,6 +55,33 @@ public:
     // Write gsMultiPatch to ParaView, with name concatenated with two indicies
     void plotInParaview(gsMultiPatch<> &mp, std::string &name, index_t i, index_t j);
 
+    // Write gsMultiPatch to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    void plotMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> &fun, std::string &name);
+
+    // Write gsMultiPatch to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    // name concatenated with two indicies
+    void plotMultiPatchOnGeometry(gsMultiPatch<> &mp,  gsMultiPatch<> &fun, std::string &name, index_t i);
+
+    // Write the sign of a gsMultiPatch to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    void plotSignMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> fun, std::string &name);
+
+    // Write the sign of a gsMultiPatch to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    // name concatenated with two indicies
+    void plotSignMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> fun, std::string &name, index_t i);
+
+    // Write the values of a specific value of a gsMultiPatch to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    void plotActiveMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> fun, real_t val, std::string &name);
+
+    // Write the sign of a gsMultiPatch to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    // name concatenated with two indicies
+    void plotActiveMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> fun, real_t val, std::string &name, index_t i);
+
     // Accessors
     bool saveCps() { return m_saveCps; };
     bool plotDesign() { return m_plotDesign; };
@@ -67,6 +96,7 @@ public:
     std::string m_output; // The folder where to output to
 
     std::string m_logName = "log.txt"; // The name of the log file that the operators << log to
+    std::string m_logObjName = "obj.txt"; // The name of the log file for objective function
 
 
 };

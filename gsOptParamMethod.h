@@ -89,11 +89,16 @@ public:
     // Method to print optimization parameters
     void print();
 
+    // set quadrature parameters
+    void setQuad(real_t quA, index_t quB){ m_quA = quA, m_quB = quB; };
+
 public:
     bool use_detJacConstraint = false;
     mutable gsDetJacConstraint m_dJC;
 
     // FIXIT: should we add control over n.o. quadrature points, e.g. quA and quB?
+    real_t m_quA = 1;
+    real_t m_quB = 1;
 };
 
 #endif //GSOPTPARAMMETHOD_H

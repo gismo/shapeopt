@@ -271,7 +271,7 @@ void gsParamMethod::updateFlat(gsVector<> flat) const
     index_t j = 0;
     for ( index_t d = 0; d < m_mp->targetDim(); d++)
     {
-        for ( index_t p = 0; m_mp->nBoxes(); p++ )
+        for ( index_t p = 0; p < m_mp->nBoxes(); p++ )
         {
             for (index_t i = 0; i < m_mp->patch(p).coefsSize(); i++)
             {

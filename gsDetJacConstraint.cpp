@@ -4,7 +4,7 @@
 using namespace gismo;
 
 gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin): m_mp(mpin), m_detJacBasis(*m_mp),
-        m_solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes()){
+    m_solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes()){
     for (index_t i = 0; i < m_mp->nBoxes(); i++){
         m_areSolversSetup[i] = false;
     }
@@ -80,11 +80,12 @@ gsVector<> gsDetJacConstraint::evalCon(){
         gsMatrix<> solVector;
         solution u_sol = A.getSolution(u, solVector);
 
-        // gsJacDetField<real_t> jacDetField(mp->patch(i));
+        // gsJacDetField<real_t> jacDetField(singlePatch);
         // variable detJ = ev.getVariable(jacDetField);
         // A.assemble(u*detJ);
 
-        geometryMap G = A.getMap(m_mp->patch(i));
+        gsMultiPatch<> singlePatch(m_mp->patch(i));
+        geometryMap G = A.getMap(singlePatch);
         A.assemble(u*jac(G).det());
 
         solVector = m_solversMassMatrix[i].solve(A.rhs());
@@ -191,52 +192,70 @@ gsVector<> gsDetJacConstraint::getLowerBounds(){
     return out;
 }
 
+gsMultiPatch<> gsDetJacConstraint::getDetJ(){
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    gsExprAssembler<> A(1,1);
+
+    // Elements used for numerical integration
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
+
+    space u = A.getSpace(m_detJacBasis);
+
+    geometryMap G = A.getMap(*m_mp);
+
+    A.initSystem();
+    A.assemble(u*u.tr());
+    gsSparseSolver<>::CGDiagonal solver;
+    solver.compute(A.matrix());
+
+    gsMatrix<> solVector;
+    solution u_sol = A.getSolution(u, solVector);
+
+    A.assemble(u*jac(G).det());
+
+    solVector = solver.solve(A.rhs());
+
+    // for (index_t i = 0; i < solVector.size(); i++){
+    //     if (solVector(i,0) > 0){
+    //       gsInfo << "\n i = " << i << "is a problematic point...\n";
+    //       solVector(i,0) = 1;
+    //   } else {
+    //       solVector(i,0) = 0;
+    //   }
+    // }
+
+    gsMultiPatch<> dJ;
+    u_sol.extract(dJ);
+    return dJ;
+}
+
 void gsDetJacConstraint::plotDetJ(std::string name){
-  // gsInfo << "getDvectors\n" << std::flush;
-  //gsInfo<<"Active options:\n"<< A.options() <<"\n";
-  typedef gsExprAssembler<>::geometryMap geometryMap;
-  typedef gsExprAssembler<>::variable    variable;
-  typedef gsExprAssembler<>::space       space;
-  typedef gsExprAssembler<>::solution    solution;
+    gsMultiPatch<> dJ = getDetJ();
 
-  gsExprAssembler<> A(1,1);
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
 
-  // Elements used for numerical integration
-  A.setIntegrationElements(m_detJacBasis);
-  gsExprEvaluator<> ev(A);
+    gsExprAssembler<> A(1,1);
 
-  space u = A.getSpace(m_detJacBasis);
+    // Elements used for numerical integration
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
 
-  geometryMap G = A.getMap(*m_mp);
+    space u = A.getSpace(m_detJacBasis);
 
-  A.initSystem();
-  A.assemble(u*u.tr());
-  gsSparseSolver<>::CGDiagonal solver;
-  solver.compute(A.matrix());
+    geometryMap G = A.getMap(*m_mp);
 
-  gsMatrix<> solVector;
-  solution u_sol = A.getSolution(u, solVector);
+    variable out = A.getCoeff(dJ);
 
-  A.assemble(u*jac(G).det());
-
-  solVector = solver.solve(A.rhs());
-
-  // for (index_t i = 0; i < solVector.size(); i++){
-  //     if (solVector(i,0) > 0){
-  //       gsInfo << "\n i = " << i << "is a problematic point...\n";
-  //       solVector(i,0) = 1;
-  //   } else {
-  //       solVector(i,0) = 0;
-  //   }
-  // }
-
-  gsMultiPatch<> dJ;
-  u_sol.extract(dJ);
-
-  variable out = A.getCoeff(dJ);
-
-	gsInfo<<"Plotting " << name << " in Paraview...\n";
-  ev.writeParaview( out   , G, name);
-	// ev.options().setSwitch("plot.elements", true);
+    gsInfo<<"Plotting " << name << " in Paraview...\n";
+    ev.writeParaview( out   , G, name);
+    ev.options().setSwitch("plot.elements", true);
 
 }

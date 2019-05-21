@@ -70,6 +70,9 @@ public:
     // Returns the matrix as dense
     gsMatrix<> asDense();
 
+    // Returns the matrix as gsSparseMatrix
+    gsSparseMatrix<> asSparse();
+
     // Accessors
     // FIXIT: think about the naming such that it is similar to the gsMatrx
     std::vector<index_t> & rows() { return m_rows; }

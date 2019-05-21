@@ -12,6 +12,7 @@
 #include "gsParamMethod.h"
 #include "gsSpringMethod.h"
 #include "gsModLiao.h"
+#include "gsWinslow.h"
 #include "gsAffineOptParamMethod.h"
 #include "gsIpOptSparseMatrix.h"
 #include "gsShapeOptProblem.h"
@@ -1310,6 +1311,8 @@ int ny = 4;
 int numRefine = 1;
 int maxiter = 10;
 
+int param = 0; // 0: spring, 1: modLiao, 2: winslow
+
 bool plotDesign = false;
 bool plotMagnitude = false;
 bool plotSolution = false;
@@ -1323,6 +1326,7 @@ int startDes = -1;
 
 gsCmdLine cmd("A test of lumped mass matricies");
 cmd.addInt("p", "degree", "Degree of B-Splines.", degree);
+cmd.addInt("a", "param", "Parametrization: 0: spring, 1: modLiao, 2: winslow", param);
 cmd.addInt("r", "numberRefine", "Number of refinements", numRefine);
 cmd.addInt("n", "nx", "Number of splines in first direction", nx);
 cmd.addInt("m", "ny", "Number of splines in second direction", ny);
@@ -1374,12 +1378,40 @@ gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 // gsInfo << "patch 0: " << patches.patch(0) << "\n";
 
 // gsModLiao modLiao(&patches,useDJC);
-gsShapeOptLog slog("/../results/test/");
-gsOptAntenna optA(&patches,numRefine,&slog);
+
+gsShapeOptLog slog(output);
+// gsOptAntenna optA1(&patches,numRefine,&slog,param,quA,quB);
+//
+// // Start from design at ../results/paramTest/cps_1_0.txt;
+// gsVector<> flat = loadVec(optA1.n_flat,BASE_FOLDER "/../results/ParamTests/Winslow/cps_0_80.txt");
+// optA1.m_paramMethod->updateFlat(flat);
+
+gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
+
+//
+// gsInfo << "obj " << optA.evalObj() << "\n";
+// gsInfo << "min d " << optA.m_dJC.evalCon().maxCoeff() << "\n";
+//
+// gsWriteParaview(patches,BASE_FOLDER "/../results/ParamTests/issue");
+
+// Start from spring
+// gsSpringMethod spring(&patches,optA.m_mappers);
+// spring.update();
+
+if (param == 0){
+    slog << "Using Spring Method for parametrization \n";
+    optA.solve();
+} else if (param == 1) {
+    slog << "Using modLiao for parametrization \n";
+    optA.runOptimization(maxiter);
+} else if (param == 2) {
+    slog << "Using winslow for parametrization \n";
+    optA.runOptimization(maxiter);
+}
 
 
 // optA.solve();
-optA.runOptimization(maxiter);
+// optA.runOptimization(maxiter);
 // gsInfo << "obj = " << optA.evalObj() << "\n";
 
 // convergenceTestOfJacobian(optA);
