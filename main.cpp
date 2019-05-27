@@ -1182,6 +1182,19 @@ gsVector<> getCoefficients(gsMultiPatch<> &mp){
 //
 // 	}
 // }
+void changeSignOfDetJ(gsGeometry<> & geom){//, index_t n, index_t m){
+    geom.scale(-1,0);
+    // gsMatrix<> cc = geom.coefs();
+    //
+    // gsInfo << "cc before: " << cc << "\n\n";
+    // for (index_t d = 0; d < geom.targetDim(); d++){
+    //     gsMatrix<> cc_d = reshape(cc.col(d),n,m);
+    //     cc.col(d) = reshapeBack(cc_d.rowwise().reverse());
+    // }
+    // geom.setCoefs(cc);
+    // gsInfo << "cc after: " << cc << "\n";
+
+}
 
 gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
@@ -1266,6 +1279,11 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 	gsTensorBSpline<2, real_t>  top(basis, coefs);
 	patches.addPatch(top);
 
+    // Change sign of determinant.
+    for (index_t i = 0; i < patches.nBoxes(); i++){
+        changeSignOfDetJ(patches.patch(i));
+    }
+
 	double tol = 1e-2;
 	patches.computeTopology(tol,true);
 	patches.closeGaps(tol);
@@ -1308,19 +1326,6 @@ gsVector<> reshapeBack(gsMatrix<> mat){
     return out;
 }
 
-void changeSignOfDetJ(gsGeometry<> & geom, index_t n, index_t m){
-    geom.scale(-1,0);
-    // gsMatrix<> cc = geom.coefs();
-    //
-    // gsInfo << "cc before: " << cc << "\n\n";
-    // for (index_t d = 0; d < geom.targetDim(); d++){
-    //     gsMatrix<> cc_d = reshape(cc.col(d),n,m);
-    //     cc.col(d) = reshapeBack(cc_d.rowwise().reverse());
-    // }
-    // geom.setCoefs(cc);
-    // gsInfo << "cc after: " << cc << "\n";
-
-}
 
 gsMultiPatch<> get3DGeometry(){
     gsMultiPatch<> patches;
@@ -1426,16 +1431,21 @@ if ( true ){
     gsSpringMethod sM(&patches,optA.mappers());
     sM.update();
 
-    gsMultiPatch<> singlePatch(patches.patch(0));
-    gsDetJacConstraint dJC(&singlePatch);
+    gsDetJacConstraint dJC(&patches);
 
     gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
     gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
 
-    changeSignOfDetJ(singlePatch.patch(0),nx,ny);
+    // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
+    gsHarmonic winslow(&patches,optA.mappers(),false);
+
+    // convergenceTestOfDetJJacobian(winslow);
+    convergenceTestOfParaJacobian(winslow);
 
     gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
     gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+    // std::string name = "/../results/test/dettest";
+    // slog.plotInParaview(patches,name);
     exit(0);
 }
 
