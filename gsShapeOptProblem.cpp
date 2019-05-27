@@ -215,7 +215,8 @@ void gsShapeOptProblem::runOptimization(index_t maxiter){
     *m_log << "N.o. cps: " << n_cps << "\n";
     *m_log << "N.o. free cps: " << n_free<< "\n";
     *m_log << "N.o. tagged cps: " << n_tagged << "\n";
-    *m_log << "N.o. flat cps: " << n_flat << "\n";
+    *m_log << "N.o. flat cps: " << n_flat << "\n\n";
+
     // gsInfo << "DoFs for analysis: " << m_stateEq.dbasis.size() << "\n";
 
     counter2 = 0;

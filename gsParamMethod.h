@@ -58,10 +58,10 @@ public:
   // Returns vector with free variables (with coordinates stacked, first x then y the possibly z)
   gsVector<> getFree() const;
 
-  // Update the gsMultiPatch* mp, based on a vector of free variables
+  // Update the gsMultiPatch* m_mp, based on a vector of free variables
   void updateFree(gsVector<> des) const;
 
-  // Update the gsMultiPatch* mp, based on a vector of free variables, and vector of tagged cps
+  // Update the gsMultiPatch* m_mp, based on a vector of free variables, and vector of tagged cps
   void updateFreeAndTagged(gsVector<> des, gsVector<> x) const;
 
   // Get the vector of all control points (eliminated and free)

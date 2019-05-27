@@ -40,7 +40,7 @@ public:
         // plotSolution(pde_eps_cr_fun_real,"pde_eps_cr_fun_real");
         // plotSolution(pde_eps_cr_fun_imag,"pde_eps_cr_fun_imag");
 
-        printConstants();
+        // printConstants();
 
         // Change domain size
         // for (index_t i = 0; i < mp->nPatches(); i++){
@@ -54,42 +54,42 @@ public:
 
         snprintf(tmp, 200, "cos(%s*x)", k_str.c_str());
         std::string Hiz_real_str = tmp;
-        gsInfo << "\n Hiz real: " << Hiz_real_str << "\n";
+        // gsInfo << "\n Hiz real: " << Hiz_real_str << "\n";
         Hiz_real = *(new gsFunctionExpr<>(Hiz_real_str,2));
 
         snprintf(tmp, 200, "sin(%s*x)", k_str.c_str());
         std::string Hiz_imag_str = tmp;
-        gsInfo << "\n Hiz imag: " << Hiz_imag_str << "\n";
+        // gsInfo << "\n Hiz imag: " << Hiz_imag_str << "\n";
         Hiz_imag = *(new gsFunctionExpr<>(Hiz_imag_str,2));
 
         snprintf(tmp, 200, "(-%s*sin(%s*x))", k_str.c_str(), k_str.c_str());
         std::string dHizdx_real_str = tmp;
-        gsInfo << "\n dHizdx real: " << dHizdx_real_str << "\n";
+        // gsInfo << "\n dHizdx real: " << dHizdx_real_str << "\n";
         dHizdx_real = *(new gsFunctionExpr<>(dHizdx_real_str,2));
 
         snprintf(tmp, 200, "(%s*cos(%s*x))", k_str.c_str(), k_str.c_str());
         std::string dHizdx_imag_str = tmp;
-        gsInfo << "\n dHizdx imag: " << dHizdx_imag_str << "\n";
+        // gsInfo << "\n dHizdx imag: " << dHizdx_imag_str << "\n";
         dHizdx_imag = *(new gsFunctionExpr<>(dHizdx_imag_str,2));
 
         snprintf(tmp, 200, "x/%f*%s", pde_r_t, dHizdx_real_str.c_str());
         std::string dHizdn_real_str = tmp;
-        gsInfo << "\n dHizdn real: " << dHizdn_real_str << "\n";
+        // gsInfo << "\n dHizdn real: " << dHizdn_real_str << "\n";
         dHizdn_real = *(new gsFunctionExpr<>(dHizdn_real_str,2));
 
         snprintf(tmp, 200, "x/%f*%s", pde_r_t, dHizdx_imag_str.c_str());
         std::string dHizdn_imag_str = tmp;
-        gsInfo << "\n dHizdn imag: " << dHizdn_imag_str << "\n";
+        // gsInfo << "\n dHizdn imag: " << dHizdn_imag_str << "\n";
         dHizdn_imag = *(new gsFunctionExpr<>(dHizdn_imag_str,2));
 
         snprintf(tmp, 200, "1/%f*%s - x/%f*%s^2*%s", pde_r_t, dHizdx_real_str.c_str(), pde_r_t, k_str.c_str(), Hiz_real_str.c_str());
         std::string d2Hizdndx_real_str = tmp;
-        gsInfo << "\n d2Hizdndx real: " << d2Hizdndx_real_str << "\n";
+        // gsInfo << "\n d2Hizdndx real: " << d2Hizdndx_real_str << "\n";
         d2Hizdndx_real = *(new gsFunctionExpr<>(d2Hizdndx_real_str,2));
 
         snprintf(tmp, 200, "1/%f*%s - x/%f*%s^2*%s", pde_r_t, dHizdx_imag_str.c_str(), pde_r_t, k_str.c_str(), Hiz_imag_str.c_str());
         std::string d2Hizdndx_imag_str = tmp;
-        gsInfo << "\n dHizdn imag: " << d2Hizdndx_imag_str << "\n";
+        // gsInfo << "\n dHizdn imag: " << d2Hizdndx_imag_str << "\n";
         d2Hizdndx_imag = *(new gsFunctionExpr<>(d2Hizdndx_imag_str,2));
 
         bcInfo.addCondition(4, boundary::south, condition_type::neumann, &zero);

@@ -7,6 +7,9 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
 {
     setupMappers();
 
+    *m_log << "quA for parametrization: " << quA << "\n";
+    *m_log << "quB for parametrization: " << quB << "\n\n";
+
     // Allocate parametrization method
     if (param == 0){
         m_paramMethod = new gsSpringMethod(m_mp,m_mappers);
@@ -16,6 +19,7 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
         opt_param->setQuad(quA,quB);
         m_paramMethod = new gsAffineOptParamMethod(opt_param);
         m_paramMethod->computeMap();
+
     } else if (param == 2) {
         gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,true);
         opt_param->setQuad(quA,quB);

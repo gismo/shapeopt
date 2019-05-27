@@ -13,6 +13,7 @@
 #include "gsSpringMethod.h"
 #include "gsModLiao.h"
 #include "gsWinslow.h"
+#include "gsHarmonic.h"
 #include "gsAffineOptParamMethod.h"
 #include "gsIpOptSparseMatrix.h"
 #include "gsShapeOptProblem.h"
@@ -24,7 +25,7 @@ using namespace gismo;
 void readFromTxt(std::string name, gsMatrix<> &matrix){
 	std::ifstream infile;
 	infile.open(name);
-	gsInfo << "Loading from " << name << "\n";
+	// gsInfo << "Loading from " << name << "\n";
 	for(int i = 0; i < matrix.rows(); i++){
 		for(int j = 0; j < matrix.cols(); j++){
 			infile >> matrix(i,j);
@@ -1211,8 +1212,6 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
         GISMO_ERROR("Parametrization is not generated with these parameters..\n");
     }
 
-
-
 	gsInfo << "----------------------\n\n"
 	<< "n: " << n << "\n\n"
 	<< "m: " << m << "\n\n"
@@ -1278,6 +1277,48 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
 	return patches;
 	// GISMO_ERROR("stop...");
+
+}
+
+gsMatrix<> reshape(gsVector<> vec, index_t n, index_t m){
+    gsMatrix<> out(n,m);
+
+    index_t c = 0;
+    for(index_t i = 0; i < n; i++){
+        for(index_t j = 0; j < m; j++){
+            gsInfo << "c " << c;
+            out(i,j) = vec[c++];
+        }
+        gsInfo << "\n";
+    }
+    return out;
+}
+
+gsVector<> reshapeBack(gsMatrix<> mat){
+    index_t n = mat.rows();
+    index_t m = mat.cols();
+    gsVector<> out(n*m);
+
+    index_t c = 0;
+    for(index_t i = 0; i < n; i++){
+        for(index_t j = 0; j < m; j++){
+            out[c++] = mat(i,j);
+        }
+    }
+    return out;
+}
+
+void changeSignOfDetJ(gsGeometry<> & geom, index_t n, index_t m){
+    geom.scale(-1,0);
+    // gsMatrix<> cc = geom.coefs();
+    //
+    // gsInfo << "cc before: " << cc << "\n\n";
+    // for (index_t d = 0; d < geom.targetDim(); d++){
+    //     gsMatrix<> cc_d = reshape(cc.col(d),n,m);
+    //     cc.col(d) = reshapeBack(cc_d.rowwise().reverse());
+    // }
+    // geom.setCoefs(cc);
+    // gsInfo << "cc after: " << cc << "\n";
 
 }
 
@@ -1378,15 +1419,58 @@ gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 // gsInfo << "patch 0: " << patches.patch(0) << "\n";
 
 // gsModLiao modLiao(&patches,useDJC);
-
 gsShapeOptLog slog(output);
-// gsOptAntenna optA1(&patches,numRefine,&slog,param,quA,quB);
+gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
+
+if ( true ){
+    gsSpringMethod sM(&patches,optA.mappers());
+    sM.update();
+
+    gsMultiPatch<> singlePatch(patches.patch(0));
+    gsDetJacConstraint dJC(&singlePatch);
+
+    gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    changeSignOfDetJ(singlePatch.patch(0),nx,ny);
+
+    gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+    exit(0);
+}
+
+if ( false ){
+    gsHarmonic harmonic(&patches,optA.mappers(),false);
+    harmonic.setQuad(quA,quB);
+    // gsInfo << "\nharmonic = " << harmonic.evalObj() << "\n";
+    convergenceTestOfParaJacobian(harmonic);
+
+    harmonic.setLambdas(10,10);
+
+    harmonic.update();
+
+    gsInfo << "max d : " << optA.m_dJC.evalCon().maxCoeff() << "\n";
+    std::string name = "/../results/test/harmtest";
+    slog.plotInParaview(patches,name);
+
+    exit(0);
+}
+
+if ( false ){
+    gsHarmonic harmonic(&patches,optA.mappers(),false);
+    harmonic.setLambdas(10,10);
+    harmonic.setQuad(quA,quB);
+    gsInfo << "\nharmonic = " << harmonic.evalObj() << "\n";
+
+    exit(0);
+}
+
 //
 // // Start from design at ../results/paramTest/cps_1_0.txt;
 // gsVector<> flat = loadVec(optA1.n_flat,BASE_FOLDER "/../results/ParamTests/Winslow/cps_0_80.txt");
 // optA1.m_paramMethod->updateFlat(flat);
 
-gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
+// gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
 
 //
 // gsInfo << "obj " << optA.evalObj() << "\n";

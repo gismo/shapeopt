@@ -53,13 +53,6 @@ public:
     // The patch of the antenna
     index_t fixedPatch = 3;
 
-    // Some options regarding output
-    // bool m_plotDesign;
-    // bool m_plotMagnitude;
-    // bool m_plotSolution;
-    // bool m_saveCps;
-    // std::string m_output;
-
 
 };
 

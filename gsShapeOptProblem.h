@@ -1,3 +1,30 @@
+/** @file gsShapeOptProblem.h
+
+@brief  Base class for shape optimization problems.
+
+        It points to an instance of
+        a gsParamMethod to handle parametrization, gsShapeOptLog for logging stuff
+        during optimization, and gsDetJacConstraint to ensure bijectivity of the
+        parametrization.
+
+        To define a specific problem you need to overload the evalObj and gradObj
+        method.
+
+        There are two ways to solve the problem,
+        1.  if you are using a simple parametrization method, e.g. spring method
+            you can call solve();
+        2.  If you use a parametrization method that has to reset, you can call
+            runOptimization with the maximum number of outer loops as input.
+
+This file is part of the G+Smo library.
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+Author(s): A. Limkilde, A. Mantzaflaris
+*/
+
 #ifndef GSSHAPEOPTPROBLEM_H
 #define GSSHAPEOPTPROBLEM_H
 using namespace gismo;
@@ -13,14 +40,12 @@ public:
 
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
-    // FIXIT: Possibly add some log stuff. But maybe I want a separate log class?
     gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog);
 
     // Constructs from list of mappers, one for each dimension
     //      The design variables for the shape optimization should be tagged in the
     //      mappers. The "inner controlpoints", that needs updation by a parametrization
     //      method should be free. The rest should be eliminated..
-    // FIXIT: Possibly add some log stuff. But maybe I want a separate log class?
     gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
@@ -91,12 +116,14 @@ public:
     //      or check stuff. If it returns false the optimization will be interrupted.
     bool intermediateCallback();
 
-    // Acces to controlpoints using the implementation in m_paramMethod
+    // Acces to controlpoints using the implementations in m_paramMethod
     gsVector<> getFree() const { return m_paramMethod->getFree(); };
     gsVector<> getTagged() const { return m_paramMethod->getTagged(); };
     gsVector<> getControlPoints() const { return m_paramMethod->getControlPoints(); };
     gsVector<> getFlat() const { return m_paramMethod->getFlat(); };
 
+    // Accessors
+    std::vector< gsDofMapper > mappers() { return m_mappers; };
 
 public:
     mutable gsMultiPatch<>* m_mp;

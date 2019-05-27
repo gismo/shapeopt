@@ -1,4 +1,18 @@
-// FIXIT: Write intro..
+/** @file gsAffineOptParamMethod.h
+
+@brief  Implements an quadratic program, that approximates an optimization problems
+        from gsOptParamMethod. Basicly it can be seen as the linearization of a
+        nonlinear optimization based parametrization strategy.
+
+This file is part of the G+Smo library.
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+Author(s): A. Limkilde, A. Mantzaflaris
+*/
+
 #ifndef GSAFFINEOPTPARAMMETHOD_H
 #define GSAFFINEOPTPARAMMETHOD_H
 using namespace gismo;
