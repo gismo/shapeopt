@@ -1437,7 +1437,7 @@ if ( true ){
     gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
 
     // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
-    gsHarmonic winslow(&patches,optA.mappers(),false);
+    gsWinslow winslow(&patches,optA.mappers(),false);
 
     // convergenceTestOfDetJJacobian(winslow);
     convergenceTestOfParaJacobian(winslow);

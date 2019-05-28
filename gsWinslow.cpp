@@ -17,9 +17,11 @@ real_t gsWinslow::evalObj() const {
     typedef gsExprAssembler<>::solution    solution;
 
     geometryMap G = A.getMap(*m_mp);
+    gsInfo << "evalObj\n";
     auto detJinv = jac(G).inv().det(); // The inverse of det J
 
-    return ev.integral((jac(G).tr()*jac(G)).trace()*detJinv);
+    gsInfo << "evalObj\n";
+    return ev.integral(jac(G)%jac(G)*detJinv);
 }
 
 gsVector<> gsWinslow::gradObj() const{
@@ -44,12 +46,19 @@ gsVector<> gsWinslow::gradObj() const{
 
     A.initSystem();
 
-    auto detJinv = jac(G).inv().det(); // The inverse of abs(det J)
-    auto detJinv2 = detJinv*detJinv;
+    gsInfo << "gradObj\n";
+    auto detJinv = jac(G).inv().det(); // The inverse of abs(det J)JTJ
+    auto JTJ = (jac(G)%jac(G)).val();
 
-    A.assemble(2*matrix_by_space(jac(G).tr(),jac(u)).trace()*detJinv
-        - matrix_by_space(jac(G).inv(),jac(u)).trace()*
-        (jac(G).tr()*jac(G)).trace().val()*detJinv);
+    // A.assemble(2*matrix_by_space(jac(G).tr(),jac(u)).trace()*detJinv
+        // - matrix_by_space(jac(G).inv(),jac(u)).trace()*
+        // (jac(G).tr()*jac(G)).trace().val()*detJinv);
+    gsInfo << "gradObj\n";
+    A.assemble
+    (
+         2*detJinv*(jac(u)%jac(G))
+         - detJinv*(jac(u)%jac(G).inv().tr())*JTJ
+    );
 
     gsVector<> all = A.rhs();
     return mapMatrix(u.mapper(),all);
@@ -186,25 +195,25 @@ gsVector<> gsWinslow::gradObj() const{
 
         A.initSystem();
 
-        auto detJinv = jac(G).inv().det(); // The inverse of abs(det J)
+        auto detJinv = jac(G).inv().det().val(); // The inverse of abs(det J)JTJ
+        auto JTJ = (jac(G)%jac(G)).val();
+        auto dJinvtr_dc = -matrix_by_space(jac(G).inv(),jac(u))*jac(G).inv();
 
-        //A.assemble(2**detJinv
-        //    - matrix_by_space(jac(G).inv(),jac(u)).trace()*
-        //    (jac(G).tr()*jac(G)).trace().val()*detJinv);
-        //
+        gsInfo << "hessObj\n";
         A.assemble
         (
             2*(
-                (jac(u)%jac(u).tr())*detJinv
-                -   (jac(G).inv().tr()%jac(u))*(jac(G)%jac(u)).tr()*detJinv
-                )
-            +   (matrix_by_space(jac(G).inv(),jac(u))*(jac(G).inv()*jac(u))).trace()
-                    *(jac(G)%jac(G))*detJinv
-            -   2*matrix_by_space(jac(G).inv(),jac(u)).trace()*(jac(G)%jac(u))*detJinv
-            +   matrix_by_space(jac(G).inv(),jac(u)).trace()
-                    *matrix_by_space(jac(G).inv(),jac(u)).trace()
-                    *(jac(G)%jac(G))*detJinv
+                jac(u)%(detJinv*jac(u))
+                -   (jac(u)%jac(G).inv().tr())*(jac(u)%jac(G)).tr()*detJinv
+            )
+            // +   (matrix_by_space_tr(jac(G).inv(),jac(u))*jac(G).inv().tr())%(JTJ*detJinv*jac(u))
+            +   (jac(G).inv()*jac(u))%(JTJ*detJinv*jac(u))
+            -   2*(jac(u)%jac(G).inv().tr()) * (jac(u)%jac(G)).tr() * detJinv
+            +   (jac(u)%jac(G).inv().tr()) * (jac(u)%jac(G).inv().tr()).tr() * JTJ * detJinv
         );
+
+        gsInfo << "Norm of rhs: " << A.rhs().norm() <<"\n";
+        gsInfo << "Norm of mat: " << A.matrix().norm() <<"\n";
 
         gsMatrix<> all = A.matrix();
 
