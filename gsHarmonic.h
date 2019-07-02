@@ -15,15 +15,13 @@ public:
 
     gsVector<> gradObj() const;
 
-    gsVector<> gradObjHelper() const;
-
     gsMatrix<> hessObj(gsMatrix<> &hessObjTagged) const;
 
     void setLambdas(real_t l1, real_t l2){ lambda_1 = l1; lambda_2 = l2;}
 
 public:
-    real_t lambda_1 = 0.5;
-    real_t lambda_2 = 0.5;
+    real_t lambda_1 = 1;
+    real_t lambda_2 = 1;
 
 };
 

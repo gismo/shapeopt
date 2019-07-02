@@ -2,7 +2,6 @@
 #include "gsOptParamMethod.h"
 using namespace gismo;
 
-// FIXIT: default argument does not work
 gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC = true):
     gsParamMethod(mpin), m_dJC(mpin), use_detJacConstraint(use_dJC)
 {
@@ -103,125 +102,6 @@ void gsOptParamMethod::computeJacStructure()
 
 };
 
-// FIXIT: looses sparse structure, implement to keep sparsity structure, the
-// structure can be predicted by adding two matrices with 1's at nonzeros
-gsIpOptSparseMatrix gsOptParamMethod::mapMatrix(gsDofMapper mapper_in, gsIpOptSparseMatrix M) const
-{
-    gsMatrix<> mat_in = M.asDense();
-
-    gsMatrix<> mat_out = mapMatrix(mapper_in,mat_in);
-
-    gsIpOptSparseMatrix out(mat_out,-1);
-
-    return out;
-
-};
-
-gsMatrix<> gsOptParamMethod::mapMatrix(gsDofMapper mapper_in, gsMatrix<> mat_in) const
-{
-    // Set shifts of input mapper
-    gsVector<> mapper_in_shifts;
-    mapper_in_shifts.setZero(m_mp->targetDim());
-
-    for(index_t d = 1; d < m_mp->targetDim(); d++){
-        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
-    }
-
-    // FIXIT: take this information as input instead..
-    bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
-    bool col = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
-    gsMatrix<> mat_out;
-
-    if(row){
-        mat_out.setZero(n_free,mat_in.cols());
-    } else if (col) {
-        mat_out.setZero(mat_in.rows(),n_free);
-    } else {
-        GISMO_ERROR("Wrong input size in mapMatrix..\n");
-    }
-
-    for(index_t d = 0; d < m_mp->targetDim(); d++){
-        // Iterate through free indices
-        for (index_t ii = 0; ii < m_mappers[d].freeSize(); ii++){
-            // Get a local index
-            std::vector<std::pair<index_t,index_t> > result;
-            m_mappers[d].preImage(ii, result);
-
-            for(std::vector<std::pair<index_t,index_t>>::iterator it=result.begin(); it != result.end(); ++it)
-            {
-                // Get local index and patch
-                index_t p = it->first;
-                index_t i = it->second;
-
-                // Convert to global to find the right column
-                index_t ii2 = mapper_in.index(i,p) + mapper_in_shifts[d];
-
-                if (row){ // If right no colms
-                    mat_out.row(ii + m_shift_free[d]) += mat_in.row(ii2);
-                } else if (col){
-                    mat_out.col(ii + m_shift_free[d]) += mat_in.col(ii2);
-                }
-            }
-        }
-    }
-    return mat_out;
-
-};
-
-gsMatrix<> gsOptParamMethod::mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> mat_in) const
-{
-    // Set shifts of input mapper
-    gsVector<> mapper_in_shifts, tagged_shift;
-    mapper_in_shifts.setZero(m_mp->targetDim());
-    tagged_shift.setZero(m_mp->targetDim());
-
-    for(index_t d = 1; d < m_mp->targetDim(); d++){
-        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
-        tagged_shift[d] = tagged_shift[d-1] + m_mappers[d].taggedSize();
-    }
-
-    // FIXIT: take this information as input instead..
-    bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
-    bool col = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
-    gsMatrix<> mat_out;
-
-    if(row){
-        mat_out.setZero(n_tagged,mat_in.cols());
-    } else if (col) {
-        mat_out.setZero(mat_in.rows(),n_tagged);
-    } else {
-        GISMO_ERROR("Wrong input size in mapMatrix..\n");
-    }
-
-    for(index_t d = 0; d < m_mp->targetDim(); d++){
-        // Iterate through free indices
-        for (index_t t = 0; t < m_mappers[d].taggedSize(); t++){
-            // Get global index
-            index_t ii = m_mappers[d].getTagged()[t];
-            // Get a local index
-            std::vector<std::pair<index_t,index_t> > result;
-            m_mappers[d].preImage(ii, result);
-
-            for(std::vector<std::pair<index_t,index_t>>::iterator it=result.begin(); it != result.end(); ++it)
-            {
-                // Get local index and patch
-                index_t p = it->first;
-                index_t i = it->second;
-
-                // Convert to global to find the right column
-                index_t ii2 = mapper_in.index(i,p) + mapper_in_shifts[d];
-
-                if (row){ // If right no colms
-                    mat_out.row(t + tagged_shift[d]) += mat_in.row(ii2);
-                } else if (col){
-                    mat_out.col(t + tagged_shift[d]) += mat_in.col(ii2);
-                }
-            }
-        }
-    }
-    return mat_out;
-
-};
 
 gsVector<> gsOptParamMethod::gradObj() const{
     gsVector<> u = getFree();

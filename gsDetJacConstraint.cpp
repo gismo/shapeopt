@@ -182,13 +182,13 @@ gsIpOptSparseMatrix gsDetJacConstraint::getJacobian(){
 
 gsVector<> gsDetJacConstraint::getUpperBounds(){
     gsVector<> out;
-    out.setConstant(n_constraints, -m_eps);
+    out.setConstant(n_constraints, 1e19);
     return out;
 }
 
 gsVector<> gsDetJacConstraint::getLowerBounds(){
     gsVector<> out;
-    out.setConstant(n_constraints, -1e19);
+    out.setConstant(n_constraints, m_eps);
     return out;
 }
 
@@ -258,4 +258,27 @@ void gsDetJacConstraint::plotDetJ(std::string name){
     ev.writeParaview( out   , G, name);
     ev.options().setSwitch("plot.elements", true);
 
+}
+
+gsSparseMatrix<> gsDetJacConstraint::getMassMatrix(index_t i)
+{
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    index_t start = 0;
+    gsVector<> result(m_size);
+    gsExprAssembler<> A(1,1);
+
+    gsMultiBasis<> dbasis(m_detJacBasis.basis(i));
+    // Elements used for numerical integration
+    A.setIntegrationElements(dbasis);
+    gsExprEvaluator<> ev(A);
+
+    space u = A.getSpace(dbasis);
+
+    A.initSystem();
+    A.assemble(u*u.tr());
+    return A.matrix();
 }

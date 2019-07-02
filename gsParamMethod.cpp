@@ -11,7 +11,8 @@ m_mp(mpin)
 
 gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin): m_mp(mpin), m_mappers(m_mp->targetDim())
 {
-    // FIXIT: implement some default behavior to generate mappers
+    // Setup default mappers
+    setupDefaultMappers();
 }
 
 void gsParamMethod::setMappers(std::vector< gsDofMapper > mappers)
@@ -99,65 +100,55 @@ void gsParamMethod::updateTagged(gsVector<> x) const
     }
 }
 
-void gsParamMethod::setupMapper()
+void gsParamMethod::setupDefaultMappers()
 {
-    gsInfo << "\n\nSETUP MAPPER in param method IS CALLED!!\n\n";
-
     // Get mappers from multibasis with interfaces glued
     gsMultiBasis<> geoBasis(*m_mp);
-    geoBasis.getMapper(iFace::glue,m_mappers[0],false); // False means that we do not finalize
-    geoBasis.getMapper(iFace::glue,m_mappers[1],false); // False means that we do not finalize
 
-    // Fix y coordinate for all boundaries
-    for (index_t i = 0; i < m_mp->nBoundary(); i ++){
-        patchSide ps = m_mp->boundaries()[i];
-        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
-        // gsInfo << ps << " is fixed in y direction \n\n";
-        // gsInfo << "boundaryDofs on patch " << ps.patch << "\n"<< boundaryDofs << "\n\n";
-        m_mappers[1].markBoundary(ps.patch,boundaryDofs);
-
-        if (m_mp->nBoxes() > 3){
-            if (ps.patch == 4){
-                m_mappers[0].markBoundary(ps.patch,boundaryDofs);
-            }
-        } else {
-            // If there is less than 3 patches then all boundaries is fixed
-            m_mappers[0].markBoundary(ps.patch,boundaryDofs);
-        }
+    for (index_t d = 0; d < m_mp->targetDim(); d++)
+    {
+        geoBasis.getMapper(iFace::glue,m_mappers[d],false); // False means that we do not finalize
     }
 
-    // Fix boundary of the fixedPatch
-    gsMultiPatch<> fixedGeom(m_mp->patch(fixedPatch));
+    // Fix coordinates of boundaries
+    for (index_t i = 0; i < m_mp->nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
 
-    for(index_t i = 0; i < fixedGeom.nBoundary(); i++){
-        patchSide ps = fixedGeom.boundaries()[i];
-        gsVector<unsigned> boundaryDofs = m_mp->basis(fixedPatch).boundary(ps);
-        m_mappers[0].markBoundary(fixedPatch,boundaryDofs); // Mark xcoord of boundaries of fixed patch
-        m_mappers[1].markBoundary(fixedPatch,boundaryDofs); // Mark ycoord of boundaries of
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            m_mappers[d].markBoundary(ps.patch,boundaryDofs);
+        }
     }
 
     // Finalize mappers
-    m_mappers[0].finalize();
-    m_mappers[1].finalize();
+    for (index_t d = 0; d < m_mp->targetDim(); d++)
+    {
+        m_mappers[d].finalize();
+    }
 
-    gsInfo << "n controlpoints: " << m_mappers[0].mapSize() << "\n";
+    // Tag coordinates of boundaries
+    for (index_t i = 0; i < m_mp->nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
 
-    // Tag fixed bnds
-    for(index_t i = 0; i < fixedGeom.nBoundary(); i++){
-        patchSide ps = fixedGeom.boundaries()[i];
-        gsVector<unsigned> boundaryDofs = m_mp->basis(fixedPatch).boundary(ps);
-        for (index_t j = 0; j < boundaryDofs.size(); j ++){
-            m_mappers[0].markTagged(boundaryDofs[j],fixedPatch); // Mark xcoord of boundaries of fixed patch
-            m_mappers[1].markTagged(boundaryDofs[j],fixedPatch); // Mark ycoord of boundaries of
-
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            // Tag the controlpoint
+            for (index_t j = 0; j < boundaryDofs.size(); j ++){
+                m_mappers[d].markTagged(boundaryDofs[j],ps.patch);
+            }
         }
     }
 
-    // count number of free dofs
-    n_free = 0;
-    for(index_t i = 0; i < m_mp->targetDim(); i++){
-        n_free += m_mappers[i].freeSize();
-    }
+    gsInfo << "n controlpoints: " << m_mappers[0].mapSize() << "\n";
+
+
+    // Call setMappers to calculate n_free, n_tagged etc.
+    setMappers(m_mappers);
+
 }
 
 gsVector<> gsParamMethod::getFree() const
@@ -216,7 +207,7 @@ gsVector<> gsParamMethod::getControlPoints() const
 
     gsVector<> out(n_cps);
     for(index_t p = 0; p < m_mp->nBoxes(); p++){
-        for(index_t i = 0; i < m_mp->patch(i).coefsSize(); i++){
+        for(index_t i = 0; i < m_mp->patch(p).coefsSize(); i++){
             for(index_t d = 0; d < m_mp->targetDim(); d++){
                 index_t ii = m_mappers[d].index(i,p) + m_shift_all[d];
                 out[ii] = m_mp->patch(p).coef(i,d);
@@ -294,3 +285,123 @@ void gsParamMethod::updateControlPoints(gsVector<> cps)
     }
 
 }
+
+// FIXIT: looses sparse structure, implement to keep sparsity structure, the
+// structure can be predicted by adding two matrices with 1's at nonzeros
+gsIpOptSparseMatrix gsParamMethod::mapMatrix(gsDofMapper mapper_in, gsIpOptSparseMatrix M) const
+{
+    gsMatrix<> mat_in = M.asDense();
+
+    gsMatrix<> mat_out = mapMatrix(mapper_in,mat_in);
+
+    gsIpOptSparseMatrix out(mat_out,-1);
+
+    return out;
+
+};
+
+gsMatrix<> gsParamMethod::mapMatrix(gsDofMapper mapper_in, gsMatrix<> mat_in) const
+{
+    // Set shifts of input mapper
+    gsVector<> mapper_in_shifts;
+    mapper_in_shifts.setZero(m_mp->targetDim());
+
+    for(index_t d = 1; d < m_mp->targetDim(); d++){
+        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
+    }
+
+    // FIXIT: take this information as input instead..
+    bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
+    bool col = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
+    gsMatrix<> mat_out;
+
+    if(row){
+        mat_out.setZero(n_free,mat_in.cols());
+    } else if (col) {
+        mat_out.setZero(mat_in.rows(),n_free);
+    } else {
+        GISMO_ERROR("Wrong input size in mapMatrix..\n");
+    }
+
+    for(index_t d = 0; d < m_mp->targetDim(); d++){
+        // Iterate through free indices
+        for (index_t ii = 0; ii < m_mappers[d].freeSize(); ii++){
+            // Get a local index
+            std::vector<std::pair<index_t,index_t> > result;
+            m_mappers[d].preImage(ii, result);
+
+            for(std::vector<std::pair<index_t,index_t>>::iterator it=result.begin(); it != result.end(); ++it)
+            {
+                // Get local index and patch
+                index_t p = it->first;
+                index_t i = it->second;
+
+                // Convert to global to find the right column
+                index_t ii2 = mapper_in.index(i,p) + mapper_in_shifts[d];
+
+                if (row){ // If right no colms
+                    mat_out.row(ii + m_shift_free[d]) += mat_in.row(ii2);
+                } else if (col){
+                    mat_out.col(ii + m_shift_free[d]) += mat_in.col(ii2);
+                }
+            }
+        }
+    }
+    return mat_out;
+
+};
+
+gsMatrix<> gsParamMethod::mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> mat_in) const
+{
+    // Set shifts of input mapper
+    gsVector<> mapper_in_shifts, tagged_shift;
+    mapper_in_shifts.setZero(m_mp->targetDim());
+    tagged_shift.setZero(m_mp->targetDim());
+
+    for(index_t d = 1; d < m_mp->targetDim(); d++){
+        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
+        tagged_shift[d] = tagged_shift[d-1] + m_mappers[d].taggedSize();
+    }
+
+    // FIXIT: take this information as input instead..
+    bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
+    bool col = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
+    gsMatrix<> mat_out;
+
+    if(row){
+        mat_out.setZero(n_tagged,mat_in.cols());
+    } else if (col) {
+        mat_out.setZero(mat_in.rows(),n_tagged);
+    } else {
+        GISMO_ERROR("Wrong input size in mapMatrix..\n");
+    }
+
+    for(index_t d = 0; d < m_mp->targetDim(); d++){
+        // Iterate through free indices
+        for (index_t t = 0; t < m_mappers[d].taggedSize(); t++){
+            // Get global index
+            index_t ii = m_mappers[d].getTagged()[t];
+            // Get a local index
+            std::vector<std::pair<index_t,index_t> > result;
+            m_mappers[d].preImage(ii, result);
+
+            for(std::vector<std::pair<index_t,index_t>>::iterator it=result.begin(); it != result.end(); ++it)
+            {
+                // Get local index and patch
+                index_t p = it->first;
+                index_t i = it->second;
+
+                // Convert to global to find the right column
+                index_t ii2 = mapper_in.index(i,p) + mapper_in_shifts[d];
+
+                if (row){ // If right no colms
+                    mat_out.row(t + tagged_shift[d]) += mat_in.row(ii2);
+                } else if (col){
+                    mat_out.col(t + tagged_shift[d]) += mat_in.col(ii2);
+                }
+            }
+        }
+    }
+    return mat_out;
+
+};

@@ -143,41 +143,6 @@ gsVector<> gsHarmonic::gradObj() const{
     return mapMatrix(u.mapper(),all);
 }
 
-gsVector<> gsHarmonic::gradObjHelper() const{
-    gsExprAssembler<> A(1,1);
-    gsMultiBasis<> dbasis(*m_mp);
-
-    gsOptionList opts = A.options();
-    opts.setInt("quB",m_quB);
-    opts.setReal("quA",m_quA);
-    A.setOptions(opts);
-
-    A.setIntegrationElements(dbasis);
-
-    typedef gsExprAssembler<>::geometryMap geometryMap;
-    typedef gsExprAssembler<>::variable    variable;
-    typedef gsExprAssembler<>::space       space;
-    typedef gsExprAssembler<>::solution    solution;
-
-    geometryMap G = A.getMap(*m_mp);
-
-    space u = A.getSpace(dbasis);//,m_mp->domainDim());
-
-    gsMultiPatch<> x_mp = m_mp->coord(0);
-    gsMultiPatch<> y_mp = m_mp->coord(1);
-
-    variable x = A.getCoeff(x_mp);
-    variable y = A.getCoeff(y_mp);
-
-    A.initSystem();
-    A.assemble(2*lambda_2*hess(u)%jac(G));
-
-    return A.rhs();
-
-
-
-}
-
 gsMatrix<> gsHarmonic::hessObj(gsMatrix<> &hessObjTagged) const{
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);

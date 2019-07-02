@@ -14,6 +14,7 @@
 #include "gsModLiao.h"
 #include "gsWinslow.h"
 #include "gsHarmonic.h"
+#include "gsMaxDetJac.h"
 #include "gsAffineOptParamMethod.h"
 #include "gsIpOptSparseMatrix.h"
 #include "gsShapeOptProblem.h"
@@ -46,6 +47,16 @@ void saveVec(gsVector<> &vec, std::string name){
         gsInfo << "Save to " << name << "\n";
 		std::ofstream file (name);
 		for(index_t i = 0; i < vec.rows(); i++){
+			file << std::setprecision(12) << vec[i];
+			file << "\n";
+		}
+		file.close();
+}
+
+void saveVec(gsVector<index_t> &vec, std::string name){
+        gsInfo << "Save to " << name << "\n";
+		std::ofstream file (name);
+		for(index_t i = 0; i < vec.rows(); i++){
 			file << vec[i];
 			file << "\n";
 		}
@@ -60,10 +71,26 @@ void saveMat(gsMatrix<> mat, std::string name){
 			    file << mat(i,j);
                 file << " ";
             }
-			file << "\n";
+			file << std::setprecision(12) << "\n";
 		}
 		file.close();
 }
+
+void saveSparseMat(gsSparseMatrix<> mat, std::string name){
+        gsInfo << "Save to " << name << "\n";
+        std::ofstream file (name);
+        for (int k=0; k<mat.outerSize(); ++k){
+            for (gsSparseMatrix<real_t>::InnerIterator it(mat,k); it; ++it)
+            {
+                file << std::setprecision(12) << it.row();   // row index
+                file << " ";
+                file << it.col();   // col index (here it is equal to k)
+                file << " ";
+                file << it.value();
+                file << "\n";
+            }
+        }
+    }
 
 void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
 	// gsVector<> result = dJC.generateDResultVector();
@@ -1298,6 +1325,57 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
 }
 
+gsMultiPatch<> getJigSaw(index_t i){
+
+    index_t n = 10;
+    index_t m = 10;
+    index_t degree = 2;
+
+    std::string folder = "/parametrizations/JigSaw/";
+
+	// 1. construction of a knot vector for each direction
+	gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
+	gsKnotVector<> kv2(0, 1, m - degree - 1, degree + 1);
+	// 2. construction of a basis
+	gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
+	// 3. construction of a coefficients
+	gsMatrix<> greville = basis.anchors();
+	gsMatrix<> coefs (greville.cols(), 2);
+
+    gsInfo << BASE_FOLDER + folder + "Jigsaw1.txt \n";
+    if (i == 1){
+	   readFromTxt(BASE_FOLDER + folder + "Jigsaw1.txt", coefs);
+    } else {
+	   readFromTxt(BASE_FOLDER + folder + "Jigsaw2.txt", coefs);
+    }
+    // gsDebugVar(coefs.rows());
+    // gsDebugVar(coefs.cols());
+    // gsDebugVar(coefs);
+    // exit(0);
+	// gsInfo << coefs;
+
+	// 4. putting basis and coefficients toghether
+	gsTensorBSpline<2, real_t>  left(basis, coefs);
+    changeSignOfDetJ(left);
+
+	//! [Geometry data]
+	// Define Geometry, must be a gsMultiPatch object
+
+	gsMultiPatch<> patches = gsMultiPatch<>(left);
+
+    // Change sign of determinant.
+    // for (index_t i = 0; i < patches.nBoxes(); i++){
+        // changeSignOfDetJ(patches.patch(i));
+    // }
+
+	double tol = 1e-2;
+	patches.computeTopology(tol,true);
+	patches.closeGaps(tol);
+
+	return patches;
+
+}
+
 gsMatrix<> reshape(gsVector<> vec, index_t n, index_t m){
     gsMatrix<> out(n,m);
 
@@ -1326,6 +1404,186 @@ gsVector<> reshapeBack(gsMatrix<> mat){
     return out;
 }
 
+void testOfParametrizations(std::string output, index_t quA, index_t quB){
+
+    index_t n_tests = 5;
+
+    // Setup tests
+    std::vector< gsMultiPatch<> > P(n_tests);
+    std::vector< std::string > names(n_tests);
+
+    // Unit square
+    P[0] = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+    names[0] = "/UnitSq/";
+
+    // Rotated rectangle
+    P[1] = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+    P[1].patch(0).scale(2,1);
+    P[1].patch(0).rotate(M_PI_4);
+    gsVector<> v(2);
+    v << 1,2;
+    P[1].patch(0).translate(v);
+
+    names[1] = "/Rectangle/";
+
+    // JigSaws
+    P[2] = getJigSaw(1);
+    names[2] = "/JigSaw1/";
+    P[3] = getJigSaw(2);
+    names[3] = "/JigSaw2/";
+
+    // Initial design
+    P[4] = getGeometry(5,4,2);
+    names[4] = "/InitDesign/";
+
+
+    // For all test but the last one
+    for (index_t t = 0; t < n_tests - 1; t++){
+
+        gsShapeOptLog slog(output + names[t]);
+
+        gsInfo << P[t] << "\n";
+        gsInfo << P[t].patch(0).basis() << "\n";
+
+        gsDetJacConstraint dJC(&P[t]);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        slog << "Spring Method: \n";
+        gsInfo << "Spring Method: \n";
+
+        gsSpringMethod sM(&P[t]);
+        sM.update();
+
+        std::string name = "Spring";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(sM.getFlat(),name);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        slog << "MaxDetJac Method: \n";
+        gsInfo << "MaxDetJac Method: \n";
+
+        gsMaxDetJac mDJ(&P[t]);
+        mDJ.update();
+
+        name = "MaxDetJac";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(sM.getFlat(),name);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        slog << "Winslow: \n";
+        gsInfo << "Winslow: \n";
+
+        gsWinslow winslow(&P[t],true);
+        winslow.setQuad(quA,quB);
+        winslow.update();
+
+        name = "Winslow";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(winslow.getFlat(),name);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        sM.update();
+        slog << "Harmonic 11: \n";
+        gsInfo << "Harmonic 11: \n";
+
+        gsHarmonic harmonic(&P[t],false);
+        harmonic.setQuad(quA,quB);
+        harmonic.update();
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        name = "Harmonic_11";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(harmonic.getFlat(),name);
+
+        sM.update();
+        slog << "Harmonic 00: \n";
+        gsInfo << "Harmonic 00: \n";
+        harmonic.setLambdas(0,0);
+        harmonic.update();
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        name = "Harmonic_00";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(harmonic.getFlat(),name);
+    }
+
+    index_t t = 4;
+
+    gsShapeOptLog slog(output + names[t]);
+    gsOptAntenna optA(&P[t],1,&slog,0,quA,quB);
+
+    gsInfo << P[t] << "\n";
+    gsInfo << P[t].patch(0).basis() << "\n";
+
+    gsDetJacConstraint dJC(&P[t]);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    slog << "Spring Method: \n";
+
+    gsSpringMethod sM(&P[t],optA.mappers());
+    sM.update();
+
+    std::string name = "Spring";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(sM.getFlat(),name);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    slog << "Winslow: \n";
+    gsWinslow winslow(&P[t],optA.mappers(),true);
+    winslow.setQuad(quA,quB);
+    winslow.update();
+
+    name = "Winslow";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(winslow.getFlat(),name);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    sM.update();
+    slog << "Harmonic: \n";
+
+    gsHarmonic harmonic(&P[t],optA.mappers(),false);
+    harmonic.setQuad(quA,quB);
+    harmonic.update();
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    name = "Harmonic_11";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(harmonic.getFlat(),name);
+
+    sM.update();
+    harmonic.setLambdas(0,0);
+    harmonic.update();
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    name = "Harmonic_00";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(harmonic.getFlat(),name);
+
+
+
+}
 
 gsMultiPatch<> get3DGeometry(){
     gsMultiPatch<> patches;
@@ -1345,11 +1603,82 @@ gsMultiPatch<> get3DGeometry(){
     return patches;
 }
 
+void generateData02953Project(gsMultiPatch<> & mp, std::string folder){
+    // Setup classes
+    gsDetJacConstraint dJC(&mp);
+    gsWinslow winslow(&mp,false);         // We use the default mappers
+
+    // eval once to setup solver
+    gsInfo << " min d : " << dJC.evalCon().minCoeff() << "\n";
+    gsInfo << " max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    // winslow.setQuad(9,10);
+    gsInfo << " winslow : " << winslow.evalObj() << "\n";
+    // gsInfo << "d \n" << dJC.evalCon() << "\n";
+    // exit(0);
+    // Write M to file
+    gsSparseMatrix<> M = dJC.getMassMatrix(0);
+    saveSparseMat(M,BASE_FOLDER + folder + "M.txt");
+
+    // Save the m_mappers in file
+    gsVector<index_t> vecx = winslow.mappers()[0].asVector();
+    saveVec(vecx, BASE_FOLDER + folder + "px.txt");
+    gsVector<index_t> vecy = winslow.mappers()[1].asVector();
+    saveVec(vecy, BASE_FOLDER + folder + "py.txt");
+
+    // Save all cps
+    gsVector<> cps = winslow.getControlPoints();
+    saveVec(cps, BASE_FOLDER + folder + "cps_global.txt");
+    cps = winslow.getFlat();
+    saveVec(cps, BASE_FOLDER + folder + "cps_flat.txt");
+    cps = winslow.getFree();
+    saveVec(cps, BASE_FOLDER + folder + "cps_free.txt");
+    cps = winslow.getTagged();
+    saveVec(cps, BASE_FOLDER + folder + "cps_tagged.txt");
+
+
+    // Generate Q_i and write to file
+    // gsTensorBSplineBasis<2,real_t> bas = dJC.m_detJacBasis.basis(0);
+    index_t size = dJC.m_detJacBasis.basis(0).size();
+    gsInfo << "size of detJacBasis : " << size << "\n";
+
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+
+    for (index_t i = 0; i < size; i++){
+        gsExprAssembler<> A(1,1);
+
+        gsMultiBasis<> dbasis(mp);
+
+        gsBasisFun<> fun = dJC.m_detJacBasis.basis(0).function(i);
+
+        A.setIntegrationElements(dJC.m_detJacBasis);
+        gsExprEvaluator<> ev(A);
+
+        space u = A.getSpace(dbasis);
+
+        variable f = A.getCoeff(fun);
+
+        gsFunctionExpr<> ff("y","-x",2);
+        variable var = A.getCoeff(ff);
+        auto mat = fjac(var);
+
+        A.initSystem();
+        A.assemble(f.val()*grad(u) * mat * grad(u).tr());
+        gsInfo << "nnz in A " << A.matrix().nonZeros() << "\n";
+
+        saveSparseMat(A.matrix(),BASE_FOLDER + folder + "Q_" + std::to_string(i) + ".txt");
+    }
+
+
+    // Write initial design
+}
+
 int main(int argc, char* argv[]){
 gsInfo <<  "Hello G+Smo.\n";
 
 // Parse command line
-std::string output(".");
+std::string output("");
 int degree = 2;
 int nx = 5;
 int ny = 4;
@@ -1401,32 +1730,84 @@ gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 
 // gsMultiPatch<> patches = get3DGeometry();
 
-// gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
-// patches.basis(0).setDegree(degree);
+// gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(degree));
 //
 // for(int i = 0; i < numRefine; i++){
-// 	patches.uniformRefine();
+	// patches.uniformRefine();
 // }
-//
-// int len = patches[0].coefsSize();
-// //
-// int pm = 1;
-// setupAntennaDomain(patches,degree,sqrt(len),pm);
-//
-// std::string out = "Geometry";
-// gsInfo << "Writing the gsMultiPatch to a paraview file: " << out
-// << "\n\n";
-// gsWriteParaview(patches, out);
 
-// gsInfo << "Domain is a: \n" << std::flush;
-// gsInfo << "The domain is a "<< patches <<"\n";
+gsInfo << "The domain is a "<< patches <<"\n";
 
-// gsInfo << "patch 0: " << patches.patch(0) << "\n";
-
-// gsModLiao modLiao(&patches,useDJC);
 gsShapeOptLog slog(output);
+
+
+
+if (true){
+    gsMultiPatch<> patches = getJigSaw(1);
+    // gsMultiBasis<> bas(patches);
+    // gsInfo << bas.maxCwiseDegree();
+    // exit(0);
+    // gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(degree));
+    // for(int i = 0; i < numRefine; i++){
+	   // patches.uniformRefine();
+    // }
+    generateData02953Project(patches, output);
+    exit(0);
+}
+
+if (true){
+    testOfParametrizations(output,quA,quB);
+    // gsMaxDetJac mDJ(&patches);
+    // mDJ.print();
+    // mDJ.solve();
+    exit(0);
+}
+
+// Test of default behaviour of m_mappers
+if ( false ){
+    gsSpringMethod sM(&patches);
+    sM.update();
+
+    // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
+    gsWinslow winslow(&patches,true);
+    winslow.setQuad(quA,quB);
+
+    winslow.update();
+
+    gsDetJacConstraint dJC(&patches);
+
+    gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    std::string name = "/../results/test/Spring";
+    slog.plotInParaview(patches,name);
+
+    exit(0);
+}
+
 gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
 
+// Test of winslow parametrization method
+if ( false ){
+    gsSpringMethod sM(&patches,optA.mappers());
+    sM.update();
+
+    // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
+    gsWinslow winslow(&patches,optA.mappers(),true);
+    winslow.setQuad(quA,quB);
+
+    winslow.update();
+
+    gsInfo << "min d : " << winslow.m_dJC.evalCon().minCoeff() << "\n";
+    gsInfo << "max d : " << winslow.m_dJC.evalCon().maxCoeff() << "\n";
+
+    std::string name = "/../results/test/Winslow";
+    slog.plotInParaview(patches,name);
+
+    exit(0);
+}
+
+// Convergence testing of gsDetJacConstraint, gsWinslow and gsOptAntenna
 if ( true ){
     gsSpringMethod sM(&patches,optA.mappers());
     sM.update();
@@ -1438,40 +1819,17 @@ if ( true ){
 
     // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
     gsWinslow winslow(&patches,optA.mappers(),false);
+    gsHarmonic harmonic(&patches,optA.mappers(),false);
 
+    convergenceTestOfParaJacobian(harmonic);
     // convergenceTestOfDetJJacobian(winslow);
-    convergenceTestOfParaJacobian(winslow);
+    // convergenceTestOfParaJacobian(winslow);
+    // convergenceTestOfJacobian(optA);
 
     gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
     gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
     // std::string name = "/../results/test/dettest";
     // slog.plotInParaview(patches,name);
-    exit(0);
-}
-
-if ( false ){
-    gsHarmonic harmonic(&patches,optA.mappers(),false);
-    harmonic.setQuad(quA,quB);
-    // gsInfo << "\nharmonic = " << harmonic.evalObj() << "\n";
-    convergenceTestOfParaJacobian(harmonic);
-
-    harmonic.setLambdas(10,10);
-
-    harmonic.update();
-
-    gsInfo << "max d : " << optA.m_dJC.evalCon().maxCoeff() << "\n";
-    std::string name = "/../results/test/harmtest";
-    slog.plotInParaview(patches,name);
-
-    exit(0);
-}
-
-if ( false ){
-    gsHarmonic harmonic(&patches,optA.mappers(),false);
-    harmonic.setLambdas(10,10);
-    harmonic.setQuad(quA,quB);
-    gsInfo << "\nharmonic = " << harmonic.evalObj() << "\n";
-
     exit(0);
 }
 

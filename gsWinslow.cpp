@@ -17,10 +17,8 @@ real_t gsWinslow::evalObj() const {
     typedef gsExprAssembler<>::solution    solution;
 
     geometryMap G = A.getMap(*m_mp);
-    gsInfo << "evalObj\n";
     auto detJinv = jac(G).inv().det(); // The inverse of det J
 
-    gsInfo << "evalObj\n";
     return ev.integral(jac(G)%jac(G)*detJinv);
 }
 
@@ -46,14 +44,12 @@ gsVector<> gsWinslow::gradObj() const{
 
     A.initSystem();
 
-    gsInfo << "gradObj\n";
     auto detJinv = jac(G).inv().det(); // The inverse of abs(det J)JTJ
     auto JTJ = (jac(G)%jac(G)).val();
 
     // A.assemble(2*matrix_by_space(jac(G).tr(),jac(u)).trace()*detJinv
         // - matrix_by_space(jac(G).inv(),jac(u)).trace()*
         // (jac(G).tr()*jac(G)).trace().val()*detJinv);
-    gsInfo << "gradObj\n";
     A.assemble
     (
          2*detJinv*(jac(u)%jac(G))
@@ -65,6 +61,73 @@ gsVector<> gsWinslow::gradObj() const{
 
 }
 
+gsMatrix<> gsWinslow::hessObj(gsMatrix<> &hessObjTagged) const{
+        gsExprAssembler<> A(1,1);
+        gsMultiBasis<> dbasis(*m_mp);
+        A.setIntegrationElements(dbasis);
+        gsExprEvaluator<> ev(A);
+
+        typedef gsExprAssembler<>::geometryMap geometryMap;
+        typedef gsExprAssembler<>::variable    variable;
+        typedef gsExprAssembler<>::space       space;
+        typedef gsExprAssembler<>::solution    solution;
+
+        geometryMap G = A.getMap(*m_mp);
+
+        space u = A.getSpace(dbasis,m_mp->geoDim());
+
+        A.initSystem();
+
+        auto detJinv = jac(G).inv().det().val(); // The inverse of abs(det J)JTJ
+        auto JTJ = (jac(G)%jac(G)).val();
+
+        auto W = JTJ*detJinv;
+        auto dWdc = 2*detJinv*(jac(u)%jac(G))
+                        - detJinv*(jac(u)%jac(G).inv().tr())*JTJ;
+
+        auto dJinvTdc = - matrix_by_space_tr(jac(G).inv(),jac(u))*jac(G).inv().tr();
+
+        A.assemble
+        (
+            2*(
+                detJinv*jac(u)%jac(u)
+                -   (jac(u)%jac(G).inv().tr())*(jac(u)%jac(G)).tr()*detJinv
+            )
+
+        );
+
+        A.assemble(- jac(u) % (W.val() * dJinvTdc));
+
+        A.assemble(- (jac(u)%jac(G).inv().tr()) * dWdc.tr());
+
+        // A.assemble
+        // (
+        //     2*(
+        //         jac(u)%(detJinv*jac(u))
+        //         -   (jac(u)%jac(G).inv().tr())*(jac(u)%jac(G)).tr()*detJinv
+        //     )
+        //     // +   (matrix_by_space_tr(jac(G).inv(),jac(u))*jac(G).inv().tr())%(JTJ*detJinv*jac(u))
+        //     +   (jac(G).inv()*jac(u))%(JTJ*detJinv*jac(u))
+        //     -   2*(jac(u)%jac(G).inv().tr()) * (jac(u)%jac(G)).tr() * detJinv
+        //     +   (jac(u)%jac(G).inv().tr()) * (jac(u)%jac(G).inv().tr()).tr() * JTJ * detJinv
+        // );
+
+        gsInfo << "Norm of rhs: " << A.rhs().norm() <<"\n";
+        gsInfo << "Norm of mat: " << A.matrix().norm() <<"\n";
+
+        gsMatrix<> all = A.matrix();
+
+        // Map twice, is there a better way?
+        gsMatrix<> all2 = mapMatrix(u.mapper(),all);
+
+        // Map tagged part
+        hessObjTagged = mapMatrixToTagged(u.mapper(),all2);
+
+        return mapMatrix(u.mapper(),all2);
+
+    }
+
+// The old implementation, only works for 2D and negative determinant
 // gsMatrix<> gsWinslow::hessObj(gsMatrix<> &hessObjTagged) const{
 //     gsExprAssembler<> A(1,1);
 //     gsMultiBasis<> dbasis(*m_mp);
@@ -176,53 +239,3 @@ gsVector<> gsWinslow::gradObj() const{
 //         return mapMatrix(u.mapper(),all2);
 //
 //     }
-
-// NEW IMPLENTATION FIXIT FINISH
-    gsMatrix<> gsWinslow::hessObj(gsMatrix<> &hessObjTagged) const{
-        gsExprAssembler<> A(1,1);
-        gsMultiBasis<> dbasis(*m_mp);
-        A.setIntegrationElements(dbasis);
-        gsExprEvaluator<> ev(A);
-
-        typedef gsExprAssembler<>::geometryMap geometryMap;
-        typedef gsExprAssembler<>::variable    variable;
-        typedef gsExprAssembler<>::space       space;
-        typedef gsExprAssembler<>::solution    solution;
-
-        geometryMap G = A.getMap(*m_mp);
-
-        space u = A.getSpace(dbasis,m_mp->geoDim());
-
-        A.initSystem();
-
-        auto detJinv = jac(G).inv().det().val(); // The inverse of abs(det J)JTJ
-        auto JTJ = (jac(G)%jac(G)).val();
-        auto dJinvtr_dc = -matrix_by_space(jac(G).inv(),jac(u))*jac(G).inv();
-
-        gsInfo << "hessObj\n";
-        A.assemble
-        (
-            2*(
-                jac(u)%(detJinv*jac(u))
-                -   (jac(u)%jac(G).inv().tr())*(jac(u)%jac(G)).tr()*detJinv
-            )
-            // +   (matrix_by_space_tr(jac(G).inv(),jac(u))*jac(G).inv().tr())%(JTJ*detJinv*jac(u))
-            +   (jac(G).inv()*jac(u))%(JTJ*detJinv*jac(u))
-            -   2*(jac(u)%jac(G).inv().tr()) * (jac(u)%jac(G)).tr() * detJinv
-            +   (jac(u)%jac(G).inv().tr()) * (jac(u)%jac(G).inv().tr()).tr() * JTJ * detJinv
-        );
-
-        gsInfo << "Norm of rhs: " << A.rhs().norm() <<"\n";
-        gsInfo << "Norm of mat: " << A.matrix().norm() <<"\n";
-
-        gsMatrix<> all = A.matrix();
-
-        // Map twice, is there a better way?
-        gsMatrix<> all2 = mapMatrix(u.mapper(),all);
-
-        // Map tagged part
-        hessObjTagged = mapMatrixToTagged(u.mapper(),all2);
-
-        return mapMatrix(u.mapper(),all2);
-
-    }

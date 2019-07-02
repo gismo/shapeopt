@@ -23,7 +23,6 @@ using namespace gismo;
 class gsOptParamMethod: public gsParamMethod, public gsOptProblem<real_t>{
 public:
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging bnd
-    // FIXIT: implement functionality
     gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
@@ -72,19 +71,6 @@ public:
     // Uses gsDetJacConstraint depending on the flag use_detJacConstraint
     void computeJacStructure();
 
-    // Maps a vector from mapper_in indexing, to m_mappers.
-    // E.g. used to map gradients with respect to all cps to be respect to free
-    // DoFs...
-    // FIXIT: maybe find a more elegant way to handle all of this..
-    //      Maybe always assemble wrt. specific mapper, and hold a permutation
-    //      in a matrix, that we only need to multiply to map...
-    gsMatrix<> mapMatrix(gsDofMapper mapper_in, gsMatrix<> mat) const;
-    gsMatrix<> mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> mat) const;
-
-    // Maps a gsIpOptSparseMatrix from mapper_in indexing, to m_mappers.
-    // E.g. used to map gradients with respect to all cps to be respect to free
-    // DoFs...
-    gsIpOptSparseMatrix mapMatrix(gsDofMapper mapper_in, gsIpOptSparseMatrix M) const;
 
     // Method to print optimization parameters
     void print();
@@ -96,7 +82,7 @@ public:
     bool use_detJacConstraint = false;
     mutable gsDetJacConstraint m_dJC;
 
-    // FIXIT: should we add control over n.o. quadrature points, e.g. quA and quB?
+    // Control over no quadrature points. Set by setQuad(quA,quB) method.
     real_t m_quA = 1;
     real_t m_quB = 1;
 };

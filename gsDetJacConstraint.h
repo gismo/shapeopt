@@ -55,6 +55,10 @@ public:
 
     // Plot det J in paraview with filename "name"
     void plotDetJ(std::string name);
+
+    // Get the mass matrix for patch i
+    gsSparseMatrix<> getMassMatrix(index_t i);
+
 public:
     gsMultiPatch<>* m_mp;
     gsMultiBasis<> m_detJacBasis;
