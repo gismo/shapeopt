@@ -1406,6 +1406,7 @@ gsVector<> reshapeBack(gsMatrix<> mat){
 
 void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
+    index_t numRefine = 1;
     index_t n_tests = 5;
 
     // Setup tests
@@ -1415,6 +1416,9 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
     // Unit square
     P[0] = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
     names[0] = "/UnitSq/";
+    for(int i = 0; i < numRefine; i++){
+    	P[0].uniformRefine();
+    }
 
     // Rotated rectangle
     P[1] = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
@@ -1425,6 +1429,10 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
     P[1].patch(0).translate(v);
 
     names[1] = "/Rectangle/";
+    for(int i = 0; i < numRefine; i++){
+    	P[1].uniformRefine();
+    }
+
 
     // JigSaws
     P[2] = getJigSaw(1);
@@ -1478,6 +1486,8 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
         slog << "Winslow: \n";
         gsInfo << "Winslow: \n";
+
+        sM.update();
 
         gsWinslow winslow(&P[t],true);
         winslow.setQuad(quA,quB);
@@ -1541,6 +1551,19 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
     slog.plotInParaview(P[t],name);
     slog.saveVec(sM.getFlat(),name);
 
+    slog << "MaxDetJac Method: \n";
+    gsInfo << "MaxDetJac Method: \n";
+
+    gsMaxDetJac mDJ(&P[t],optA.mappers());
+    mDJ.update();
+
+    name = "MaxDetJac";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(sM.getFlat(),name);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
     slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
     slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
 
@@ -1598,6 +1621,17 @@ gsMultiPatch<> get3DGeometry(){
         o->uniformRefine();
         patches.addPatch(*o);
     }
+
+    // FIXIT make this part faster, it should be unecessary to construct a gsDetJacConstraint to do this
+    gsDetJacConstraint dJC(&patches);
+
+    for (index_t p = 0; p < patches.nBoxes(); p++){
+        index_t sign = dJC.getSignOfPatch(p);
+        gsInfo << "Sign of patch " << p << " is " << sign << "\n";
+        if (sign < 0)
+            changeSignOfDetJ(patches.patch(p));
+    }
+
     patches.computeTopology();
 
     return patches;
@@ -1728,7 +1762,13 @@ gsInfo << buffer;
 
 gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 
-// gsMultiPatch<> patches = get3DGeometry();
+// gsMultiPatch<> patches3d = get3DGeometry();
+// gsMultiPatch<> patches(patches3d.patch(2));
+
+
+// gsMultiPatch<> patches = getJigSaw(2);
+
+// patches.patch(0).scale(0.1);
 
 // gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(degree));
 //
@@ -1740,22 +1780,44 @@ gsInfo << "The domain is a "<< patches <<"\n";
 
 gsShapeOptLog slog(output);
 
+//Test Spring method
+if (true) {
+    gsSpringMethod spring(&patches);
+    spring.update();
 
+    std::string name = "/../results/test/spring";
+    slog.plotInParaview(patches,name);
+     exit(0);
+}
 
-if (true){
-    gsMultiPatch<> patches = getJigSaw(1);
-    // gsMultiBasis<> bas(patches);
-    // gsInfo << bas.maxCwiseDegree();
-    // exit(0);
-    // gsMultiPatch<> patches = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(degree));
-    // for(int i = 0; i < numRefine; i++){
-	   // patches.uniformRefine();
-    // }
-    generateData02953Project(patches, output);
+if (false){
+    gsWinslow winslow(&patches,false);
+
+    gsInfo << "Convergence of Det Jac coefficients:\n";
+    convergenceTestOfDetJJacobian(winslow);
+
+    gsInfo << "Convergence of winslow:\n";
+    convergenceTestOfParaJacobian(winslow);
+
     exit(0);
 }
 
-if (true){
+// Test of book keeping
+if (false){
+    gsWinslow winslow(&patches,false);
+
+    std::string name = "/../results/test/free";
+    slog.saveVec(winslow.getFree(),name);
+
+    name = "/../results/test/flat";
+    slog.saveVec(winslow.getFlat(),name);
+
+    name = "/../results/test/tagged";
+    slog.saveVec(winslow.getTagged(),name);
+    exit(0);
+}
+
+if (false){
     testOfParametrizations(output,quA,quB);
     // gsMaxDetJac mDJ(&patches);
     // mDJ.print();
@@ -1764,22 +1826,40 @@ if (true){
 }
 
 // Test of default behaviour of m_mappers
-if ( false ){
+if ( true ){
     gsSpringMethod sM(&patches);
     sM.update();
 
     // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
-    gsWinslow winslow(&patches,true);
+    gsWinslow winslow(&patches,useDJC);
+    // gsHarmonic harmonic(&patches,useDJC);
     winslow.setQuad(quA,quB);
+    // harmonic.setQuad(quA,quB);
 
     winslow.update();
+    // harmonic.update();
+
+    // gsMaxDetJac mdj(&patches);
+    // mdj.update();
 
     gsDetJacConstraint dJC(&patches);
 
-    gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
-    gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+    gsVector<> vec = dJC.evalCon();
+    // std::string name2 = "d";
+    // slog.saveVec(vec,name2);
 
-    std::string name = "/../results/test/Spring";
+    gsInfo << "min d  : " << vec.minCoeff() << "\n";
+    gsInfo << "max d  : " << vec.maxCoeff() << "\n";
+    // gsInfo << "sum d  : " << vec.sum() << "\n";
+    // gsInfo << "norm d : " << vec.norm() << "\n";
+
+    // for (index_t p = 0; p < patches.nBoxes(); p++){
+    //     gsInfo << "Sign of patch " << p << " is " << dJC.getSignOfPatch(p) << "\n";
+    // }
+
+    // convergenceTestOfDetJJacobian(winslow);
+
+    std::string name = "/../results/test/mdj";
     slog.plotInParaview(patches,name);
 
     exit(0);

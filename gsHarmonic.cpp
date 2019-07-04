@@ -79,6 +79,7 @@ real_t gsHarmonic::evalObj() const {
 //     return result;
 // }
 
+// FIXIT: make dimension independent
 gsVector<> gsHarmonic::gradObj() const{
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);

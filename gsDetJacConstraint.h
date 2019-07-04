@@ -30,8 +30,8 @@ public:
 
     // Get derivatives
     // FIXIT: make dimension independent
-    void getDerivRhsFromPatch(index_t patch, gsSparseMatrix<> &xJac, gsSparseMatrix<> &yJac);
-    void getJacobianFromPatch(index_t patch, gsMatrix<> &xJac, gsMatrix<> &yJac);
+    gsSparseMatrix<> getDerivRhsFromPatch(index_t patch);
+    gsMatrix<> getJacobianFromPatch(index_t patch);
     gsIpOptSparseMatrix getJacobian();
 
     // Accessors
@@ -58,6 +58,9 @@ public:
 
     // Get the mass matrix for patch i
     gsSparseMatrix<> getMassMatrix(index_t i);
+
+    // Get the sign of detJ of a patch
+    index_t getSignOfPatch(index_t patch);
 
 public:
     gsMultiPatch<>* m_mp;

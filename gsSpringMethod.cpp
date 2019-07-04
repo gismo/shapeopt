@@ -101,7 +101,22 @@ void gsSpringMethod::setupSystem(gsDofMapper &mapper, gsSparseMatrix<> &A, gsVec
                         // for 2D: add only half on the interfaces where this is traversed again later..
                         b[ii] += (mapper.is_coupled_index(ii) ? 0.5 : 1.0) * m_mp->patch(p).coef(j,coord);
 
-                        // FIXIT: only once for pair ii,j ???
+                        // FIXIT think about whether this strategy is correct or not
+                        // if (mapper.is_coupled_index(ii)) { // If we are on interface
+                        //     // gsInfo << ii << " is coupled to ";
+                        //
+                        //     // Count no. of times the neighbor is coupled, this is the number of time we will visit it
+                        //     std::vector< std::pair<index_t, index_t > > vec;
+                        //     mapper.preImage(jj,vec);
+                        //     real_t n_coupled = vec.size();
+                        //
+                        //     // Only add 1/n_coupled of the coef since it will be visited n_coupled times.
+                        //     b[ii] += 1.0/n_coupled * m_mp->patch(p).coef(j,coord);
+                        //
+                        //     // gsInfo << vec.size() << "\n";
+                        // } else { // If we are not on an interface, we can just add the neighbor to the rhs.
+                        //     b[ii] +=  m_mp->patch(p).coef(j,coord);
+                        // }
                     }
                 }
             }
@@ -121,7 +136,7 @@ gsVector<> gsSpringMethod::getUpdate(gsVector<> x)
         setupSystem(m_mappers[d], tmp, m_bs[d],d);
         out.segment(m_shift_free[d],m_mappers[d].freeSize()) = m_solvers[d].solve(m_bs[d]);
     }
-    
+
     updateTagged(old_tagged);
 
     return out;
