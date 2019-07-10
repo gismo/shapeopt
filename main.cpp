@@ -1376,6 +1376,54 @@ gsMultiPatch<> getJigSaw(index_t i){
 
 }
 
+gsMultiPatch<> getSeastar(){
+
+    index_t n = 8;
+    index_t m = 8;
+    index_t degree = 3;
+
+    std::string folder = "/parametrizations/Seastar/";
+
+	// 1. construction of a knot vector for each direction
+	gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
+	gsKnotVector<> kv2(0, 1, m - degree - 1, degree + 1);
+	// 2. construction of a basis
+	gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
+	// 3. construction of a coefficients
+	gsMatrix<> greville = basis.anchors();
+	gsMatrix<> coefs (greville.cols(), 2);
+
+    gsInfo << BASE_FOLDER + folder + "seastar.txt \n";
+	readFromTxt(BASE_FOLDER + folder + "seastar.txt", coefs);
+
+    // gsDebugVar(coefs.rows());
+    // gsDebugVar(coefs.cols());
+    // gsDebugVar(coefs);
+    // exit(0);
+	// gsInfo << coefs;
+
+	// 4. putting basis and coefficients toghether
+	gsTensorBSpline<2, real_t>  left(basis, coefs);
+    // changeSignOfDetJ(left);
+
+	//! [Geometry data]
+	// Define Geometry, must be a gsMultiPatch object
+
+	gsMultiPatch<> patches = gsMultiPatch<>(left);
+
+    // Change sign of determinant.
+    // for (index_t i = 0; i < patches.nBoxes(); i++){
+        // changeSignOfDetJ(patches.patch(i));
+    // }
+
+	double tol = 1e-2;
+	patches.computeTopology(tol,true);
+	patches.closeGaps(tol);
+
+	return patches;
+
+}
+
 gsMatrix<> reshape(gsVector<> vec, index_t n, index_t m){
     gsMatrix<> out(n,m);
 
@@ -1407,7 +1455,7 @@ gsVector<> reshapeBack(gsMatrix<> mat){
 void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
     index_t numRefine = 1;
-    index_t n_tests = 5;
+    index_t n_tests = 6;
 
     // Setup tests
     std::vector< gsMultiPatch<> > P(n_tests);
@@ -1436,13 +1484,18 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
     // JigSaws
     P[2] = getJigSaw(1);
+    P[2].patch(0).scale(0.1);
     names[2] = "/JigSaw1/";
     P[3] = getJigSaw(2);
+    P[3].patch(0).scale(0.1);
     names[3] = "/JigSaw2/";
 
+    P[4] = getSeastar();
+    names[4] = "/Seastar/";
+
     // Initial design
-    P[4] = getGeometry(5,4,2);
-    names[4] = "/InitDesign/";
+    P[5] = getGeometry(5,4,2);
+    names[5] = "/InitDesign/";
 
 
     // For all test but the last one
@@ -1529,7 +1582,7 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
         slog.saveVec(harmonic.getFlat(),name);
     }
 
-    index_t t = 4;
+    index_t t = n_tests - 1;
 
     gsShapeOptLog slog(output + names[t]);
     gsOptAntenna optA(&P[t],1,&slog,0,quA,quB);
@@ -1731,6 +1784,9 @@ bool useDJC = true;
 int quA = 1;
 int quB = 1;
 
+real_t lambda_1 = 1;
+real_t lambda_2 = 1;
+
 int startDes = -1;
 
 gsCmdLine cmd("A test of lumped mass matricies");
@@ -1743,6 +1799,9 @@ cmd.addInt("i", "maxIter", "Maximal number of reparametrizations", maxiter);
 
 cmd.addInt("A", "quA", "quA", quA);
 cmd.addInt("B", "quB", "quB", quB);
+
+cmd.addReal("1", "lambda1", "lambda1", lambda_1);
+cmd.addReal("2", "lambda2", "lambda2", lambda_2);
 
 cmd.addString("o","output","Name of the output folder (relative to BASE_FOLDER)",output);
 
@@ -1760,13 +1819,14 @@ char buffer [50];
 std::sprintf(buffer,"p = %d \n n = %d\n",degree,numRefine);
 gsInfo << buffer;
 
-gsMultiPatch<> patches = getGeometry(nx,ny,degree);
+// gsMultiPatch<> patches = getGeometry(nx,ny,degree);
 
 // gsMultiPatch<> patches3d = get3DGeometry();
 // gsMultiPatch<> patches(patches3d.patch(2));
 
 
 // gsMultiPatch<> patches = getJigSaw(2);
+gsMultiPatch<> patches = getSeastar();
 
 // patches.patch(0).scale(0.1);
 
@@ -1780,13 +1840,45 @@ gsInfo << "The domain is a "<< patches <<"\n";
 
 gsShapeOptLog slog(output);
 
+if (false) {
+    gsMatrix<> mat(2,2);
+    mat << 1,2,3,4;
+    gsInfo << " mat \t: \n" << mat << "\n";
+    gsInfo << " mat.adj() \t': \n" << mat.adjugate() << "\n";
+    exit(0);
+}
 //Test Spring method
 if (true) {
     gsSpringMethod spring(&patches);
     spring.update();
 
-    std::string name = "/../results/test/spring";
+    gsDetJacConstraint dJC(&patches);
+
+    gsVector<> vec = dJC.evalCon();
+    // std::string name2 = "d";
+    // slog.saveVec(vec,name2);
+
+    gsInfo << "min d  : " << vec.minCoeff() << "\n";
+    gsInfo << "max d  : " << vec.maxCoeff() << "\n";
+    gsInfo << "sum d  : " << vec.sum() << "\n";
+
+    gsHarmonic harmonic(&patches,useDJC);
+    harmonic.setQuad(quA,quB);
+    harmonic.setLambdas(lambda_1,lambda_2);
+
+    // convergenceTestOfParaJacobian(harmonic);
+
+    // gsInfo << "harmonic: " << harmonic.evalObj() << "\n";
+    // harmonic.evalObj();
+    // exit(0);
+
+    harmonic.update();
+
+    std::string name = "/../results/test/harmonic";
     slog.plotInParaview(patches,name);
+
+    name = "/../results/TestOfParam/seastar";
+    slog.saveVec(harmonic.getFlat(),name);
      exit(0);
 }
 
@@ -1817,6 +1909,7 @@ if (false){
     exit(0);
 }
 
+// Test parametrizations
 if (false){
     testOfParametrizations(output,quA,quB);
     // gsMaxDetJac mDJ(&patches);

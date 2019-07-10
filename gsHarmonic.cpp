@@ -18,9 +18,6 @@ real_t gsHarmonic::evalObj() const {
     typedef gsExprAssembler<>::solution    solution;
 
     geometryMap G = A.getMap(*m_mp);
-    gsFunctionExpr<> f1("x", "-y",2);
-    variable ffun = ev.getVariable(f1);
-    auto D = fjac(ffun);
 
     gsMultiPatch<> x_mp = m_mp->coord(0);
     gsMultiPatch<> y_mp = m_mp->coord(1);
@@ -28,17 +25,13 @@ real_t gsHarmonic::evalObj() const {
     variable x = A.getCoeff(x_mp);
     variable y = A.getCoeff(y_mp);
 
-    // auto Lx = fform(G).adj() % hess(x); // Why does this not work?
     auto Lx = (jac(G).tr()*jac(G)).adj() % hess(x);
-    // auto Ly = fform(G).adj() % hess(y);
     auto Ly = (jac(G).tr()*jac(G)).adj() % hess(y);
 
     real_t out = 0;
 
     out += ev.integral(lambda_1 * hess(G).sqNorm());
     out += ev.integral(lambda_2 * jac(G).sqNorm());
-    // out += ev.integral( (D*hess(x)*D*fform(G)).trace().sqNorm().val() );
-    // out += ev.integral( (D*hess(y)*D*fform(G)).trace().sqNorm().val() );
     out += ev.integral(Lx.sqr());
     out += ev.integral(Ly.sqr());
     return out;
@@ -144,6 +137,7 @@ gsVector<> gsHarmonic::gradObj() const{
     return mapMatrix(u.mapper(),all);
 }
 
+// Fixit, doesnt work yet.
 gsMatrix<> gsHarmonic::hessObj(gsMatrix<> &hessObjTagged) const{
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
