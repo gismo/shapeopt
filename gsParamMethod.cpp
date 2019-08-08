@@ -4,12 +4,22 @@
 using namespace gismo;
 
 gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin,std::vector< gsDofMapper > mappers):
-m_mp(mpin)
+m_mp(mpin),
+m_isBoundaryFixed(mpin->targetDim(),mpin->nBoundary()),
+m_isInterfaceFixed(mpin->targetDim(),mpin->nInterfaces()),
+m_isBoundaryTagged(mpin->targetDim(),mpin->nBoundary()),
+m_isInterfaceTagged(mpin->targetDim(),mpin->nInterfaces())
 {
     setMappers(mappers);
 }
 
-gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin): m_mp(mpin), m_mappers(m_mp->targetDim())
+gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin):
+m_mp(mpin),
+m_mappers(m_mp->targetDim()),
+m_isBoundaryFixed(mpin->targetDim(),mpin->nBoundary()),
+m_isInterfaceFixed(mpin->targetDim(),mpin->nInterfaces()),
+m_isBoundaryTagged(mpin->targetDim(),mpin->nBoundary()),
+m_isInterfaceTagged(mpin->targetDim(),mpin->nInterfaces())
 {
     // Setup default mappers
     setupDefaultMappers();
@@ -39,6 +49,71 @@ void gsParamMethod::setMappers(std::vector< gsDofMapper > mappers)
         if (i > 0){
             m_shift_free[i] = m_shift_free[i-1] + m_mappers[i-1].freeSize();
             m_shift_all[i] = m_shift_all[i-1] + m_mappers[i-1].size();
+        }
+    }
+
+    // FIXIT: move to a seperate method?
+    // Save whether boundaries are fixed or tagged
+    for (index_t i = 0; i < m_mp->nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            m_isBoundaryFixed(d,i) = true;
+            m_isBoundaryTagged(d,i) = true;
+            for (index_t k = 0; k < boundaryDofs.size(); k++)
+            {
+                if ( m_mappers[d].is_free(boundaryDofs[k],ps.patch) )
+                {
+                    // If one of the cps on the interface is free,
+                    //   we predict that the entire one is free
+                    m_isBoundaryFixed(d,i) = false;
+                }
+
+                if ( !m_mappers[d].is_tagged(boundaryDofs[k],ps.patch) )
+                {
+                    // If one of the cps on the interface is not tagged,
+                    //  we predict that the entire one is not tagged
+                    m_isBoundaryTagged(d,i) = false;
+                }
+
+            }
+        }
+    }
+
+    // Save whether interfaced are fixed or tagged
+    for (index_t i = 0; i < m_mp->nInterfaces(); i++){
+        // Get boundary local indices
+        boundaryInterface interface = m_mp->bInterface(i);
+        patchSide ps = interface.first();
+
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            m_isInterfaceFixed(d,i) = true;
+            m_isInterfaceTagged(d,i) = true;
+
+            for (index_t k = 0; k < boundaryDofs.size(); k++)
+            {
+                if ( m_mappers[d].is_free(boundaryDofs[k],ps.patch) )
+                {
+                    // If one of the cps on the interface is free,
+                    //   we predict that the entire one is free
+                    m_isInterfaceFixed(d,i) = false;
+                }
+
+                if ( !m_mappers[d].is_tagged(boundaryDofs[k],ps.patch) )
+                {
+                    // If one of the cps on the interface is not tagged,
+                    //  we predict that the entire one is not tagged
+                    m_isInterfaceTagged(d,i) = false;
+                }
+
+            }
         }
     }
 }
@@ -104,7 +179,6 @@ void gsParamMethod::setupDefaultMappers()
 {
     // Get mappers from multibasis with interfaces glued
     gsMultiBasis<> geoBasis(*m_mp);
-
     for (index_t d = 0; d < m_mp->targetDim(); d++)
     {
         geoBasis.getMapper(iFace::glue,m_mappers[d],false); // False means that we do not finalize
@@ -405,3 +479,147 @@ gsMatrix<> gsParamMethod::mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> ma
     return mat_out;
 
 };
+
+// FIXIT: Implement refExtension functionally.. ask Angelos
+void gsParamMethod::refineElements(const std::vector<bool> & elMarked)
+{
+    gsMultiBasis<> basis(*m_mp);
+    const int dim = basis.dim();
+
+    // numMarked: Number of marked cells on current patch, also currently marked cell
+    // poffset  : offset index for the first element on a patch
+    // globalCount: counter for the current global element index
+    int numMarked, poffset = 0, globalCount = 0;
+
+    // refBoxes: contains marked boxes on a given patch
+    gsMatrix<> refBoxes;
+
+    for (unsigned pn=0; pn < basis.nBases(); ++pn )// for all patches
+    {
+        // Get number of elements to be refined on this patch
+        const int numEl = basis[pn].numElements();
+        numMarked = std::count_if(elMarked.begin() + poffset,
+                                  elMarked.begin() + poffset + numEl,
+                                  std::bind2nd(std::equal_to<bool>(), true) );
+        poffset += numEl;
+        refBoxes.resize(dim, 2*numMarked);
+        //gsDebugVar(numMarked);
+        numMarked = 0;// counting current patch element to be refined
+
+        // for all elements in patch pn
+        typename gsBasis<>::domainIter domIt = basis.basis(pn).makeDomainIterator();
+        for (; domIt->good(); domIt->next())
+        {
+            if( elMarked[ globalCount++ ] ) // refine this element ?
+            {
+                // Construct degenerate box by setting both
+                // corners equal to the center
+                refBoxes.col(2*numMarked  ) =
+                        refBoxes.col(2*numMarked+1) = domIt->centerPoint();
+
+                // Advance marked cells counter
+                numMarked++;
+            }
+        }
+        // Refine all of the found refBoxes in this patch
+        // FIXIT: make dimension independet.. Find way to replace 2 with dim.
+        std::vector<gsSortedVector<unsigned> > OX = dynamic_cast<gsHTensorBasis<2,real_t>&> (m_mp->patch(pn).basis()).getXmatrix();
+        m_mp->patch(pn).basis().refine( refBoxes );
+        gsSparseMatrix<> transf;
+        dynamic_cast<gsHTensorBasis<2,real_t>&> (m_mp->patch(pn).basis()).transfer(OX, transf);
+        //gsDebug<<"tranf orig:\n"<<transf<<std::endl;
+        m_mp->patch(pn).coefs() = transf*m_mp->patch(pn).coefs();
+
+    }
+
+    m_mp->repairInterfaces();
+}
+
+void gsParamMethod::recreateMappers()
+{
+    // Get mappers from multibasis with interfaces glued
+    gsMultiBasis<> geoBasis(*m_mp);
+    for (index_t d = 0; d < m_mp->targetDim(); d++)
+    {
+        geoBasis.getMapper(iFace::glue,m_mappers[d],false); // False means that we do not finalize
+    }
+
+    // Check if we should fix or tag some boundaries
+    for (index_t i = 0; i < m_mp->nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            if (m_isBoundaryFixed(d,i))
+                m_mappers[d].markBoundary(ps.patch,boundaryDofs);
+        }
+    }
+
+    // Check if we should fix or tag some interfaces
+    for (index_t i = 0; i < m_mp->nInterfaces(); i++){
+        // Get boundary local indices
+        boundaryInterface interface = m_mp->bInterface(i);
+        patchSide ps = interface.first();
+
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            if (m_isInterfaceFixed(d,i))
+                m_mappers[d].markBoundary(ps.patch,boundaryDofs);
+        }
+    }
+
+    // Finalize mappers
+    for (index_t d = 0; d < m_mp->targetDim(); d++)
+    {
+        m_mappers[d].finalize();
+    }
+
+    // Tag coordinates of boundaries
+    for (index_t i = 0; i < m_mp->nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            // Tag the controlpoint
+            if (m_isBoundaryTagged(d,i))
+            {
+                for (index_t j = 0; j < boundaryDofs.size(); j ++){
+                    m_mappers[d].markTagged(boundaryDofs[j],ps.patch);
+                }
+            }
+        }
+    }
+
+    // Tag coordinates of interfaces
+    for (index_t i = 0; i < m_mp->nInterfaces(); i++){
+        // Get boundary local indices
+        boundaryInterface interface = m_mp->bInterface(i);
+        patchSide ps = interface.first();
+
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            // Tag the controlpoint
+            if (m_isInterfaceTagged(d,i))
+            {
+                for (index_t j = 0; j < boundaryDofs.size(); j ++){
+                    m_mappers[d].markTagged(boundaryDofs[j],ps.patch);
+                }
+            }
+        }
+    }
+
+    gsInfo << "n controlpoints: " << m_mappers[0].mapSize() << "\n";
+
+
+    // Call setMappers to calculate n_free, n_tagged etc.
+    setMappers(m_mappers);
+
+}

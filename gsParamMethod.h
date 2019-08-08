@@ -106,13 +106,29 @@ public:
     // DoFs...
     gsIpOptSparseMatrix mapMatrix(gsDofMapper mapper_in, gsIpOptSparseMatrix M) const;
 
+    // refines marked elements of the domain (m_mp).
+    // OBS requires that m_mp is a gsHBSpline, or gsTHBSpline.!
+    // Remember to update m_mappers afterwards and rerun setupMappers
+    void refineElements(const std::vector<bool> & elMarked);
+
+    // Recreate m_mappers using m_isBoundaryFixed, m_isBoundaryTagged, ...
+    void recreateMappers();
+
 public:
     mutable gsMultiPatch<>* m_mp;
 
     std::vector< gsDofMapper > m_mappers; // Mapper for each coordinate
 
+    // FIXIT: use a vector of index_t instead
     gsVector<> m_shift_free; // Contains the shifts used when mapping free DoFs
     gsVector<> m_shift_all; // Contains the shifts used when mapping all DoFs
+
+    // Save information on fixed and tagged cps.
+    //   To be used to redo mappers after refinement
+    gsMatrix< bool > m_isInterfaceFixed;
+    gsMatrix< bool > m_isBoundaryFixed;
+    gsMatrix< bool > m_isInterfaceTagged;
+    gsMatrix< bool > m_isBoundaryTagged;
 
     index_t n_free; // sum over coordinates
     index_t n_cps; // sum over coordinates

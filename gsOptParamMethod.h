@@ -71,12 +71,18 @@ public:
     // Uses gsDetJacConstraint depending on the flag use_detJacConstraint
     void computeJacStructure();
 
-
     // Method to print optimization parameters
     void print();
 
     // set quadrature parameters
     void setQuad(real_t quA, index_t quB){ m_quA = quA, m_quB = quB; };
+
+    // Refine elements OBS: requires mp to have gsHTensorBasis
+    // Strategy can be:
+    //      0 - refine where detJ is negative,
+    //      1 - refine where detJ constraints are active
+    // Remember that you have to update mappers afterwards
+    void refineBasedOnDetJ(index_t strategy);
 
 public:
     bool use_detJacConstraint = false;

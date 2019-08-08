@@ -3,44 +3,10 @@
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin): m_mp(mpin), m_detJacBasis(*m_mp),
-    m_solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes()){
-    for (index_t i = 0; i < m_mp->nBoxes(); i++){
-        m_areSolversSetup[i] = false;
-    }
-    // Prepare basis for detJac
-    // by setting the degree to (2p-1) for 2D, and (3p-1) for 3D
-    int p = m_detJacBasis.maxCwiseDegree();
-    m_detJacBasis.setDegree(m_mp->targetDim()*p-1);
-    // and reducing the continuity
-    m_detJacBasis.reduceContinuity(1);
-    // gsInfo << "\n..detJacBasis degree is: " << 2*p-1 << "\n";
-    m_size = m_detJacBasis.size();
-    gsInfo << "m_size : " << m_size << "\n";
-
-    // Count the total number of controlpoints
-    n_controlpoints = 0;
-    n_constraints = 0;
-    for(int i = 0; i < m_mp->nBoxes(); i++){
-        n_controlpoints += m_mp->patch(i).coefsSize();
-        n_constraints += m_detJacBasis.size(i);
-        // gsInfo << "Patch " << i << " has " << mp->patch(i).coefsSize() << " cps... \n";
-        // gsInfo << "Patch " << i << " gets " << m_detJacBasis.size(i) << " constraints... \n";
-    }
-
-    // FIXIT: Clean this up
-    // Save mapper
-    gsExprAssembler<> A(1,1);
-    gsMultiBasis<> dbasis(*m_mp);
-    A.setIntegrationElements(m_detJacBasis);
-    gsExprEvaluator<> ev(A);
-
-    // Define types
-    typedef gsExprAssembler<>::space space;
-    space v = A.getSpace(dbasis);
-
-    A.initSystem();
-    m_space_mapper = v.mapper();
+gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin): m_mp(mpin),
+    m_solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes())
+{
+    setup(); // Method to setup m_detJacBasis and m_space_mapper
 
     // gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";
     // gsInfo << "n_constraints = " << n_controlpoints << "\n \n";
@@ -51,7 +17,8 @@ void gsDetJacConstraint::evalCon_into(gsAsVector<real_t> & result)
     result = evalCon();
 }
 
-gsVector<> gsDetJacConstraint::evalCon(){
+gsVector<> gsDetJacConstraint::evalCon()
+{
     //gsInfo<<"Active options:\n"<< A.options() <<"\n";
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -101,7 +68,8 @@ gsVector<> gsDetJacConstraint::evalCon(){
 
 }
 
-gsSparseMatrix<> gsDetJacConstraint::getDerivRhsFromPatch(index_t patch){
+gsSparseMatrix<> gsDetJacConstraint::getDerivRhsFromPatch(index_t patch)
+{
     gsMultiPatch<> singlePatch(m_mp->patch(patch));
 
     gsMultiBasis<> dJbas(m_detJacBasis.basis(patch));
@@ -144,7 +112,8 @@ gsSparseMatrix<> gsDetJacConstraint::getDerivRhsFromPatch(index_t patch){
 
 }
 
-gsMatrix<> gsDetJacConstraint::getJacobianFromPatch(index_t patch){
+gsMatrix<> gsDetJacConstraint::getJacobianFromPatch(index_t patch)
+{
     GISMO_ASSERT(m_areSolversSetup[patch],"Solver is not setup before calling detJacConstraint::getJacobianFromPatch");
 
     gsSparseMatrix<> Rhs = getDerivRhsFromPatch(patch);
@@ -152,7 +121,8 @@ gsMatrix<> gsDetJacConstraint::getJacobianFromPatch(index_t patch){
     return m_solversMassMatrix[patch].solve(Rhs);
 }
 
-gsIpOptSparseMatrix gsDetJacConstraint::getJacobian(){
+gsIpOptSparseMatrix gsDetJacConstraint::getJacobian()
+{
     // For each patch generate Jacobian with respect to all coordinates of geometry
     index_t dim = m_mp->targetDim();
 
@@ -185,19 +155,22 @@ gsIpOptSparseMatrix gsDetJacConstraint::getJacobian(){
 
 }
 
-gsVector<> gsDetJacConstraint::getUpperBounds(){
+gsVector<> gsDetJacConstraint::getUpperBounds()
+{
     gsVector<> out;
     out.setConstant(n_constraints, 1e19);
     return out;
 }
 
-gsVector<> gsDetJacConstraint::getLowerBounds(){
+gsVector<> gsDetJacConstraint::getLowerBounds()
+{
     gsVector<> out;
     out.setConstant(n_constraints, m_eps);
     return out;
 }
 
-gsMultiPatch<> gsDetJacConstraint::getDetJ(){
+gsMultiPatch<> gsDetJacConstraint::getDetJ()
+{
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
     typedef gsExprAssembler<>::space       space;
@@ -239,7 +212,8 @@ gsMultiPatch<> gsDetJacConstraint::getDetJ(){
     return dJ;
 }
 
-void gsDetJacConstraint::plotDetJ(std::string name){
+void gsDetJacConstraint::plotDetJ(std::string name)
+{
     gsMultiPatch<> dJ = getDetJ();
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
@@ -288,7 +262,8 @@ gsSparseMatrix<> gsDetJacConstraint::getMassMatrix(index_t i)
     return A.matrix();
 }
 
-index_t gsDetJacConstraint::getSignOfPatch(index_t patch){
+index_t gsDetJacConstraint::getSignOfPatch(index_t patch)
+{
     //gsInfo<<"Active options:\n"<< A.options() <<"\n";
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -324,4 +299,143 @@ index_t gsDetJacConstraint::getSignOfPatch(index_t patch){
 
     return (avg > 0) - (avg < 0); // returning sign of avg
 
+}
+
+void gsDetJacConstraint::plotActiveConstraints(std::vector<bool> & elMarked, std::string name, real_t tol1)
+{
+    // Create gsMultiPatch to save sum of basis functions which supporting elements should be marked
+    gsMultiPatch<> basMarking;
+    for(int p = 0; p < m_mp->nBoxes(); p++)
+    {
+        gsMatrix<> coefs;
+        coefs.setZero(m_detJacBasis.size(p),1);
+        basMarking.addPatch( m_detJacBasis.basis(p).makeGeometry( coefs ) );
+    }
+
+    gsVector<> d = evalCon();
+
+    // Loop through d-vector and mark
+    index_t start = 0;
+    for(int p = 0; p < m_mp->nBoxes(); p++){
+        // Save result in result vector
+        index_t len = m_detJacBasis.size(p);
+        for(int i = 0; i < len; i++){
+            if (d[start + i] - m_eps < tol1 ){
+                gsInfo << "d[" << start + i << "] = " << d[start + i] << " and m_eps = " << m_eps << " and tol1 = " << tol1 << "\n";
+                basMarking.patch(p).coef(i,0) = 1;
+            }
+        }
+        start += m_detJacBasis.size(p);
+    }
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    gsExprAssembler<> A(1,1);
+
+    // Elements used for numerical integration
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
+
+    space u = A.getSpace(m_detJacBasis);
+
+    geometryMap G = A.getMap(*m_mp);
+
+    variable out = A.getCoeff(basMarking);
+
+    gsInfo<<"Plotting " << name << " in Paraview...\n";
+    ev.writeParaview( out   , G, name);
+    ev.options().setSwitch("plot.elements", true);
+
+}
+
+void gsDetJacConstraint::markElements(std::vector<bool> & elMarked, real_t tol1 , real_t tol2 )
+{
+    // Create gsMultiPatch to save sum of basis functions which supporting elements should be marked
+    gsMultiPatch<> basMarking;
+    for(int p = 0; p < m_mp->nBoxes(); p++)
+    {
+        gsMatrix<> coefs;
+        coefs.setZero(m_detJacBasis.size(p),1);
+        basMarking.addPatch( m_detJacBasis.basis(p).makeGeometry( coefs ) );
+    }
+
+    gsVector<> d = evalCon();
+
+    // Loop through d-vector and mark
+    index_t start = 0;
+    for(int p = 0; p < m_mp->nBoxes(); p++){
+        // Save result in result vector
+        index_t len = m_detJacBasis.size(p);
+        for(int i = 0; i < len; i++){
+            if (d[start + i] - m_eps < tol1 ){
+                gsInfo << "d[" << start + i << "] = " << d[start + i] << " and m_eps = " << m_eps << " and tol1 = " << tol1 << "\n";
+                basMarking.patch(p).coef(i,0) = 1;
+            }
+        }
+        start += m_detJacBasis.size(p);
+    }
+
+    // Integrate element wise to get support marked
+    gsExprEvaluator<> ev;
+    ev.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<>::variable markfun = ev.getVariable(basMarking);
+    // Get the element-wise norms.
+    ev.integralElWise(markfun);
+    const std::vector<real_t> & eltErrs  = ev.elementwise();
+
+    // Mark with true false
+    elMarked.resize( eltErrs.size() );
+    // Now just check for each element, whether the local error
+    // is above the computed threshold or not, and mark accordingly.
+
+    typename std::vector<real_t>::const_iterator err = eltErrs.begin();
+    for(std::vector<bool>::iterator i = elMarked.begin(); i!=  elMarked.end(); ++i, ++err)
+        *i = ( *err > tol2 );
+
+}
+
+void gsDetJacConstraint::setup()
+{
+    gsMultiBasis<> bas(*m_mp);
+    m_detJacBasis = bas;
+
+    for (index_t i = 0; i < m_mp->nBoxes(); i++){
+        m_areSolversSetup[i] = false;
+    }
+    // Prepare basis for detJac
+    // by setting the degree to (2p-1) for 2D, and (3p-1) for 3D
+    int p = m_detJacBasis.maxCwiseDegree();
+    m_detJacBasis.setDegree(m_mp->targetDim()*p-1);
+    // and reducing the continuity
+    m_detJacBasis.reduceContinuity(1);
+    // gsInfo << "\n..detJacBasis degree is: " << 2*p-1 << "\n";
+    m_size = m_detJacBasis.size();
+    gsInfo << "m_size : " << m_size << "\n";
+
+    // Count the total number of controlpoints
+    n_controlpoints = 0;
+    n_constraints = 0;
+    for(int i = 0; i < m_mp->nBoxes(); i++){
+        n_controlpoints += m_mp->patch(i).coefsSize();
+        n_constraints += m_detJacBasis.size(i);
+        // gsInfo << "Patch " << i << " has " << mp->patch(i).coefsSize() << " cps... \n";
+        // gsInfo << "Patch " << i << " gets " << m_detJacBasis.size(i) << " constraints... \n";
+    }
+
+    // FIXIT: Clean this up
+    // Save mapper
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(*m_mp);
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
+
+    // Define types
+    typedef gsExprAssembler<>::space space;
+    space v = A.getSpace(dbasis);
+
+    A.initSystem();
+    m_space_mapper = v.mapper();
 }

@@ -30,6 +30,7 @@ void gsOptParamMethod::setupOptParameters()
         m_dJC.evalCon();
 
         m_numConstraints = m_dJC.numConstraints();
+        gsDebugVar(m_numConstraints);
         m_conLowerBounds = m_dJC.getLowerBounds();
         m_conUpperBounds = m_dJC.getUpperBounds();
     } else {
@@ -134,7 +135,8 @@ gsVector<> gsOptParamMethod::gradObj() const{
     return result;
 }
 
-void gsOptParamMethod::print(){
+void gsOptParamMethod::print()
+{
   gsInfo << "m_numDesignVars  = " <<  m_numDesignVars << "\n";
   gsInfo << "m_numConstraints  = " <<  m_numConstraints << "\n";
 
@@ -163,5 +165,28 @@ void gsOptParamMethod::print(){
   disp2 << m_conLowerBounds,m_conUpperBounds;
   // gsInfo << ".. constraint upper and lower bounds\n";
   // gsInfo << disp2 << "\n";
+
+}
+
+// Strategy can be:
+//      0 - refine where detJ is negative,
+//      1 - refine where detJ constraints are active
+void gsOptParamMethod::refineBasedOnDetJ(index_t strategy)
+{
+    std::vector<bool> elMarked;
+
+    if (strategy == 0) // Mark support of basis function with negative coefficient
+    {
+        m_dJC.markElements(elMarked,-1);
+    } else { // Mark support of basis function with active coefficient (tol close to lower bound)
+        real_t tol = 0.0001;
+        m_dJC.markElements(elMarked,tol);
+    }
+
+    refineElements(elMarked); // Refine m_mp
+
+    recreateMappers();      // Recreate m_mappers, see gsParamMethod.h for further information
+    m_dJC.setup();          // Reset the gsDetJacConstraint
+    setupOptParameters();   // Reset optimization parameters
 
 }
