@@ -38,6 +38,7 @@ using namespace gismo;
 class gsShapeOptProblem: public gsOptProblem<real_t>{
 public:
 
+    // FIXIT: NOT IMPLEMENTED YET
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
     gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog);
@@ -45,14 +46,15 @@ public:
     // Constructs from list of mappers, one for each dimension
     //      The design variables for the shape optimization should be tagged in the
     //      mappers. The "inner controlpoints", that needs updation by a parametrization
-    //      method should be free. The rest should be eliminated..
+    //      method should be free. The rest (fixed cps) should be eliminated..
     gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
+    // these are automaticly generated from mappers and gsDetJacConstraint m_dJC
     void setupOptParameters();
 
     // Method overloaded from gsOptProblem<>
-    // Uses gsDetJacConstraint as default
+    // Uses gsDetJacConstraint as default constraint
     void computeJacStructure();
 
     // Evaluation of the objective, using the design variables contained in m_mp
@@ -80,7 +82,7 @@ public:
     // Evaluates the jacobian of the constraints. Default behaviour calls gsDetJacConstraint
     void jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const ;
 
-    // Get the tagged Cps. Uses the methods from gsParamMethod
+    // Get the tagged Cps. Uses the method from gsParamMethod
     gsVector<> getDesignVariables() const;
 
     // Update the tagged DoFs by the parametrization methods in gsParamMethod

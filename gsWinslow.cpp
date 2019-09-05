@@ -3,11 +3,14 @@
 using namespace gismo;
 
 real_t gsWinslow::evalObj() const {
+    // gsInfo << "evalObj() \n";
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(dbasis);
-    gsExprEvaluator<> ev(A);
 
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
+    gsExprEvaluator<> ev(A);
     ev.options().setInt("quB",m_quB);
     ev.options().setReal("quA",m_quA);
 
@@ -23,15 +26,14 @@ real_t gsWinslow::evalObj() const {
 }
 
 gsVector<> gsWinslow::gradObj() const{
+    // gsInfo << "gradObj() \n";
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
-
-    gsOptionList opts = A.options();
-    opts.setInt("quB",m_quB);
-    opts.setReal("quA",m_quA);
-    A.setOptions(opts);
-
     A.setIntegrationElements(dbasis);
+
+    gsExprEvaluator<> ev(A);
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -66,6 +68,9 @@ gsMatrix<> gsWinslow::hessObj(gsMatrix<> &hessObjTagged) const{
         gsMultiBasis<> dbasis(*m_mp);
         A.setIntegrationElements(dbasis);
         gsExprEvaluator<> ev(A);
+
+        A.options().setInt("quB",m_quB);
+        A.options().setReal("quA",m_quA);
 
         typedef gsExprAssembler<>::geometryMap geometryMap;
         typedef gsExprAssembler<>::variable    variable;
@@ -112,8 +117,6 @@ gsMatrix<> gsWinslow::hessObj(gsMatrix<> &hessObjTagged) const{
         //     +   (jac(u)%jac(G).inv().tr()) * (jac(u)%jac(G).inv().tr()).tr() * JTJ * detJinv
         // );
 
-        gsInfo << "Norm of rhs: " << A.rhs().norm() <<"\n";
-        gsInfo << "Norm of mat: " << A.matrix().norm() <<"\n";
 
         gsMatrix<> all = A.matrix();
 

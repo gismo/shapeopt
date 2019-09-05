@@ -21,7 +21,7 @@ class gsDetJacConstraint{
 public:
 
     // Constructs from gsMultiPatch, runs the setup method.
-    gsDetJacConstraint(gsMultiPatch<>* mpin);
+    gsDetJacConstraint(gsMultiPatch<>* mpin, bool useTPSolver = false);
 
     // Get constraints (spline coefficients of detJ) by projection
     // FIXIT: Change the sign if the coefs is negative?
@@ -73,9 +73,15 @@ public:
     void markElements(std::vector<bool> & elMarked, real_t tol1 = 0, real_t tol2 = 0);
 
     // Method to setup m_detJacBasis and m_space_mapper
-    // It is called in the constructor and should be called whenever m_mp change,
+    // It is called in the constructor and should be called whenever the space of m_mp change,
     //      (eg. when geometry is refined locally or globally)
     void setup();
+
+    // Method to solve mass matrix system for arbitrary rhs
+    gsVector<> massMatrixSolve(gsVector<> rhs) const;
+
+    // Method to calculate the hessian of D_(ii), the right hand side for projection step
+    gsSparseMatrix<> hessD(index_t patch, index_t i) const;
 
 public:
     gsMultiPatch<>* m_mp;
@@ -87,6 +93,9 @@ public:
 
     real_t m_eps = 0;
 
+    // use tensor product structure when solving system
+    bool m_useTPSolver;
+    std::vector<gsLinearOperator<>::Ptr> m_solversTensor;
     gsVector<gsSparseSolver<>::LU> m_solversMassMatrix;
     gsVector<bool> m_areSolversSetup;
 

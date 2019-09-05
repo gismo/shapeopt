@@ -210,8 +210,8 @@ gsIpOptSparseMatrix gsShapeOptProblem::jacobDetJac() const
     return out;
 }
 
-// Implement
-void gsShapeOptProblem::runOptimization(index_t maxiter){
+void gsShapeOptProblem::runOptimization(index_t maxiter)
+{
     *m_log << "N.o. cps: " << n_cps << "\n";
     *m_log << "N.o. free cps: " << n_free<< "\n";
     *m_log << "N.o. tagged cps: " << n_tagged << "\n";
@@ -231,13 +231,13 @@ void gsShapeOptProblem::runOptimization(index_t maxiter){
 
         // Update parametrization
         *m_log << " Objective function before updating: " << evalObj() << "\n";
-        *m_log << " Min d before updating: " << -m_dJC.evalCon().maxCoeff() << "\n\n";
+        *m_log << " Min d before updating: " << m_dJC.evalCon().minCoeff() << "\n\n";
         m_paramMethod->updateAndReset();
         m_paramMethod->computeMap();
 
         // FIXIT: log whether param was succesful
         *m_log << " Objective function after updating: " << evalObj() << "\n";
-        *m_log << " Min d after updating: " << -m_dJC.evalCon().maxCoeff() << "\n\n";
+        *m_log << " Min d after updating: " << -m_dJC.evalCon().minCoeff() << "\n\n";
 
         std::string nameAU = "cps_afterUpdate";
         m_log->saveVec(getFlat(),nameAU ,counter2);
@@ -251,6 +251,9 @@ void gsShapeOptProblem::runOptimization(index_t maxiter){
 
         // Solve the current optimization problem
         solve();
+
+        *m_log << " Max Lagrange multipliers from shapeopt " << m_lambda.maxCoeff() << "\n";
+        *m_log << " Min Lagrange multipliers from shapeopt " << m_lambda.minCoeff() << "\n\n";
 
         if (m_log->plotDesign()){
             // Plot m_mp with name design_counter1.pvd

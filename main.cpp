@@ -13,13 +13,17 @@
 #include "gsSpringMethod.h"
 #include "gsModLiao.h"
 #include "gsWinslow.h"
+#include "gsLiao.h"
 #include "gsHarmonic.h"
 #include "gsMaxDetJac.h"
+
 #include "gsAffineOptParamMethod.h"
 #include "gsIpOptSparseMatrix.h"
 #include "gsShapeOptProblem.h"
 #include "gsOptAntenna.h"
 #include "gsShapeOptLog.h"
+
+#include "gsStateEquationPotWaves.h"
 
 using namespace gismo;
 
@@ -210,6 +214,83 @@ void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
 		lOP.updateFree(newDes);
 
 		real_t newLiao = lOP.evalObj();
+		real_t guess0 = liao;
+		real_t guess1 = liao + grad.transpose()*perturp;
+		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
+
+		gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
+		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
+
+		real_t error0 = std::abs(guess0 - newLiao);
+		real_t error1 = std::abs(guess1 - newLiao);
+		real_t error2 = std::abs(guess2 - newLiao);
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+		Error2[i] = error2;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsVector<> rate2;
+	rate2.setZero(n);
+	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,6);
+	disp << Eps,Error0,Error1,rate,Error2,rate2;
+	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfParaLagrangianJacobian(gsOptParamMethod &lOP){
+	real_t liao = lOP.evalLagrangian();
+	gsVector<> grad = lOP.gradLagrangian();
+
+    gsMatrix<> tmp;
+	gsMatrix<> hess = lOP.hessLagrangian(tmp);
+
+	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
+	// gsInfo << "\n" << grad << "\n";
+    gsDebugVar(hess.rows());
+    gsDebugVar(hess.cols());
+
+	// std::srand((unsigned int) std::time(0));
+	gsVector<> ran;
+	ran.setRandom(lOP.n_free);
+
+	gsVector<> des = lOP.getFree();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	index_t beg = 0;
+	index_t n = 20;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+	gsVector<> Error2(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(lOP.n_free);
+
+		for(index_t i = 0; i < lOP.n_free; i++){
+			perturp[i] = ran[i];
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+
+		lOP.updateFree(newDes);
+
+		real_t newLiao = lOP.evalLagrangian();
 		real_t guess0 = liao;
 		real_t guess1 = liao + grad.transpose()*perturp;
 		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
@@ -1376,6 +1457,53 @@ gsMultiPatch<> getJigSaw(index_t i){
 
 }
 
+gsMultiPatch<> getJigSaw3D(){
+
+    index_t n = 10;
+    index_t degree = 2;
+
+    std::string folder = "/parametrizations/JigSaw/";
+
+	// 1. construction of a knot vector for each direction
+	gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
+	gsKnotVector<> kv2(0, 1, n - degree - 1, degree + 1);
+	gsKnotVector<> kv3(0, 1, n - degree - 1, degree + 1);
+	// 2. construction of a basis
+	gsTensorBSplineBasis<3, real_t> basis(kv1, kv2, kv3);
+	// 3. construction of a coefficients
+	gsMatrix<> greville = basis.anchors();
+	gsMatrix<> coefs (greville.cols(), 3);
+
+    gsInfo << BASE_FOLDER + folder + "jigsaw3d.txt \n";
+	readFromTxt(BASE_FOLDER + folder + "jigsaw3d.txt", coefs);
+    // gsDebugVar(coefs.rows());
+    // gsDebugVar(coefs.cols());
+    // gsDebugVar(coefs);
+    // exit(0);
+	// gsInfo << coefs;
+
+	// 4. putting basis and coefficients toghether
+	gsTensorBSpline<3, real_t>  left(basis, coefs);
+    changeSignOfDetJ(left);
+
+	//! [Geometry data]
+	// Define Geometry, must be a gsMultiPatch object
+
+	gsMultiPatch<> patches = gsMultiPatch<>(left);
+
+    // Change sign of determinant.
+    // for (index_t i = 0; i < patches.nBoxes(); i++){
+        // changeSignOfDetJ(patches.patch(i));
+    // }
+
+	double tol = 1e-2;
+	patches.computeTopology(tol,true);
+	patches.closeGaps(tol);
+
+	return patches;
+
+}
+
 gsMultiPatch<> getSeastar(){
 
     index_t n = 8;
@@ -1663,11 +1791,12 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
 gsMultiPatch<> get3DGeometry(){
     gsMultiPatch<> patches;
-    gsFileData<> data("geometries3D/cube.xml");
+    gsFileData<> data("geometries3D/halfCube.xml");
 
     gsInfo  <<"* There is "<< data.count< gsGeometry<> >() <<" "
             <<data.type< gsGeometry<> >()<<" "<< data.tag< gsGeometry<> >()
             <<" in the file.\n";
+    // we start at id == 2 since we want a hollow cube. For a patch in the middle
     for(index_t i = 1; i <= data.count< gsGeometry<> >(); i++){
         gsGeometry<>::uPtr o = data.getId< gsGeometry<> >(i);
         o->degreeElevate(1);
@@ -1780,9 +1909,10 @@ bool plotMagnitude = false;
 bool plotSolution = false;
 bool saveCps = false;
 bool useDJC = true;
+bool useLag = false;
 
-int quA = 1;
-int quB = 1;
+int quA = 2;
+int quB = 2;
 
 real_t lambda_1 = 1;
 real_t lambda_2 = 1;
@@ -1791,7 +1921,7 @@ int startDes = -1;
 
 gsCmdLine cmd("A test of lumped mass matricies");
 cmd.addInt("p", "degree", "Degree of B-Splines.", degree);
-cmd.addInt("a", "param", "Parametrization: 0: spring, 1: modLiao, 2: winslow", param);
+cmd.addInt("a", "param", "Parametrization: 0: spring, 1: modLiao, 2: winslow, 3: liao", param);
 cmd.addInt("r", "numberRefine", "Number of refinements", numRefine);
 cmd.addInt("n", "nx", "Number of splines in first direction", nx);
 cmd.addInt("m", "ny", "Number of splines in second direction", ny);
@@ -1807,6 +1937,7 @@ cmd.addString("o","output","Name of the output folder (relative to BASE_FOLDER)"
 
 cmd.addSwitch("plot", "Create a ParaView visualization file of designs", plotDesign);
 cmd.addSwitch("noDJC", "Dont use det jac constraints", useDJC);
+cmd.addSwitch("useLag", "Use Lagrangian for linearizations", useLag);
 cmd.addSwitch("plotmag", "Create a ParaView visualization file of magnitude (obj function)", plotMagnitude);
 cmd.addSwitch("plotsol", "Create a ParaView visualization file of solution (real and imag)", plotSolution);
 cmd.addSwitch("savecps", "save controlpoinst for design during optimization", saveCps);
@@ -1821,20 +1952,32 @@ gsInfo << buffer;
 
 gsShapeOptLog slog(output);
 
+// Test 3D PML and water waves
+if (false) {
+    gsMultiPatch<> mp = get3DGeometry();
+
+    gsStateEquationPotWaves SE(&mp,1);
+
+    std::string name = "/../results/PML3D/mp";
+    slog.plotInParaview(mp,name);
+    exit(0);
+
+}
+
 gsMultiPatch<> mp = getGeometry(nx,ny,degree);
 // gsMultiPatch<> mp = getJigSaw(1);
-// gsMultiPatch<> seastar = getSeastar();
+// gsMultiPatch<> mp = getSeastar();
+// gsMultiPatch<> mp = getJigSaw3D();
 
-gsMultiPatch<> patches;
-for (index_t pn = 0; pn < mp.nBoxes(); pn ++){
-    gsTensorBSpline<2,real_t> geom = dynamic_cast<gsTensorBSpline<2,real_t>&>(mp.patch(pn));
-    gsHBSpline<2> Hgeom(geom);
-    patches.addPatch(Hgeom);
-}
-patches.computeTopology();
+// gsMultiPatch<> patches;
+// for (index_t pn = 0; pn < mp.nBoxes(); pn ++){
+//     gsTensorBSpline<2,real_t> geom = dynamic_cast<gsTensorBSpline<2,real_t>&>(mp.patch(pn));
+//     gsHBSpline<2> Hgeom(geom);
+//     patches.addPatch(Hgeom);
+// }
+// patches.computeTopology();
 
-// gsMultiPatch<> patches = mp;
-
+gsMultiPatch<> patches = mp;
 
 // gsMultiPatch<> patches3d = get3DGeometry();
 // gsMultiPatch<> patches(patches3d.patch(2));
@@ -1851,115 +1994,86 @@ patches.computeTopology();
 
 gsInfo << "The domain is a "<< patches <<"\n";
 
+
+// Test Liao derivatives
 if (false) {
-
     gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
-    gsSpringMethod spring(&patches, optA.mappers());
-
-    for (index_t d = 0; d < patches.targetDim(); d++){
-        gsInfo << "dimension " << d << "\n";
-
-    for (index_t i = 0; i < patches.nBoundary(); i++){
-        patchSide ps = patches.boundaries()[i];
-
-        gsInfo << "\tBoundary " << ps  << " is " << (spring.m_isBoundaryFixed(d,i) ? "Fixed" : "Free");
-        gsInfo << " and " << (spring.m_isBoundaryTagged(d,i) ? "Tagged" : "not Tagged");
-        gsInfo << "\n";
-    }
-
-    for (index_t i = 0; i < patches.nInterfaces(); i++){
-        boundaryInterface interface = patches.bInterface(i);
-        patchSide ps = interface.first();
-
-        gsInfo << "\tInterface " << ps << " is " << (spring.m_isInterfaceFixed(d,i) ? "Fixed" : "Free");
-        gsInfo << " and " << (spring.m_isInterfaceTagged(d,i) ? "Tagged" : "not Tagged");
-        gsInfo << "\n";
-    }
-    }
-
+    gsLiao liao(&patches, optA.mappers(), useDJC);
+    // gsInfo << "\nLiao \t:\t" << liao.evalObj() << "\n\n";
+    convergenceTestOfParaJacobian(liao);
+    // liao.update();
     exit(0);
+
 }
 
-if (false){
-    gsOptAntenna optA(&mp,numRefine,&slog,param,quA,quB);
-    gsSpringMethod spring(&mp, optA.mappers());
-
-    gsVector<> flat = loadVec(spring.n_flat,BASE_FOLDER "/../results/TestOfParamAdaptive/spring1161.txt");
-    gsInfo << flat << "\n";
-    gsInfo << spring.n_flat << "\n";
-    spring.updateFlat(flat);
-
-    for(index_t i = 0; i < mp.nBoxes(); i++){
-        changeSignOfDetJ(mp.patch(i));
-    }
-    mp.computeTopology();
-    gsWinslow winslow(&patches, spring.mappers(), useDJC);
-    gsInfo << "obj : " << winslow.evalObj() << "\n";
-    winslow.print();
-
-    gsDebugVar(winslow.gradObj().rows());
-    gsDebugVar(winslow.gradObj().cols());
-
-
-    winslow.update();
-
-    gsDetJacConstraint dJC(&patches);
-
-    std::vector<bool> elMarked;
-    dJC.markElements(elMarked,0.005);
-
-    for (index_t i = 0; i < elMarked.size(); i++){
-        slog << elMarked[i] << " ";
-    }
-    slog << "\n";
-
-    // gsInfo << "\n" << dJC.evalCon() << "\n";
-
-    std::string name = "1161";
-    slog.plotInParaview(patches,name);
-
-    name = "d";
-    slog.saveVec(dJC.evalCon(),name);
-
-    winslow.refineElements(elMarked);
-
-    name = "1161_afterRefinement";
-    slog.plotInParaview(patches,name);
-
-    gsOptAntenna optA2(&patches,0,&slog,param,quA,quB);
-
-    gsWinslow winslow2(&patches, optA2.mappers(), useDJC);
-    winslow2.update();
-
-    gsDetJacConstraint dJC2(&patches);
-
-    name = "1161_updated";
-    slog.plotInParaview(patches,name);
-
-    name = "d_refined";
-    slog.saveVec(dJC2.evalCon(),name);
-    exit(0);
-}
-
-//
-if (true){
+// Test gsAffineParamMethod with Lagrangian
+if (false) {
     gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
     gsWinslow winslow(&patches, optA.mappers(), useDJC);
+    winslow.update();
 
-    gsVector<> flat = loadVec(winslow.n_flat,BASE_FOLDER "/../results/TestOfParamAdaptive/spring1161.txt");
-    gsInfo << flat << "\n";
-    gsInfo << winslow.n_flat << "\n";
+}
 
-    flat.segment(0,winslow.n_flat/2) *= -1;
+// Test gsAffineParamMethod with Lagrangian on full optimization
+if (true) {
+    gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB,useLag);
+    if (param == 0)
+        optA.solve();
+    else
+        optA.runOptimization(maxiter);
 
-    winslow.updateFlat(flat);
+}
+
+// Test lagrange multipliers
+if (false) {
+    gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
+    gsWinslow winslow(&patches, optA.mappers(), useDJC);
+    // gsVector<> flat = loadVec(winslow.n_flat,BASE_FOLDER "/../results/TestOfParamAdaptive/spring1161.txt");
+    // gsInfo << flat << "\n";
+    // gsInfo << winslow.n_flat << "\n";
+    // flat.segment(0,winslow.n_flat/2) *= -1;
+    //
+    winslow.setQuad(quA,quB);
+    // winslow.updateFlat(flat);
+    // // I dont know how to change gsOptProblem.h file and get it to work here..
+    // winslow.update();
+    //
+    // gsInfo << "lagrangian: " << winslow.evalLagrangian() << "\n";
+    // gsInfo << "gradLagrangian: " << winslow.gradLagrangian() << "\n";
+
+    convergenceTestOfParaJacobian(winslow);
+    convergenceTestOfParaLagrangianJacobian(winslow);
+}
+
+// Test winslow with 3D jigsaw
+if (false) {
+    // gsSpringMethod spring(&patches);
+    // spring.update();
+
+    gsWinslow winslow(&patches,useDJC);
+    winslow.print();
+    winslow.update();
+
+
+    std::string name = "jigsaw3d";
+    slog.plotInParaview(patches,name);
+    exit(0);
+}
+
+// Test of active constraint refinement for jigsaw1
+if (false){
+    // gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
+    // gsMaxDetJac mDJ(&patches);
+    // mDJ.update();
+
+    gsWinslow winslow(&patches, useDJC);
 
     winslow.update();
 
     gsDetJacConstraint dJC(&patches);
 
     std::vector<bool> elMarked;
-    real_t tol = 0.001;
+    real_t tol = -1;
     dJC.markElements(elMarked,tol);
 
     for (index_t i = 0; i < elMarked.size(); i++){
@@ -1969,7 +2083,7 @@ if (true){
 
     // gsInfo << "\n" << dJC.evalCon() << "\n";
 
-    std::string name = "1161";
+    std::string name = "JigSaw1";
     slog.plotInParaview(patches,name);
 
     winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_before");
@@ -1986,11 +2100,10 @@ if (true){
 
     winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_justRefined");
     winslow.m_dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_justRefined",tol);
-    exit(0);
 
     winslow.update();
 
-    name = "1161_refined";
+    name = "JigSaw1_refined";
     slog.plotInParaview(patches,name);
 
     winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_after");
@@ -2001,12 +2114,77 @@ if (true){
     exit(0);
 }
 
+// Test of active constraint refinement for 1161 design
+if (false){
+    gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
+    gsWinslow winslow(&patches, optA.mappers(), useDJC);
+
+    gsVector<> flat = loadVec(winslow.n_flat,BASE_FOLDER "/../results/TestOfParamAdaptive/spring1161.txt");
+    // gsInfo << flat << "\n";
+    // gsInfo << winslow.n_flat << "\n";
+    flat.segment(0,winslow.n_flat/2) *= -1;
+
+    winslow.setQuad(quA,quB);
+    winslow.updateFlat(flat);
+
+    // Max 10 iterations
+    for (index_t iter = 0; iter < 10; iter++){
+        gsInfo << "Iter " << iter << "\n";
+        winslow.update();
+
+        std::string iter_str = std::to_string(iter);
+
+        std::string name = "1161_iter" + iter_str;
+        slog.plotInParaview(patches,name);
+
+        gsDetJacConstraint dJC(&patches);
+
+        std::vector<bool> elMarked;
+        real_t tol = 0.001;
+        dJC.markElements(elMarked,tol);
+
+        for (index_t i = 0; i < elMarked.size(); i++){
+            slog << elMarked[i] << " ";
+        }
+        slog << "\n";
+
+        // gsInfo << "\n" << dJC.evalCon() << "\n";
+
+        winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_iter" + iter_str);
+        winslow.m_dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_iter" + iter_str,tol);
+
+        name = "d_iter" + iter_str;
+        slog.saveVec(dJC.evalCon(),name);
+
+        // Stop loop
+        if (accumulate(elMarked.begin(),elMarked.end(),0) == 0) {
+            break;
+        }
+
+        winslow.refineElements(elMarked); // also resets stuff
+        winslow.recreateMappers();      // Recreate m_mappers, see gsParamMethod.h for further information
+        winslow.m_dJC.setup();          // Reset the gsDetJacConstraint
+        winslow.setupOptParameters();   // Reset optimization parameters
+        winslow.print();
+
+        winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_justRefined_iter" + iter_str);
+        winslow.m_dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_justRefined_iter" + iter_str,tol);
+
+    }
+    exit(0);
+}
+
 // Test d vector
 if (false){
     gsWinslow winslow(&patches, useDJC);
     // winslow.update();
 
-    gsDetJacConstraint dJC(&patches);
+    gsDetJacConstraint dJC(&patches,true);
+
+    const clock_t begin_time = clock();
+    for (index_t i = 0; i < 20; i++)
+        dJC.evalCon();
+    gsInfo << float( clock () - begin_time ) /  CLOCKS_PER_SEC;
 
     std::string name = "/../results/d";
     slog.saveVec(dJC.evalCon(),name);
@@ -2031,240 +2209,5 @@ if (false){
     exit(0);
 }
 
-if (false) {
-    gsMatrix<> mat(2,2);
-    mat << 1,2,3,4;
-    gsInfo << " mat \t: \n" << mat << "\n";
-    gsInfo << " mat.adj() \t': \n" << mat.adjugate() << "\n";
-    exit(0);
-}
-//Test Spring method
-if (false) {
-    gsSpringMethod spring(&patches);
-    spring.update();
-
-    gsDetJacConstraint dJC(&patches);
-
-    gsVector<> vec = dJC.evalCon();
-    // std::string name2 = "d";
-    // slog.saveVec(vec,name2);
-
-    gsInfo << "min d  : " << vec.minCoeff() << "\n";
-    gsInfo << "max d  : " << vec.maxCoeff() << "\n";
-    gsInfo << "sum d  : " << vec.sum() << "\n";
-
-    gsHarmonic harmonic(&patches,useDJC);
-    harmonic.setQuad(quA,quB);
-    harmonic.setLambdas(lambda_1,lambda_2);
-
-    // convergenceTestOfParaJacobian(harmonic);
-
-    // gsInfo << "harmonic: " << harmonic.evalObj() << "\n";
-    // harmonic.evalObj();
-    // exit(0);
-
-    harmonic.update();
-
-    std::string name = "/../results/test/harmonic";
-    slog.plotInParaview(patches,name);
-
-    name = "/../results/TestOfParam/seastar";
-    slog.saveVec(harmonic.getFlat(),name);
-     exit(0);
-}
-
-if (false){
-    gsWinslow winslow(&patches,false);
-
-    gsInfo << "Convergence of Det Jac coefficients:\n";
-    convergenceTestOfDetJJacobian(winslow);
-
-    gsInfo << "Convergence of winslow:\n";
-    convergenceTestOfParaJacobian(winslow);
-
-    exit(0);
-}
-
-// Test of book keeping
-if (false){
-    gsWinslow winslow(&patches,false);
-
-    std::string name = "/../results/test/free";
-    slog.saveVec(winslow.getFree(),name);
-
-    name = "/../results/test/flat";
-    slog.saveVec(winslow.getFlat(),name);
-
-    name = "/../results/test/tagged";
-    slog.saveVec(winslow.getTagged(),name);
-    exit(0);
-}
-
-// Test parametrizations
-if (false){
-    testOfParametrizations(output,quA,quB);
-    // gsMaxDetJac mDJ(&patches);
-    // mDJ.print();
-    // mDJ.solve();
-    exit(0);
-}
-
-// Test of default behaviour of m_mappers
-if ( true ){
-    gsSpringMethod sM(&patches);
-    sM.update();
-
-    // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
-    gsWinslow winslow(&patches,useDJC);
-    // gsHarmonic harmonic(&patches,useDJC);
-    winslow.setQuad(quA,quB);
-    // harmonic.setQuad(quA,quB);
-
-    winslow.update();
-    // harmonic.update();
-
-    // gsMaxDetJac mdj(&patches);
-    // mdj.update();
-
-    gsDetJacConstraint dJC(&patches);
-
-    gsVector<> vec = dJC.evalCon();
-    // std::string name2 = "d";
-    // slog.saveVec(vec,name2);
-
-    gsInfo << "min d  : " << vec.minCoeff() << "\n";
-    gsInfo << "max d  : " << vec.maxCoeff() << "\n";
-    // gsInfo << "sum d  : " << vec.sum() << "\n";
-    // gsInfo << "norm d : " << vec.norm() << "\n";
-
-    // for (index_t p = 0; p < patches.nBoxes(); p++){
-    //     gsInfo << "Sign of patch " << p << " is " << dJC.getSignOfPatch(p) << "\n";
-    // }
-
-    // convergenceTestOfDetJJacobian(winslow);
-
-    std::string name = "/../results/test/mdj";
-    slog.plotInParaview(patches,name);
-
-    exit(0);
-}
-
-gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
-
-// Test of winslow parametrization method
-if ( false ){
-    gsSpringMethod sM(&patches,optA.mappers());
-    sM.update();
-
-    // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
-    gsWinslow winslow(&patches,optA.mappers(),true);
-    winslow.setQuad(quA,quB);
-
-    winslow.update();
-
-    gsInfo << "min d : " << winslow.m_dJC.evalCon().minCoeff() << "\n";
-    gsInfo << "max d : " << winslow.m_dJC.evalCon().maxCoeff() << "\n";
-
-    std::string name = "/../results/test/Winslow";
-    slog.plotInParaview(patches,name);
-
-    exit(0);
-}
-
-// Convergence testing of gsDetJacConstraint, gsWinslow and gsOptAntenna
-if ( true ){
-    gsSpringMethod sM(&patches,optA.mappers());
-    sM.update();
-
-    gsDetJacConstraint dJC(&patches);
-
-    gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
-    gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
-
-    // changeSignOfDetJ(singlePatch.patch(0),nx,ny);
-    gsWinslow winslow(&patches,optA.mappers(),false);
-    gsHarmonic harmonic(&patches,optA.mappers(),false);
-
-    convergenceTestOfParaJacobian(harmonic);
-    // convergenceTestOfDetJJacobian(winslow);
-    // convergenceTestOfParaJacobian(winslow);
-    // convergenceTestOfJacobian(optA);
-
-    gsInfo << "min d : " << dJC.evalCon().minCoeff() << "\n";
-    gsInfo << "max d : " << dJC.evalCon().maxCoeff() << "\n";
-    // std::string name = "/../results/test/dettest";
-    // slog.plotInParaview(patches,name);
-    exit(0);
-}
-
-//
-// // Start from design at ../results/paramTest/cps_1_0.txt;
-// gsVector<> flat = loadVec(optA1.n_flat,BASE_FOLDER "/../results/ParamTests/Winslow/cps_0_80.txt");
-// optA1.m_paramMethod->updateFlat(flat);
-
-// gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
-
-//
-// gsInfo << "obj " << optA.evalObj() << "\n";
-// gsInfo << "min d " << optA.m_dJC.evalCon().maxCoeff() << "\n";
-//
-// gsWriteParaview(patches,BASE_FOLDER "/../results/ParamTests/issue");
-
-// Start from spring
-// gsSpringMethod spring(&patches,optA.m_mappers);
-// spring.update();
-
-if (param == 0){
-    slog << "Using Spring Method for parametrization \n";
-    optA.solve();
-} else if (param == 1) {
-    slog << "Using modLiao for parametrization \n";
-    optA.runOptimization(maxiter);
-} else if (param == 2) {
-    slog << "Using winslow for parametrization \n";
-    optA.runOptimization(maxiter);
-}
-
-
-// optA.solve();
-// optA.runOptimization(maxiter);
-// gsInfo << "obj = " << optA.evalObj() << "\n";
-
-// convergenceTestOfJacobian(optA);
-
-// gsDetJacConstraint dJC(&patches);
-// gsInfo << "det J: " << dJC.evalCon().maxCoeff();
-//
-// gsModLiao modLiao(&patches,useDJC);
-// modLiao.print();
-// modLiao.update();
-// convergenceTestOfDetJJacobian(modLiao);
-// convergenceTestOfParaJacobian(modLiao);
-
-// modLiao.solve();
-// gsWriteParaview(patches,BASE_FOLDER "/../results/modL");
-
-// gsAffineOptParamMethod affModLiao(&modLiao);
-// affModLiao.computeMap();
-// affModLiao.update();
-// gsVector<> ran;
-// ran.setRandom(modLiao.n_tagged);
-// ran *= 0.05;
-// gsInfo << ran;
-// affModLiao.update(modLiao.getTagged() + ran);
-// gsWriteParaview(patches,BASE_FOLDER "/../results/affModL");
-
-// gsMatrix<> hOT;
-// modLiao.hessObj(hOT);
-// gsDebugVar(hOT.rows());
-// gsDebugVar(hOT.cols());
-//
-//
-// sM.updateTagged(sM.getTagged() + pert)
-// sM.update();
-// sM.updateDesignVariables(des);
-// gsInfo << "det J: " << dJC.evalCon().maxCoeff();
-
-// gsInfo << "\n ==== DONE ==== \n";
 return 0;
 }

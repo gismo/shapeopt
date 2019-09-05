@@ -7,6 +7,7 @@ using namespace gismo;
 #include "gsSpringMethod.h"
 #include "gsModLiao.h"
 #include "gsWinslow.h"
+#include "gsLiao.h"
 #include "gsOptParamMethod.h"
 #include "gsAffineOptParamMethod.h"
 
@@ -14,7 +15,7 @@ class gsOptAntenna: public gsShapeOptProblem {
 public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
-    gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB);
+    gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool use_Lagrangian = false);
 
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;

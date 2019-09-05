@@ -3,8 +3,9 @@
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin): m_mp(mpin),
-    m_solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes())
+gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin, bool useTPSolver): m_mp(mpin)
+    ,m_solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes())
+    ,m_useTPSolver(useTPSolver), m_solversTensor(mpin->nBoxes())
 {
     setup(); // Method to setup m_detJacBasis and m_space_mapper
 
@@ -39,8 +40,16 @@ gsVector<> gsDetJacConstraint::evalCon()
 
         A.initSystem();
         if (! m_areSolversSetup[i]){
-            A.assemble(u*u.tr());
-            m_solversMassMatrix[i].compute(A.matrix());
+            if (m_useTPSolver){
+                if (m_mp->domainDim() == 2){
+                    m_solversTensor[i] = gsPatchPreconditionersCreator<>::massMatrixInvOp(static_cast<gsTensorBSplineBasis<2>&> (m_detJacBasis.basis(i)));
+                } else { // If dimension is not 2D assume 3D.
+                    m_solversTensor[i] = gsPatchPreconditionersCreator<>::massMatrixInvOp(static_cast<gsTensorBSplineBasis<3>&> (m_detJacBasis.basis(i)));
+                }
+            } else {
+                A.assemble(u*u.tr());
+                m_solversMassMatrix[i].compute(A.matrix());
+            }
             m_areSolversSetup[i] = true;
         }
 
@@ -55,7 +64,11 @@ gsVector<> gsDetJacConstraint::evalCon()
         geometryMap G = A.getMap(singlePatch);
         A.assemble(u*jac(G).det());
 
-        solVector = m_solversMassMatrix[i].solve(A.rhs());
+        if (m_useTPSolver){
+            m_solversTensor[i]->apply(A.rhs(), solVector);
+        } else {
+            solVector = m_solversMassMatrix[i].solve(A.rhs());
+        }
 
         // Save result in result vector
         index_t len   = m_detJacBasis.size(i);
@@ -118,7 +131,13 @@ gsMatrix<> gsDetJacConstraint::getJacobianFromPatch(index_t patch)
 
     gsSparseMatrix<> Rhs = getDerivRhsFromPatch(patch);
 
-    return m_solversMassMatrix[patch].solve(Rhs);
+    if (m_useTPSolver){
+        gsMatrix<> out;
+        m_solversTensor[patch]->apply(Rhs,out);
+        return out;
+    } else {
+        return m_solversMassMatrix[patch].solve(Rhs);
+    }
 }
 
 gsIpOptSparseMatrix gsDetJacConstraint::getJacobian()
@@ -438,4 +457,79 @@ void gsDetJacConstraint::setup()
 
     A.initSystem();
     m_space_mapper = v.mapper();
+}
+
+gsVector<> gsDetJacConstraint::massMatrixSolve(gsVector<> rhs) const
+{
+    index_t start = 0;
+    gsVector<> result(m_size);
+    for(int i = 0; i < m_mp->nBoxes(); i++){
+        if (! m_areSolversSetup[i]){
+            GISMO_ERROR("solvers are not setup before massMatrixSolve in gsDetJacConstraint\n");
+        }
+
+        gsMatrix<> solVector;
+        index_t len   = m_detJacBasis.size(i);
+
+        if (m_useTPSolver){
+            m_solversTensor[i]->apply(rhs.segment(start,len), solVector);
+        } else {
+            solVector = m_solversMassMatrix[i].solve(rhs.segment(start,len));
+        }
+
+        // Save result in result vector
+        result.segment(start,len) = solVector;
+
+        start += m_detJacBasis.size(i);
+    }
+    return result;
+}
+
+gsSparseMatrix<> gsDetJacConstraint::hessD(index_t patch, index_t i) const
+{
+    // A hack to get a basis function
+    gsMultiPatch<> bas;
+    gsMatrix<> coefs;
+    for(index_t p = 0; p < m_mp->nBoxes(); p++){
+        coefs.setZero(m_detJacBasis.size(p),1);
+        if (p == patch)
+            coefs(i,0) = 1;
+
+        bas.addPatch( m_detJacBasis.basis(p).makeGeometry( coefs ));
+
+    }
+
+    // Prepare assembler
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(*m_mp);
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
+
+    // Define types
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    geometryMap G = A.getMap(*m_mp);
+
+    // Setup and assemble the two matricies
+    space u = A.getSpace(dbasis,m_mp->geoDim());
+
+    variable b = ev.getVariable(bas);
+
+    A.initSystem();
+
+    auto ddetJdc =  (jac(u)%jac(G).inv().tr())*jac(G).det();
+    auto dJinvTdc = - matrix_by_space_tr(jac(G).inv(),jac(u))*jac(G).inv().tr();
+
+    A.assemble(
+        ddetJdc*(b.val()*matrix_by_space(jac(G).inv(),jac(u)).trace()).tr()
+        +
+        (jac(u) % (b.val()*jac(G).det().val()*dJinvTdc))
+    );
+
+
+    return A.matrix();
+
 }

@@ -18,16 +18,17 @@ using namespace gismo;
 
 #include "gsParamMethod.h"
 #include "gsDetJacConstraint.h"
+#include "gsIpOptSparseMatrix.h"
 #include <gsIpopt/gsOptProblem.h>
 
 class gsOptParamMethod: public gsParamMethod, public gsOptProblem<real_t>{
 public:
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging bnd
-    gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC);
+    gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC = true, bool useTensorStructureforDJC = false);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
     // design variables for shape optimization tagged.
-    gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC);
+    gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC = false);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     void setupOptParameters();
@@ -52,6 +53,18 @@ public:
     // Evaluation of hessian of objective. Should be overloaded in inherited class
     // FIXIT use FD as default
     virtual gsMatrix<> hessObj(gsMatrix<> &hessObjTagged) const {};
+
+    // Evaluation of jacobian of constraints. Calls mapMatrix.
+    gsIpOptSparseMatrix jacobCon() const;
+
+    //  Method to evaluate Lagrangian, uses lagrange multipliers from m_lambda (see gsOptProblem.h)
+    real_t evalLagrangian () const;
+
+    //  Method to evaluate gradient of Lagrangian, uses lagrange multipliers from m_lambda (see gsOptProblem.h)
+    gsVector<> gradLagrangian () const;
+
+    //  Method to evaluate hessian Lagrangian, uses lagrange multipliers from m_lambda (see gsOptProblem.h)
+    gsMatrix<> hessLagrangian(gsMatrix<> &hessObjTagged) const;
 
     // Method overloaded from gsOptProblem<>
     real_t evalObj ( const gsAsConstVector<real_t> & u) const;
@@ -89,8 +102,8 @@ public:
     mutable gsDetJacConstraint m_dJC;
 
     // Control over no quadrature points. Set by setQuad(quA,quB) method.
-    real_t m_quA = 1;
-    real_t m_quB = 1;
+    real_t m_quA = 2;
+    real_t m_quB = 2;
 };
 
 #endif //GSOPTPARAMMETHOD_H

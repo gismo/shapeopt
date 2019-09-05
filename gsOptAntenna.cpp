@@ -2,7 +2,7 @@
 #include "gsOptAntenna.h"
 
 // Implement
-gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB):
+gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool use_Lagrangian):
     gsShapeOptProblem(mp,slog), m_stateEq(mp,numRefine)
 {
     setupMappers();
@@ -17,16 +17,21 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
     } else if (param == 1) {
         gsModLiao *opt_param = new gsModLiao(m_mp,m_mappers,true);
         opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param);
+        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
 
     } else if (param == 2) {
         gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,true);
         opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param);
+        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod->computeMap();
+    } else if (param == 3) {
+        gsLiao *opt_param = new gsLiao(m_mp,m_mappers,true);
+        opt_param->setQuad(quA,quB);
+        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
     } else{
-        GISMO_ERROR("Param value is not 0 or 1 or 2... wrong input..\n");
+        GISMO_ERROR("Param value is not 0 or 1 or 2 or 3... wrong input..\n");
     }
 
     // Copy some data from m_paramMethod for ease of use

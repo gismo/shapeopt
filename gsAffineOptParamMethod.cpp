@@ -2,16 +2,28 @@
 #include "gsAffineOptParamMethod.h"
 using namespace gismo;
 
-gsAffineOptParamMethod::gsAffineOptParamMethod(gsOptParamMethod* optParamMethod):
-    gsAffineParamMethod(optParamMethod->mp(),optParamMethod->mappers()),m_optParamMethod(optParamMethod)
+gsAffineOptParamMethod::gsAffineOptParamMethod(gsOptParamMethod* optParamMethod, bool use_Lagrangian):
+    gsAffineParamMethod(optParamMethod->mp(),
+    optParamMethod->mappers()),
+    m_optParamMethod(optParamMethod),
+    m_use_Lagrangian(use_Lagrangian)
 {
     reset(); //Setup the problem with the parametrization hold on m_pM->m_mp as reference
 };
 
 void gsAffineOptParamMethod::reset(){
-    m_obj = m_optParamMethod->evalObj();
-    m_grad = m_optParamMethod->gradObj();
-    m_hess = m_optParamMethod->hessObj(m_hessTagged);
+    if (m_use_Lagrangian){ // Use linearization of Lagrangian to define map
+        gsInfo << "Use Lagrangian for linearization\n";
+        m_obj = m_optParamMethod->evalLagrangian();
+        m_grad = m_optParamMethod->gradLagrangian();
+        m_hess = m_optParamMethod->hessLagrangian(m_hessTagged);
+    } else { // Use linearization of objective (eg. Winslow) to define map
+        gsInfo << "Use objective for linearization \n";
+        m_obj = m_optParamMethod->evalObj();
+        m_grad = m_optParamMethod->gradObj();
+        m_hess = m_optParamMethod->hessObj(m_hessTagged);
+    }
+    gsInfo << "Norm of grad = " << m_grad.norm() << "\n\n";
 
     m_refFree = getFree();
     m_refTagged = getTagged();

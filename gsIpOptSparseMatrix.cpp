@@ -9,11 +9,16 @@ gsIpOptSparseMatrix::gsIpOptSparseMatrix(index_t n, index_t m){
   m_values.setZero(m_nnz);
 }
 
-gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsSparseMatrix<> mat){
+gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsSparseMatrix<> const & mat){
   m_nnz = mat.nonZeros();
   m_nrows = mat.rows();
   m_ncols = mat.cols();
   m_values.setZero(m_nnz);
+
+  // Reserve space for
+  m_rows.reserve(m_nnz);
+  m_cols.reserve(m_nnz);
+
   index_t i = 0;
   for (int k=0; k<mat.outerSize(); ++k)
   for (Eigen::SparseMatrix<double>::InnerIterator it(mat,k); it; ++it)
@@ -24,7 +29,7 @@ gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsSparseMatrix<> mat){
   }
 }
 
-gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsMatrix<> &mat,real_t tol){
+gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsMatrix<> const & mat,real_t tol){
   m_nnz = 0;
 
   auto zmat = mat.cwiseAbs().array() > tol;
@@ -33,6 +38,11 @@ gsIpOptSparseMatrix::gsIpOptSparseMatrix(gsMatrix<> &mat,real_t tol){
   m_nrows = mat.rows();
   m_ncols = mat.cols();
   m_values.setZero(m_nnz);
+
+  // Reserve space for
+  m_rows.reserve(m_nnz);
+  m_cols.reserve(m_nnz);
+  
   index_t i = 0;
   for(index_t k = 0; k < m_nrows; k++){
     for(index_t l = 0; l < m_ncols; l++){

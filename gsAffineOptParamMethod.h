@@ -24,7 +24,7 @@ using namespace gismo;
 class gsAffineOptParamMethod : public gsAffineParamMethod{
 public:
     // Construct from gsOptParamMethod
-    gsAffineOptParamMethod(gsOptParamMethod* optParamMethod);
+    gsAffineOptParamMethod(gsOptParamMethod* optParamMethod, bool use_Lagrangian = false);
 
     // Method to get update as a vector, to be used to calculate A and b
     //      from gsAffineParamMethod
@@ -70,6 +70,12 @@ protected:
 
     // Solver to solve KKT system
     Eigen::FullPivLU<Eigen::Matrix<real_t,Dynamic,Dynamic>> m_solver;
+
+    // Boolean that is true if the linearization should be performed
+    // on the Lagrangian instead of the objective of the original
+    // optimization
+    bool m_use_Lagrangian;
+
 };
 
 

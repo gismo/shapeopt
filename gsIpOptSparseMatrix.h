@@ -24,12 +24,12 @@ public:
     gsIpOptSparseMatrix(index_t n, index_t m);
 
     // Constructs from a gsSparseMatrix using its sparsity pattern
-    gsIpOptSparseMatrix(gsSparseMatrix<> mat);
+    gsIpOptSparseMatrix(gsSparseMatrix<> const & mat);
 
     // Constructs from a gsMatrix, using sparsity pattern defined by the tolerance.
     // Setting tolorance < 0 (eg. -1) returns a dense matrix
     //FIXIT change default tolerance to -1 (dense), and check all other code is not ruined
-    gsIpOptSparseMatrix(gsMatrix<> &mat, real_t tol=1e-10);
+    gsIpOptSparseMatrix(gsMatrix<> const & mat, real_t tol=1e-10);
 
     // Operations with other gsIpOptSparseMatrices
     void concatenate(gsIpOptSparseMatrix m2, std::string str);
