@@ -58,7 +58,10 @@ public:
     // tol2 set the tolerance for which elements to refine, should be in [0,1]
     //      (if it is zero it refines support of active coefficients)
     // FIXIT: Implement this one
-    void markElements(std::vector<bool> & elMarked, real_t tol1 = 0, real_t tol2 = 0);
+    void markElements(std::vector<bool> & elMarked, real_t tol1 = 0, real_t tol2 = 0)
+    {
+        GISMO_NO_IMPLEMENTATION;
+    };
 
     // Method to setup method
     // It is called in the constructor and should be called whenever the space of m_mp change,

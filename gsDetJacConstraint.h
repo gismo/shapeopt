@@ -14,10 +14,11 @@ Author(s): A. Limkilde, A. Mantzaflaris
 */
 #ifndef GSDETJACCONSTRAINT_H
 #define GSDETJACCONSTRAINT_H
+#include "gsConstraint.h"
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-class gsDetJacConstraint{
+class gsDetJacConstraint: public gsConstraint{
 public:
 
     // Constructs from gsMultiPatch, runs the setup method.
@@ -25,7 +26,6 @@ public:
 
     // Get constraints (spline coefficients of detJ) by projection
     // FIXIT: Change the sign if the coefs is negative?
-    void evalCon_into(gsAsVector<real_t> & result);
     gsVector<> evalCon(); // Implementation is in here..
 
     // Get derivatives
@@ -37,7 +37,6 @@ public:
     // Accessors
     const gsMultiBasis<> & detJacBasis() const { return m_detJacBasis; }
     const bool & isSolverSetup(index_t i) const { return m_areSolversSetup[i]; }
-    const gsDofMapper & space_mapper() const { return m_space_mapper; }
 
     // set the tolerance
     void setEps(real_t eps){m_eps = eps;}
@@ -63,9 +62,6 @@ public:
     // Get the mass matrix for patch i
     gsSparseMatrix<> getMassMatrix(index_t i);
 
-    // Get the sign of detJ of a patch
-    index_t getSignOfPatch(index_t patch);
-
     // Mark elements where constraints are active
     // tol1 sets the tolerance for marking active constraints
     // tol2 set the tolerance for which elements to refine, should be in [0,1]
@@ -83,13 +79,12 @@ public:
     // Method to calculate the hessian of D_(ii), the right hand side for projection step
     gsSparseMatrix<> hessD(index_t patch, index_t i) const;
 
-public:
-    gsMultiPatch<>* m_mp;
-    gsMultiBasis<> m_detJacBasis;
+    index_t sizeOfBasis(index_t p){
+        return m_detJacBasis.size(p);
+    }
 
-    // Holds the mapper used to compute the jacobian of the constraint
-    // for extracting DoFs later
-    gsDofMapper m_space_mapper;
+public:
+    gsMultiBasis<> m_detJacBasis;
 
     real_t m_eps = 0;
 
@@ -100,8 +95,6 @@ public:
     gsVector<bool> m_areSolversSetup;
 
     index_t m_size;
-    index_t n_controlpoints;
-    index_t n_constraints;
 
 };
 

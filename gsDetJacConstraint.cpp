@@ -1,21 +1,20 @@
 #include <gismo.h>
+#include "gsConstraint.h"
 #include "gsDetJacConstraint.h"
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin, bool useTPSolver): m_mp(mpin)
-    ,m_solversMassMatrix(mpin->nBoxes()),m_areSolversSetup(mpin->nBoxes())
-    ,m_useTPSolver(useTPSolver), m_solversTensor(mpin->nBoxes())
+gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin, bool useTPSolver):
+    gsConstraint(mpin),
+    m_solversMassMatrix(mpin->nBoxes()),
+    m_areSolversSetup(mpin->nBoxes()),
+    m_useTPSolver(useTPSolver),
+    m_solversTensor(mpin->nBoxes())
 {
     setup(); // Method to setup m_detJacBasis and m_space_mapper
 
     // gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";
     // gsInfo << "n_constraints = " << n_controlpoints << "\n \n";
-}
-
-void gsDetJacConstraint::evalCon_into(gsAsVector<real_t> & result)
-{
-    result = evalCon();
 }
 
 gsVector<> gsDetJacConstraint::evalCon()
@@ -281,45 +280,6 @@ gsSparseMatrix<> gsDetJacConstraint::getMassMatrix(index_t i)
     return A.matrix();
 }
 
-index_t gsDetJacConstraint::getSignOfPatch(index_t patch)
-{
-    //gsInfo<<"Active options:\n"<< A.options() <<"\n";
-    typedef gsExprAssembler<>::geometryMap geometryMap;
-    typedef gsExprAssembler<>::variable    variable;
-    typedef gsExprAssembler<>::space       space;
-    typedef gsExprAssembler<>::solution    solution;
-
-    gsExprAssembler<> A(1,1);
-
-    gsMultiBasis<> dbasis(m_detJacBasis.basis(patch));
-    // Elements used for numerical integration
-    A.setIntegrationElements(dbasis);
-    gsExprEvaluator<> ev(A);
-
-    space u = A.getSpace(dbasis);
-
-    A.initSystem();
-    if (! m_areSolversSetup[patch]){
-        A.assemble(u*u.tr());
-        m_solversMassMatrix[patch].compute(A.matrix());
-        m_areSolversSetup[patch] = true;
-    }
-
-    gsMatrix<> solVector;
-    solution u_sol = A.getSolution(u, solVector);
-
-    gsMultiPatch<> singlePatch(m_mp->patch(patch));
-    geometryMap G = A.getMap(singlePatch);
-    A.assemble(u*jac(G).det());
-
-    solVector = m_solversMassMatrix[patch].solve(A.rhs());
-
-    real_t avg = solVector.sum()/solVector.size();
-
-    return (avg > 0) - (avg < 0); // returning sign of avg
-
-}
-
 void gsDetJacConstraint::plotActiveConstraints(std::vector<bool> & elMarked, std::string name, real_t tol1)
 {
     // Create gsMultiPatch to save sum of basis functions which supporting elements should be marked
@@ -443,6 +403,7 @@ void gsDetJacConstraint::setup()
         // gsInfo << "Patch " << i << " has " << mp->patch(i).coefsSize() << " cps... \n";
         // gsInfo << "Patch " << i << " gets " << m_detJacBasis.size(i) << " constraints... \n";
     }
+    gsInfo << "n_constraints = " << n_constraints << "\n";
 
     // FIXIT: Clean this up
     // Save mapper

@@ -8,6 +8,7 @@ using namespace gismo;
 #include "gsModLiao.h"
 #include "gsWinslow.h"
 #include "gsLiao.h"
+#include "gsHarmonic.h"
 #include "gsOptParamMethod.h"
 #include "gsAffineOptParamMethod.h"
 

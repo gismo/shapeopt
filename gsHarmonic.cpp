@@ -158,94 +158,94 @@ gsMatrix<> gsHarmonic::hessObj(gsMatrix<> &hessObjTagged) const{
 
     space u = A.getSpace(dbasis);
 
+    gsMultiPatch<> x_mp = m_mp->coord(0);
+    gsMultiPatch<> y_mp = m_mp->coord(1);
+
+    variable x = A.getCoeff(x_mp);
+    variable y = A.getCoeff(y_mp);
+
+    auto Lx = (jac(G).tr()*jac(G)).adj() % hess(x);
+    // auto Lx = fform(G).adj() % hess(x);
+    // auto Ly = fform(G).adj() % hess(y);
+    auto Ly = (jac(G).tr()*jac(G)).adj() % hess(y);
+
+    auto dLxdcx = 2*(jac(G).tr()*dJacdc(u,0)).adj()%hess(x) + hess(u) %(jac(G).tr()*jac(G)).adj();
+    auto dLxdcy = 2*(jac(G).tr()*dJacdc(u,1)).adj()%hess(x);
+
+    auto Lxd2Lxdcxcx = 2*(2*Lx.val()*dJacdc(u,0)%(dJacdc(u,0)*hess(x).adj())
+                        + 2*Lx.val()*dJacdc(u,0)%(jac(G)*hess(u).adj()))
+                        + 2*2*Lx.val()*hess(u)%(jac(G).tr()*dJacdc(u,0)).adj();
+
+    auto Lxd2Lxdcxcy = 2*(2*Lx.val()*dJacdc(u,0)%(dJacdc(u,1)*hess(x).adj()))
+                        + 2*(2*Lx.val()*jac(G).tr()*dJacdc(u,1)).adj()%hess(u);
+
+    auto Lxd2Lxdcycy = 2*(2*Lx.val()*dJacdc(u,1)%(dJacdc(u,1)*hess(x).adj()));
+
+    auto dLydcx = 2*(jac(G).tr()*dJacdc(u,0)).adj()%hess(y);
+    auto dLydcy = 2*(jac(G).tr()*dJacdc(u,1)).adj()%hess(y) + hess(u) %(jac(G).tr()*jac(G)).adj();
+
+    auto Lyd2Lydcycy = 2*(2*Ly.val()*dJacdc(u,1)%(dJacdc(u,1)*hess(y).adj())
+                        + 2*Ly.val()*dJacdc(u,1)%(jac(G)*hess(u).adj()))
+                        + 2*2*Ly.val()*hess(u)%(jac(G).tr()*dJacdc(u,1)).adj();
+
+    auto Lyd2Lydcxcy = 2*(2*Ly.val()*dJacdc(u,0)%(dJacdc(u,1)*hess(y).adj()))
+                        + 2*2*Ly.val()*hess(u)%(jac(G).tr()*dJacdc(u,0)).adj();
+
+    auto Lyd2Lydcxcx = 2*(2*Ly.val()*dJacdc(u,0)%(dJacdc(u,0)*hess(y).adj()));
+
+    // x x
     A.initSystem();
 
-    gsFunctionExpr<> x("x",2);
-    gsFunctionExpr<> y("y",2);
-    variable ffx = A.getCoeff(x);
-    variable ffy = A.getCoeff(y);
-    auto j00 = fjac(ffx).tr()*jac(G)*fjac(ffx);
-    auto j10 = fjac(ffy).tr()*jac(G)*fjac(ffx);
-    auto j01 = fjac(ffx).tr()*jac(G)*fjac(ffy);
-    auto j11 = fjac(ffy).tr()*jac(G)*fjac(ffy);
+    A.assemble(2*lambda_1*hess(u)%hess(u));
+    A.assemble(2*lambda_2*dJacdc(u,0)%dJacdc(u,0));
+    A.assemble(2*dLxdcx*dLxdcx.tr());
+    A.assemble(Lxd2Lxdcxcx);
 
-    auto g11 = j00*j00 + j10*j10;
-    auto g12 = j00*j01 + j10*j11;
-    auto g22 = j01*j01 + j11*j11;
+    A.assemble(2*dLydcx*dLydcx.tr());
+    A.assemble(Lyd2Lydcxcx);
 
-    auto uxi = grad(u)*fjac(ffx);
-    auto ueta = grad(u)*fjac(ffy);
+    gsMatrix<> xxMat = A.matrix();
+    gsInfo << "norm = " << xxMat.norm() << "\n";
 
-    auto detJ = j00*j11 - j01*j10;
-    auto detJinv = detJ.inv();
-    auto detJinv2 = detJinv*detJinv;
-        auto detJinv3 = detJinv2*detJinv;
+    // x y
+    A.initSystem();
 
-      auto d_detJ_dcx = uxi*j11 - ueta*j10 ;
-      auto d_g11pg22_dcx = 2*(uxi*j00 + ueta*j01);
+    A.assemble(2*lambda_2*dJacdc(u,1)%dJacdc(u,0));
+    A.assemble(2*dLxdcy*dLxdcx.tr());
+    A.assemble(Lxd2Lxdcxcy);
 
-      auto fx = -d_detJ_dcx*(g11 + g22);
-      auto gx = d_g11pg22_dcx;
+    A.assemble(2*dLydcy*dLydcx.tr());
+    A.assemble(Lyd2Lydcxcy);
 
-      auto I = (g11+g22)*detJinv;
-
-      auto d_I_dcx = fx*detJinv2 + gx*detJinv;
-
-      auto d_detJinv2_dcx = -2 * d_detJ_dcx * detJinv3;
-      auto d_detJinv_dcx = - d_detJ_dcx * detJinv2;
-
-      auto d_fx_dcx_detJinv2 = -d_detJ_dcx*detJinv2*d_g11pg22_dcx.tr();
-      auto d_gx_dcx_detJinv = 2*(uxi*detJinv*uxi.tr() + ueta*detJinv*ueta.tr());
-
-      auto d2_I_dcx2 = fx * d_detJinv2_dcx.tr() + d_fx_dcx_detJinv2 + gx*d_detJinv_dcx.tr() + d_gx_dcx_detJinv;
-
-      A.assemble(-d2_I_dcx2);
-
-      gsMatrix<> xxMat = A.matrix();
-
-      A.initSystem();
-
-      auto d_detJ_dcy = ueta*j00 - uxi*j01 ;
-      auto d_g11pg22_dcy = 2*(uxi*j10 + ueta*j11);
-
-      auto fy = -d_detJ_dcy*(g11 + g22);
-      auto gy = d_g11pg22_dcy;
+    gsMatrix<> xyMat = A.matrix();
+    gsInfo << "norm = " << xyMat.norm() << "\n";
 
 
-      auto d_I_dcy = fy*detJinv2 + gy*detJinv;
+    // y y
+    A.initSystem();
 
-      auto d_detJinv2_dcy = -2 * d_detJ_dcy * detJinv3;
-      auto d_detJinv_dcy = - d_detJ_dcy * detJinv2;
+    A.assemble(2*lambda_1*hess(u)%hess(u));
+    A.assemble(2*lambda_2*dJacdc(u,1)%dJacdc(u,1));
+    A.assemble(2*dLxdcy*dLxdcy.tr());
+    A.assemble(Lxd2Lxdcycy);
 
-      auto d_fx_dcy_detJinv2 = ueta*(g11 + g22)*detJinv2*uxi.tr() - uxi*(g11 + g22)*detJinv2*ueta.tr() - d_detJ_dcx*detJinv2*d_g11pg22_dcy.tr();
+    A.assemble(2*dLydcy*dLydcy.tr());
+    A.assemble(Lyd2Lydcycy);
 
-      auto d2_I_dcxcy = fx * d_detJinv2_dcy.tr() + d_fx_dcy_detJinv2 + gx*d_detJinv_dcy.tr();
-
-      A.assemble(-d2_I_dcxcy);
-      gsMatrix<> xyMat = A.matrix().transpose();
-
-      A.initSystem();
-
-      auto d_fy_dcy_detJinv2 = -d_detJ_dcy*detJinv2*d_g11pg22_dcy.tr();
-      auto d_gy_dcy_detJinv = 2*(uxi*detJinv*uxi.tr() + ueta*detJinv*ueta.tr());
-
-      auto d2_I_dcy2 = fy*d_detJinv2_dcy.tr() + d_fy_dcy_detJinv2 + gy*d_detJinv_dcy.tr() + d_gy_dcy_detJinv;
-
-      A.assemble(-d2_I_dcy2);
+    gsMatrix<> yyMat = A.matrix();
+    gsInfo << "norm = " << yyMat.norm() << "\n";
 
 
-      gsMatrix<> yyMat = A.matrix();
+    gsMatrix<> all(xxMat.rows() + yyMat.rows(),xxMat.cols() + yyMat.cols());
 
-        gsMatrix<> all(xxMat.rows() + yyMat.rows(),xxMat.cols() + yyMat.cols());
+    all << xxMat, xyMat.transpose(), xyMat, yyMat;
 
-        all << xxMat, xyMat.transpose(), xyMat, yyMat;
+    // Map twice, is there a better way?
+    gsMatrix<> all2 = mapMatrix(u.mapper(),all);
 
-        // Map twice, is there a better way?
-        gsMatrix<> all2 = mapMatrix(u.mapper(),all);
+    // Map tagged part
+    hessObjTagged = mapMatrixToTagged(u.mapper(),all2);
 
-        // Map tagged part
-        hessObjTagged = mapMatrixToTagged(u.mapper(),all2);
-
-        return mapMatrix(u.mapper(),all2);
+    return mapMatrix(u.mapper(),all2);
 
     }

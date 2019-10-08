@@ -22,11 +22,16 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
 
     } else if (param == 2) {
         gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,true);
-        opt_param->setQuad(quA,quB);
+        opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
         m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
     } else if (param == 3) {
         gsLiao *opt_param = new gsLiao(m_mp,m_mappers,true);
+        opt_param->setQuad(quA,quB);
+        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod->computeMap();
+    } else if (param == 4) {
+        gsHarmonic *opt_param = new gsHarmonic(m_mp,m_mappers,true);
         opt_param->setQuad(quA,quB);
         m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();

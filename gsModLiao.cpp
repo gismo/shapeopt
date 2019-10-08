@@ -6,8 +6,10 @@ real_t gsModLiao::evalObj() const {
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(dbasis);
-    gsExprEvaluator<> ev(A);
 
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
+    gsExprEvaluator<> ev(A);
     ev.options().setInt("quB",m_quB);
     ev.options().setReal("quA",m_quA);
 
