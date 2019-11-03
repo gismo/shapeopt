@@ -11,6 +11,7 @@ gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin, bool useTPSolver):
     m_useTPSolver(useTPSolver),
     m_solversTensor(mpin->nBoxes())
 {
+    GISMO_ERROR("STOP");
     setup(); // Method to setup m_detJacBasis and m_space_mapper
 
     // gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";

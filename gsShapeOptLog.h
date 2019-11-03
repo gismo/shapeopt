@@ -34,6 +34,8 @@ public:
 
     void logObj(real_t obj); // Logs the objective value
 
+    void logObj(gsVector<> in); // Logs all values in the log vector as a row in obj.txt
+
     // Deletes what is already in the log
     void resetLog();
 

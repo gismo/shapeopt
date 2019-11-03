@@ -48,6 +48,17 @@ void gsShapeOptLog::logObj(real_t obj)
     f.close();
 }
 
+void gsShapeOptLog::logObj(gsVector<> in)
+{
+    std::ofstream f;
+    f.open(BASE_FOLDER + m_output + m_logObjName, std::ofstream::out | std::ofstream::app);
+    for (real_t x:in)
+        f << x << " ";
+
+    f << "\n";
+    f.close();
+}
+
 void gsShapeOptLog::resetLog()
 {
     std::ofstream f(BASE_FOLDER + m_output + m_logName);
@@ -81,7 +92,7 @@ void gsShapeOptLog::saveVec(gsVector<> const &vec, std::string &name, index_t i,
 
 void gsShapeOptLog::plotInParaview(gsMultiPatch<> &mp, std::string &name)
 {
-    gsWriteParaview(mp, BASE_FOLDER + m_output + name );
+    gsWriteParaview(mp, BASE_FOLDER + m_output + name,10000,true);
 }
 
 void gsShapeOptLog::plotInParaview(gsMultiPatch<> &mp, std::string &name, index_t i)

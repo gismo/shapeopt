@@ -31,16 +31,14 @@ void gsAffineOptParamMethod::reset(){
     // For now we dont have any constraints so the KKT-system is simply the hessian
     m_KKTsystem = m_hess;
 
-    // I problably have to inforce c_tagged = x, to allow change of tagge DoFs...
-
-    m_rhs = -m_grad; // This rhs only works when the tagged has not been changed
+    m_rhs = -m_grad; // This rhs only works when the tagged has not been changed otherwise use: m_rhs = -m_grad - m_hessTagged*(x-m_refTagged);
 
     m_solver.compute(m_KKTsystem);
 }
 
 gsVector<> gsAffineOptParamMethod::getUpdate(gsVector<> x){
     // Setup rhs
-    m_rhs = -m_grad - m_hessTagged*(x-m_refTagged); // This rhs only works when the tagged has not been changed
+    m_rhs = -m_grad - m_hessTagged*(x-m_refTagged);
 
     // Solve optimality conditions to find an update to the free vars
     gsVector<> deltaFree = m_solver.solve(m_rhs);

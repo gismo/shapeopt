@@ -22,7 +22,7 @@ class gsParamMethod{
 public:
 
     // Constructs from multipatch, should setup mappers and assume interfaces glued
-    // and boundary fixed; FIXIT: implement this functionality, FIXIT: tag bnd?
+    // and boundary fixed; 
     gsParamMethod(gsMultiPatch<>* mpin);
 
     // Constructs from list of mappers
@@ -36,23 +36,26 @@ public:
     // The default behaviour is to do nothing.
     virtual void reset(){};
 
-    virtual void updateAndReset() { GISMO_NO_IMPLEMENTATION; };
+    // Method that updates and resets, returns true if update succeded
+    virtual bool updateAndReset() { GISMO_NO_IMPLEMENTATION; };
 
     // FIXIT: Think about which one of these functions is the best to have virtual...
     //        i.e. one could be implemented generic by the other one...
     // Method to update inner controlpoints. Should be implemented in inherited classes
-    virtual void update(){ GISMO_NO_IMPLEMENTATION; };
+    // Returns false if the update failed
+    virtual bool update(){ GISMO_NO_IMPLEMENTATION; };
 
     // Method to update inner controlpoints, given tagged Dofs (x).
     // Should be implemented in inherited classes
-    virtual void update(gsVector<> x){ GISMO_NO_IMPLEMENTATION; };
+    // Returns false if the update failed
+    virtual bool update(gsVector<> x){ GISMO_NO_IMPLEMENTATION; };
 
     // Method to get the jacobian of the update (free Dofs) with respect to x (the tagged Dofs)
     // Should be implemented in inherited classes
     virtual gsMatrix<> jacobUpdate(gsVector<> x){ GISMO_NO_IMPLEMENTATION; };
 
     // Get a vector of the tagged control points.
-    gsVector<> getTagged();
+    gsVector<> getTagged() const;
 
     // Update the tagged control points.
     void updateTagged(gsVector<> x) const;
@@ -113,6 +116,9 @@ public:
 
     // Recreate m_mappers using m_isBoundaryFixed, m_isBoundaryTagged, ...
     void recreateMappers();
+
+    virtual real_t evalObj() const { GISMO_NO_IMPLEMENTATION };
+    // virtual int iterations() const { GISMO_NO_IMPLEMENTATION };
 
 public:
     mutable gsMultiPatch<>* m_mp;

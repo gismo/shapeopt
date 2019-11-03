@@ -38,18 +38,24 @@ void gsAffineParamMethod::computeMap()
     }
 }
 
-void gsAffineParamMethod::update(gsVector<> x)
+// Returns false if the update failed
+bool gsAffineParamMethod::update(gsVector<> x)
 {
     gsVector<> free_cps = b + A*x;
     // Update free and tagge DoFs
     updateFreeAndTagged(free_cps,x);
+
+    return true; // Update succeded
 }
 
-void gsAffineParamMethod::update()
+// Returns false if the update failed
+bool gsAffineParamMethod::update()
 {
     gsVector<> free_cps = getUpdate(getTagged());
     // Update free DoFs
     updateFree(free_cps);
+
+    return true;
 }
 
 // FIXIT.   Compute map has to be called before this method..

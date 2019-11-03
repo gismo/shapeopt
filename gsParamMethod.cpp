@@ -118,7 +118,7 @@ void gsParamMethod::setMappers(std::vector< gsDofMapper > mappers)
     }
 }
 
-gsVector<> gsParamMethod::getTagged()
+gsVector<> gsParamMethod::getTagged() const
 {
     gsVector<> out(n_tagged);
     index_t ind = 0;
@@ -436,6 +436,7 @@ gsMatrix<> gsParamMethod::mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> ma
         mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
         tagged_shift[d] = tagged_shift[d-1] + m_mappers[d].taggedSize();
     }
+    gsDebugVar(tagged_shift);
 
     // FIXIT: take this information as input instead..
     bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
@@ -476,6 +477,7 @@ gsMatrix<> gsParamMethod::mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> ma
             }
         }
     }
+    gsInfo << "\n";
     return mat_out;
 
 };

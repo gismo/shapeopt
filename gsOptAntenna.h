@@ -7,6 +7,7 @@ using namespace gismo;
 #include "gsSpringMethod.h"
 #include "gsModLiao.h"
 #include "gsWinslow.h"
+#include "gsWinslowWithDeriv.h"
 #include "gsLiao.h"
 #include "gsHarmonic.h"
 #include "gsOptParamMethod.h"
@@ -16,7 +17,12 @@ class gsOptAntenna: public gsShapeOptProblem {
 public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
+    // Uses gsDetJacConstraint as default
     gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool use_Lagrangian = false);
+
+    // Constructs from a multipatch, calling setupMappers, and setupOptParameters
+    // Uses specified constraint from \a constraint
+    gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, gsConstraint* constraint, index_t param, real_t quA, index_t quB, bool use_Lagrangian = false);
 
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;

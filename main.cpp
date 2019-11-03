@@ -26,6 +26,7 @@
 #include "gsIpOptSparseMatrix.h"
 #include "gsShapeOptProblem.h"
 #include "gsOptAntenna.h"
+#include "gsOptParam.h"
 #include "gsShapeOptLog.h"
 
 #include "gsStateEquationPotWaves.h"
@@ -104,11 +105,11 @@ void saveSparseMat(gsSparseMatrix<> mat, std::string name){
 void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
 	// gsVector<> result = dJC.generateDResultVector();
 	// dJC.getDvectors(result);
-	gsVector<> result = pM.m_dJC.evalCon();
+	gsVector<> result = pM.m_dJC->evalCon();
 
-    saveMat(pM.m_dJC.getJacobian().asDense(),BASE_FOLDER "/../results/J1.txt");
+    saveMat(pM.m_dJC->getJacobian().asDense(),BASE_FOLDER "/../results/J1.txt");
 
-    gsIpOptSparseMatrix J = pM.mapMatrix(pM.m_dJC.space_mapper(),pM.m_dJC.getJacobian());
+    gsIpOptSparseMatrix J = pM.mapMatrix(pM.m_dJC->space_mapper(),pM.m_dJC->getJacobian());
     saveMat(J.asDense(),BASE_FOLDER "/../results/J2.txt");
 	gsMatrix<> Jac = J.asDense();
 	gsInfo << "\n Size of D vector : " << result.size() << "\n";
@@ -150,7 +151,7 @@ void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
 
 		// gsVector<> newres = dJC.generateDResultVector();
 		// dJC.getDvectors(newres);
-		gsVector<> newres = pM.m_dJC.evalCon();
+		gsVector<> newres = pM.m_dJC->evalCon();
 
 		gsVector<> guess = result + Jac*perturp;
 
@@ -482,7 +483,7 @@ void convergenceTestOfParaLagrangianJacobian(gsOptParamMethod &lOP){
 // }
 //
 void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
-	// std::srand((unsigned int) std::time(0));
+	std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
 	ran.setRandom(sOP.numDesignVars());
 
@@ -493,7 +494,7 @@ void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
 	real_t obj = sOP.evalObj();
 	gsVector<> grad = sOP.gradObj();
 
-	index_t beg = 0;
+	index_t beg = 3;
 	index_t n = 20;
 	gsVector<> Eps(n);
 	gsVector<> Error0(n);
@@ -1253,6 +1254,523 @@ void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
 // 		}
 // 	}
 // }
+void convergenceTestOfParamMethodJacobian(gsParamMethod &pM){
+	// gsVector<> result = dJC.generateDResultVector();
+	// dJC.getDvectors(result);
+    gsVector<> flat = pM.getFlat();
+    gsVector<> tag = pM.getTagged();
+
+    pM.update();
+	gsVector<> free_cps = pM.getFree();
+
+	gsMatrix<> Jac = pM.jacobUpdate(tag);
+    pM.updateFlat(flat);
+
+    index_t beg = 5;
+	index_t n = 8;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+
+	gsVector<> ran;
+	std::srand((unsigned int) std::time(0));
+	ran.setRandom(tag.size());
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(tag.size());
+		for(index_t i = 0; i < tag.size(); i++){
+			perturp[i] = ran[i];
+		}
+
+		// perturp /= perturp.norm();
+
+		gsVector<> newTag = tag + eps*perturp;
+
+		// gsVector<> newres = dJC.generateDResultVector();
+		// dJC.getDvectors(newres);
+        pM.update(newTag);
+		gsVector<> newFree = pM.getFree();
+        pM.updateFlat(flat);
+
+        gsVector<> FD = (newFree - free_cps)/eps;
+
+        gsVector<> deriv = Jac*perturp;
+
+        gsInfo << FD.norm() << " \t" << deriv.norm() << "\n";
+        if (false && i == 7){
+            gsInfo << "FD \t jac \n";
+            for (index_t i = 0; i < FD.size(); i++){
+                gsInfo << FD[i] << " \t" << deriv[i] << "\n";
+            }
+        }
+
+		real_t error1 = (FD - deriv).norm();
+
+		Error1[i] = error1;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,3);
+	disp << Eps,Error1,rate;
+	gsInfo << "eps \tErr1 \trate\n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfParaHessian(gsOptParamMethod &lOP){
+
+    gsMatrix<> Hcx;
+
+	gsMatrix<> hess = lOP.hessObj(Hcx);
+
+	std::srand((unsigned int) std::time(0));
+	gsVector<> ran_free;
+	ran_free.setRandom(lOP.n_free);
+
+	gsVector<> ran_tagged;
+	ran_tagged.setRandom(lOP.n_tagged);
+
+	gsVector<> des = lOP.getFree();
+	gsVector<> tag = lOP.getTagged();
+    gsVector<> flat = lOP.getFlat();
+
+	index_t beg = 7;
+	index_t n = 8;
+	gsVector<> Eps(n);
+	gsVector<> ErrorT(n);
+	gsVector<> ErrorF(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> p;
+		p.setZero(lOP.n_free);
+		gsVector<> q;
+		q.setZero(lOP.n_tagged);
+
+		for(index_t i = 0; i < lOP.n_free; i++){
+			p[i] = ran_free[i];
+		}
+		for(index_t i = 0; i < lOP.n_tagged; i++){
+			q[i] = ran_tagged[i];
+		}
+
+		gsVector<> newDes = des + eps*p;
+		gsVector<> newTag = tag + eps*q;
+
+        // W(c + eps*p,x + eps*q)
+        lOP.updateFlat(flat);
+        lOP.updateFree(newDes);
+        lOP.updateTagged(newTag);
+
+        real_t Wpq = lOP.evalObj();
+
+        // W(c + eps*p,x)
+        lOP.updateFlat(flat);
+        lOP.updateFree(newDes);
+        lOP.updateTagged(tag);
+
+        real_t Wp = lOP.evalObj();
+
+        // W(c,x + eps*q)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des);
+        lOP.updateTagged(newTag);
+
+        real_t Wq = lOP.evalObj();
+
+        // W(c,x)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des);
+        lOP.updateTagged(tag);
+
+        // W(c + eps*p,x - eps*q)
+        lOP.updateFlat(flat);
+        lOP.updateFree(newDes);
+        lOP.updateTagged(tag - eps*q);
+
+        real_t Wpmq = lOP.evalObj();
+
+        // W(c - eps*p,x + eps*q)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des - eps*p);
+        lOP.updateTagged(newTag);
+
+        real_t Wmpq = lOP.evalObj();
+
+        // W(c - eps*p,x - eps*q)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des - eps*p);
+        lOP.updateTagged(tag - eps*q);
+
+        real_t Wmpmq = lOP.evalObj();
+
+        // W(c,x)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des);
+        lOP.updateTagged(tag);
+
+        real_t W = lOP.evalObj();
+
+        real_t FDtagged2 = (Wpq - Wq - Wp + W)*1/(eps*eps);
+        real_t FDtagged = (Wpq - Wpmq - Wmpq + Wmpmq)/(4*eps*eps);
+
+        // W(c - eps*p,x)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des - eps*p);
+        lOP.updateTagged(tag);
+
+        real_t Wmp = lOP.evalObj();
+
+        real_t FDfree = (Wp - 2*W + Wmp)*1/(eps*eps);
+
+		real_t errorT = FDtagged - p.transpose()*Hcx*q;
+        gsInfo << FDtagged << " and " << FDtagged2 << ", " << p.transpose()*Hcx*q << "\n";
+		real_t errorF = FDfree - p.transpose()*hess*p;
+        // gsInfo << FDfree << ", " << p.transpose()*hess*p << "\n";
+
+		ErrorT[i] = errorT;
+		ErrorF[i] = errorF;
+	}
+
+	gsVector<> rateT;
+	rateT.setZero(n);
+	rateT.segment(1,n-1) = log10(ErrorT.segment(1,n-1).array()/ErrorT.segment(0,n-1).array())/log10(2);
+	gsVector<> rateF;
+	rateF.setZero(n);
+	rateF.segment(1,n-1) = log10(ErrorF.segment(1,n-1).array()/ErrorF.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,5);
+	disp << Eps,ErrorT,rateT,ErrorF,rateF;
+	gsInfo << "eps \t\tErrT \trateT \t\tErrF \trateF\n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfParaGrad(gsWinslow &lOP){
+
+    gsVector<> gradTagged;
+	gsVector<> grad = lOP.gradObj(gradTagged);
+    gsVector<> flat = lOP.getFlat();
+
+	gsVector<> ran_free;
+	ran_free.setRandom(lOP.n_free);
+
+	gsVector<> ran_tagged;
+	ran_tagged.setRandom(lOP.n_tagged);
+
+	gsVector<> des = lOP.getFree();
+	gsVector<> tag = lOP.getTagged();
+
+	index_t beg = 7;
+	index_t n = 10;
+	gsVector<> Eps(n);
+	gsVector<> ErrorT(n);
+	gsVector<> ErrorF(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> p;
+		p.setZero(lOP.n_free);
+		gsVector<> q;
+		q.setZero(lOP.n_tagged);
+
+		for(index_t i = 0; i < lOP.n_free; i++){
+			p[i] = ran_free[i];
+		}
+		for(index_t i = 0; i < lOP.n_tagged; i++){
+			q[i] = ran_tagged[i];
+		}
+
+		gsVector<> newDes = des + eps*p;
+		gsVector<> newTag = tag + eps*q;
+
+
+        // W(c + eps*p,x)
+        lOP.updateFlat(flat);
+        lOP.updateFree(newDes);
+        // lOP.updateTagged(tag);
+
+        real_t Wp = lOP.evalObj();
+
+        // W(c,x + eps*q)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des);
+        lOP.updateTagged(newTag);
+
+        real_t Wq = lOP.evalObj();
+
+        // W(c,x)
+        lOP.updateFlat(flat);
+        lOP.updateFree(des);
+        // lOP.updateTagged(tag);
+
+        real_t W = lOP.evalObj();
+
+        real_t FDtagged = (Wq - W)/eps;
+
+        real_t FDfree = (Wp -  W)/eps;
+
+		real_t errorT = FDtagged - q.transpose()*gradTagged;
+		real_t errorF = FDfree - p.transpose()*grad;
+        gsInfo << FDfree << ", " << p.transpose()*grad << ", ";
+        gsInfo << FDtagged << ", " << q.transpose()*gradTagged << "\n";
+
+		ErrorT[i] = errorT;
+		ErrorF[i] = errorF;
+
+        // Test
+	}
+
+	gsVector<> rateT;
+	rateT.setZero(n);
+	rateT.segment(1,n-1) = log10(ErrorT.segment(1,n-1).array()/ErrorT.segment(0,n-1).array())/log10(2);
+	gsVector<> rateF;
+	rateF.setZero(n);
+	rateF.segment(1,n-1) = log10(ErrorF.segment(1,n-1).array()/ErrorF.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,5);
+	disp << Eps,ErrorT,rateT,ErrorF,rateF;
+	gsInfo << "eps \tErrT \trateT \tErrF \trateF\n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfParaJacobianAll(gsWinslow &lOP){
+	real_t liao = lOP.evalObj();
+	gsVector<> grad = lOP.gradAll();
+
+	gsMatrix<> hess = lOP.hessAll();
+
+	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
+	// gsInfo << "\n" << grad << "\n";
+    gsDebugVar(hess.rows());
+    gsDebugVar(hess.cols());
+
+	// std::srand((unsigned int) std::time(0));
+	gsVector<> ran;
+	ran.setRandom(lOP.n_flat);
+
+	gsVector<> des = lOP.getFlat();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	index_t beg = 0;
+	index_t n = 20;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+	gsVector<> Error2(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(lOP.n_flat);
+
+		for(index_t i = 0; i < lOP.n_flat; i++){
+			perturp[i] = ran[i];
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+
+		lOP.updateFlat(newDes);
+
+		real_t newLiao = lOP.evalObj();
+		real_t guess0 = liao;
+		real_t guess1 = liao + grad.transpose()*perturp;
+		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
+
+		gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
+		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
+
+		real_t error0 = std::abs(guess0 - newLiao);
+		real_t error1 = std::abs(guess1 - newLiao);
+		real_t error2 = std::abs(guess2 - newLiao);
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+		Error2[i] = error2;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsVector<> rate2;
+	rate2.setZero(n);
+	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,6);
+	disp << Eps,Error0,Error1,rate,Error2,rate2;
+	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfParaHessianAll(gsWinslow &lOP){
+
+    gsVector<> flat = lOP.getFlat();
+	gsMatrix<> hess = lOP.hessAll();
+
+	std::srand((unsigned int) std::time(0));
+	gsVector<> ran1;
+	ran1.setRandom(lOP.n_flat);
+	gsVector<> ran2;
+	ran2.setRandom(lOP.n_flat);
+
+	index_t beg = 7;
+	index_t n = 10;
+	gsVector<> Eps(n);
+	gsVector<> ErrorA(n);
+
+	for(index_t i = 0; i < n; i++){
+        lOP.updateFlat(flat);
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> p;
+		p.setZero(lOP.n_flat);
+		gsVector<> q;
+		q.setZero(lOP.n_flat);
+
+		for(index_t i = 0; i < lOP.n_flat; i++){
+			p[i] = ran1[i];
+			q[i] = ran2[i];
+		}
+
+        // W(c + eps*p)
+        lOP.updateFlat(flat + eps*p);
+        real_t Wp = lOP.evalObj();
+
+        // W(c,x)
+        lOP.updateFlat(flat);
+        real_t W = lOP.evalObj();
+
+        // W(c - eps*p)
+        lOP.updateFlat(flat - eps*p);
+
+        real_t Wmp = lOP.evalObj();
+
+        real_t FDall = (Wp - 2*W + Wmp)/(eps*eps);
+
+		real_t errorA = FDall - p.transpose()*hess*p;
+        gsInfo << FDall << ", " << p.transpose()*hess*p << "\n";
+
+		ErrorA[i] = errorA;
+	}
+
+	gsVector<> rateA;
+	rateA.setZero(n);
+	rateA.segment(1,n-1) = log10(ErrorA.segment(1,n-1).array()/ErrorA.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,3);
+	disp << Eps,ErrorA,rateA;
+	gsInfo << "eps \tErrA \trateA \n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfParaGradAll(gsWinslow &lOP){
+
+	gsVector<> grad = lOP.gradAll();
+
+	std::srand((unsigned int) std::time(0));
+	gsVector<> ran_flat;
+	ran_flat.setRandom(lOP.n_flat);
+
+	gsVector<> ran_free;
+	ran_free.setRandom(lOP.n_free);
+
+	gsVector<> ran_tagged;
+	ran_tagged.setRandom(lOP.n_tagged);
+
+	gsVector<> des = lOP.getFree();
+	gsVector<> tag = lOP.getTagged();
+	gsVector<> flat = lOP.getFlat();
+
+	index_t beg = 7;
+	index_t n = 30;
+	gsVector<> Eps(n);
+	gsVector<> ErrorA(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> p;
+		p.setZero(lOP.n_free);
+		gsVector<> q;
+		q.setZero(lOP.n_tagged);
+		gsVector<> pA;
+		pA.setZero(lOP.n_flat);
+
+
+		for(index_t i = 0; i < lOP.n_flat; i++){
+			pA[i] = ran_flat[i];
+		}
+		for(index_t i = 0; i < lOP.n_free; i++){
+			p[i] = ran_free[i];
+		}
+		for(index_t i = 0; i < lOP.n_tagged; i++){
+			q[i] = ran_tagged[i];
+		}
+
+
+		gsVector<> newFlat = flat + eps*pA;
+		gsVector<> newDes = des + eps*p;
+		gsVector<> newTag = tag + eps*q;
+
+        // W(c + eps*p,x + eps*q)
+        // lOP.updateFree(newDes);
+        // lOP.updateTagged(newTag);
+        lOP.updateFlat(newFlat);
+
+        real_t Wpq = lOP.evalObj();
+
+        // W(c,x)
+        // lOP.updateFree(des);
+        // lOP.updateTagged(tag);
+        lOP.updateFlat(flat);
+
+        real_t W = lOP.evalObj();
+
+        real_t FDall = (Wpq - W)/eps;
+
+        // lOP.updateTagged(q);
+        // lOP.updateFree(p);
+        // gsVector<> flat = lOP.getFlat();
+
+		real_t errorA = FDall - pA.transpose()*grad;
+        gsInfo << FDall << ", " << pA.transpose()*grad << "\n";
+
+		ErrorA[i] = errorA;
+	}
+
+	gsVector<> rateA;
+	rateA.setZero(n);
+	rateA.segment(1,n-1) = log10(ErrorA.segment(1,n-1).array()/ErrorA.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,3);
+	disp << Eps,ErrorA,rateA;
+	gsInfo << "eps \tErrA \trateA \n";
+	gsInfo << disp << "\n";
+
+}
 
 gsVector<> loadVec(index_t n,std::string name){
         gsInfo << "load from " << name << "\n";
@@ -1861,6 +2379,236 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
 }
 
+void testOfParametrizations_winslow_inf(std::string output, index_t quA, index_t quB){
+
+    index_t numRefine = 1;
+    index_t n_tests = 6;
+
+    // Setup tests
+    std::vector< gsMultiPatch<> > P(n_tests);
+    std::vector< std::string > names(n_tests);
+
+    // Unit square
+    P[0] = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+    names[0] = "/UnitSq/";
+    for(int i = 0; i < numRefine; i++){
+    	P[0].uniformRefine();
+    }
+
+    // Rotated rectangle
+    P[1] = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+    P[1].patch(0).scale(2,1);
+    P[1].patch(0).rotate(M_PI_4);
+    gsVector<> v(2);
+    v << 1,2;
+    P[1].patch(0).translate(v);
+
+    names[1] = "/Rectangle/";
+    for(int i = 0; i < numRefine; i++){
+    	P[1].uniformRefine();
+    }
+
+    P[2] = getJigSaw(2);
+    P[2].patch(0).scale(0.1);
+    names[2] = "/Jigsaw2/";
+
+    P[3] = getSeastar();
+    names[3] = "/Seastar/";
+
+    // JigSaws
+    P[4] = getJigSaw(1);
+    P[4].patch(0).scale(0.1);
+    names[4] = "/Jigsaw1/";
+    P[4].uniformRefine();
+
+
+    // Initial design
+    P[5] = getGeometry(5,4,2);
+    names[5] = "/InitDesign/";
+
+    std::string name;
+
+    // For all test but the last one
+    for (index_t t = 0; t < n_tests - 1; t++){
+        continue; exit(0);
+        gsShapeOptLog slog(output + names[t]);
+
+        gsInfo << P[t] << "\n";
+        gsInfo << P[t].patch(0).basis() << "\n";
+
+        gsDetJacConstraint dJC(&P[t]);
+
+        slog << "MaxDetJac Method: \n";
+        gsInfo << "MaxDetJac Method: \n";
+
+        gsMaxDetJac mDJ(&P[t],true);
+        mDJ.update();
+
+        name = "MaxDetJac";
+        slog.plotInParaview(P[t],name);
+        gsVector<> mdj = mDJ.getFlat();
+        slog.saveVec(mdj,name);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        slog << "\n Winslow all constraints: \n";
+        gsInfo << "\n --- Winslow all constraints: ---- \n\n";
+
+        mDJ.updateFlat(mdj);
+
+        gsWinslow winslow(&P[t],true,true);
+        winslow.setQuad(quA,quB);
+        winslow.update();
+
+        name = "Winslow_allConstraints";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(winslow.getFlat(),name);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        // slog << "\n Winslow no constraints: \n";
+        // gsInfo << "\n --- Winslow no constraints: ---- \n\n";
+        //
+        // mDJ.updateFlat(mdj);
+        //
+        // gsWinslow winslow_noCon(&P[t],false);
+        // winslow_noCon.setQuad(quA,quB);
+        // winslow_noCon.update();
+        //
+        // name = "Winslow_noConstraints";
+        // slog.plotInParaview(P[t],name);
+        // slog.saveVec(winslow_noCon.getFlat(),name);
+        //
+        // slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        // slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        slog << "\n Winslow, check for inf, all constraints: \n";
+        gsInfo << "Winslow, check for inf, all constraints: \n";
+
+        mDJ.updateFlat(mdj);
+
+        gsWinslow winslow_check(&P[t],true,true,true,0);
+        winslow_check.setQuad(quA,quB);
+        winslow_check.update();
+
+        name = "Winslow_check_allConstraints";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(winslow_check.getFlat(),name);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+        slog << "\n Winslow, check for inf, no constraints: \n";
+        gsInfo << "Winslow, check for inf, no constraints: \n";
+
+        mDJ.updateFlat(mdj);
+
+        gsWinslow winslow_check_noCon(&P[t],false,false,true,0);
+        winslow_check_noCon.setQuad(quA,quB);
+        winslow_check_noCon.update();
+
+        name = "Winslow_check_noConstraints";
+        slog.plotInParaview(P[t],name);
+        slog.saveVec(winslow_check_noCon.getFlat(),name);
+
+        slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+        slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+    }
+
+    index_t t = n_tests - 1;
+
+
+    gsShapeOptLog slog(output + names[t]);
+    gsOptAntenna optA(&P[t],1,&slog,0,quA,quB);
+
+    gsInfo << P[t] << "\n";
+    gsInfo << P[t].patch(0).basis() << "\n";
+
+    gsDetJacConstraint dJC(&P[t]);
+
+    slog << "MaxDetJac Method: \n";
+    gsInfo << "MaxDetJac Method: \n";
+
+    gsMaxDetJac mDJ(&P[t],optA.mappers());
+    mDJ.update();
+
+    name = "MaxDetJac";
+    slog.plotInParaview(P[t],name);
+    gsVector<> mdj = mDJ.getFlat();
+    slog.saveVec(mdj,name);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    slog << "\n Winslow all constraints: \n";
+    gsInfo << "Winslow all constraints: \n";
+
+    mDJ.updateFlat(mdj);
+
+    gsWinslow winslow(&P[t],optA.mappers(),true,true);
+    winslow.setQuad(quA,quB);
+    winslow.update();
+
+    name = "Winslow_allConstraints";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(winslow.getFlat(),name);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    // slog << "\n Winslow no constraints: \n";
+    // gsInfo << "Winslow no constraints: \n";
+    //
+    // mDJ.updateFlat(mdj);
+    //
+    // gsWinslow winslow_noCon(&P[t],optA.mappers(),false);
+    // winslow_noCon.setQuad(quA,quB);
+    // winslow_noCon.update();
+    //
+    // name = "Winslow_noConstraints";
+    // slog.plotInParaview(P[t],name);
+    // slog.saveVec(winslow_noCon.getFlat(),name);
+    //
+    // slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    // slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    slog << "\n Winslow, check for inf, all constraints: \n";
+    gsInfo << "Winslow, check for inf, all constraints: \n";
+
+    mDJ.updateFlat(mdj);
+
+    gsWinslow winslow_check(&P[t],optA.mappers(),true,true,true,0);
+    winslow_check.setQuad(quA,quB);
+    winslow_check.update();
+
+    name = "Winslow_check_allConstraints";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(winslow_check.getFlat(),name);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+    slog << "\n Winslow, check for inf, no constraints: \n";
+    gsInfo << "Winslow, check for inf, no constraints: \n";
+
+    mDJ.updateFlat(mdj);
+
+    gsWinslow winslow_check_noCon(&P[t],optA.mappers(),false,false,true,0);
+    winslow_check_noCon.setQuad(quA,quB);
+    winslow_check_noCon.update();
+
+    name = "Winslow_check_noConstraints";
+    slog.plotInParaview(P[t],name);
+    slog.saveVec(winslow_check_noCon.getFlat(),name);
+
+    slog << "min d : " << dJC.evalCon().minCoeff() << "\n";
+    slog << "max d : " << dJC.evalCon().maxCoeff() << "\n";
+
+}
+
+
 void testOfAggregatedConstraints(std::string output, index_t quA, index_t quB){
 
     index_t numRefine = 1;
@@ -1941,11 +2689,11 @@ void testOfAggregatedConstraints(std::string output, index_t quA, index_t quB){
 void testOfAggregatedConstraints2nd(std::string output, index_t quA, index_t quB){
 
     index_t numRefine = 1;
-    index_t n_tests = 6;
+    index_t n_tests = 5;
 
     index_t n_alpha = 4;
     gsVector<> Alpha(n_alpha);
-    Alpha << 0, -2, -4, -8;
+    Alpha << -4, -8, -16, -32;
 
     // Setup tests
     std::vector< gsMultiPatch<> > P(n_tests);
@@ -1972,42 +2720,164 @@ void testOfAggregatedConstraints2nd(std::string output, index_t quA, index_t quB
     }
 
     // JigSaws
-    P[2] = getJigSaw(1);
-    P[2].patch(0).scale(0.1);
-    names[2] = "/Jigsaw1/";
+    // P[2] = getJigSaw(1);
+    // P[2].patch(0).scale(0.1);
+    // names[2] = "/Jigsaw1/";
     P[3] = getJigSaw(2);
     P[3].patch(0).scale(0.1);
     names[3] = "/Jigsaw2/";
 
-    P[4] = getSeastar();
-    names[4] = "/Seastar/";
+    P[2] = getSeastar();
+    names[2] = "/Seastar/";
 
     // Initial design
-    P[5] = getGeometry(5,4,2);
-    names[5] = "/InitDesign/";
+    P[4] = getGeometry(5,4,2);
+    names[4] = "/InitDesign/";
 
 
-    for (index_t t = 0; t < n_tests; t++){
+    for (index_t t = 1; t < n_tests; t++){
 
 
         gsInfo << P[t] << "\n";
         gsInfo << P[t].patch(0).basis() << "\n";
 
-        gsDetJacConstraint dJC(&P[t]);
 
+        gsMultiPatch<> start(P[t]);
+
+        gsInfo << output + names[t] << "\n\n";
+        gsShapeOptLog slog(output + names[t]);
+
+        gsVector<> flat;
+        if (t == 4){
+            gsOptAntenna optA(&start,1,&slog,0,quA,quB);
+
+            gsMaxDetJac mdj(&start,optA.mappers());
+            mdj.update();
+
+            flat = mdj.getFlat();
+            std::string name = "cps.txt";
+            slog.saveVec(flat,name);
+            name = "startGuess";
+            slog.plotInParaview(start,name);
+
+            gsModLiao winslow(&start,optA.mappers());
+            winslow.update();
+        } else {
+            gsMaxDetJac mdj(&start);
+            mdj.update();
+
+            flat = mdj.getFlat();
+            std::string name = "cps.txt";
+            slog.saveVec(flat,name);
+            name = "startGuess";
+            slog.plotInParaview(start,name);
+
+            gsWinslow winslow(&start);
+            winslow.update();
+        }
+
+        gsWinslow win(&start);
+
+        std::string name = "cps";
+        slog.saveVec(win.getFlat(),name);
+        name = "mp";
+        slog.plotInParaview(start,name);
+
+        continue;
+        exit(0);
         for (real_t alpha: Alpha){
+            gsMultiPatch<> mp(P[t]);
+
             std::ostringstream strs;
-            strs << alpha;
+            strs << alpha << "/";
             std::string str = strs.str();
 
+
+            gsDetJacConstraint dJC(&mp);
+
+            gsInfo << output + names[t] + str << "\n\n";
             gsShapeOptLog slog(output + names[t] + str);
 
             gsAggFun fun(dJC.n_constraints,alpha);
-            gsAggregatedConstraint aC(&P[t], &dJC, &fun);
+            gsAggregatedConstraint aC(&mp, &dJC, &fun);
 
+            if (t == 4){
+                gsOptAntenna optA(&mp,1,&slog,0,quA,quB);
 
+                gsWinslow winslow(&mp,optA.mappers(),&aC);
+                winslow.updateFlat(flat);
+
+                slog << dJC.evalCon().minCoeff() << " " << winslow.m_dJC->evalCon()[0] << "\n";
+
+                winslow.setLog(&slog, &dJC);
+                winslow.update();
+            } else {
+                gsWinslow winslow(&mp,&aC);
+                winslow.updateFlat(flat);
+
+                slog << dJC.evalCon().minCoeff() << " " << winslow.m_dJC->evalCon()[0] << "\n";
+
+                winslow.setLog(&slog, &dJC);
+                winslow.update();
+            }
+
+            gsWinslow winslow(&mp);
+
+            std::string name = "cps.txt";
+            slog.saveVec(winslow.getFlat(),name);
+            name = "mp";
+            slog.plotInParaview(mp,name);
         }
 
+    }
+
+
+}
+
+void testOfAggregatedConstraints3rd(std::string output, index_t quA, index_t quB, index_t param, index_t numref, index_t maxiter, index_t n, index_t m, index_t degree){
+
+    index_t n_tests = 5;
+
+    index_t n_alpha = 2;
+    gsVector<> Alpha(n_alpha);
+    Alpha << -32;
+
+    for (real_t alpha: Alpha){
+        gsMultiPatch<> mp = getGeometry(n,m,degree);
+
+        std::ostringstream strs;
+        strs << alpha << "/";
+        std::string str = strs.str();
+
+        gsDetJacConstraint dJC(&mp);
+
+        gsInfo << output + str << "\n\n";
+        gsShapeOptLog slog(output + str,true,true,false);
+
+        if (alpha == 1234)
+        {
+            gsOptAntenna optA(&mp,numref,&slog,param,quA,quB);
+
+            if (param == 0) // Spring method
+            {
+                continue;
+                optA.solve();
+            } else {
+                optA.runOptimization(maxiter);
+            }
+        } else {
+            gsAggFun fun(dJC.n_constraints,alpha);
+            gsAggregatedConstraint aC(&mp, &dJC, &fun);
+
+            gsOptAntenna optA(&mp,numref,&slog,&aC,param,quA,quB);
+
+            if (param == 0) // Spring method
+            {
+                optA.solve();
+            } else {
+                optA.runOptimization_aggregatedConstraints(maxiter);
+            }
+        }
     }
 
 
@@ -2225,20 +3095,170 @@ gsInfo << "The domain is a "<< patches <<"\n";
 gsStateEquationAntenna SE(&patches, 1);
 SE.printConstants();
 
-// Test Winslow
-if (true){
-    gsDetJacConstraint dJC(&patches);
-    gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
-    gsWinslow winslow(&patches, optA.mappers(), useDJC);
+// Test of gsOptParam
+if (true) {
+    // gsMultiPatch<> jigsaw = getJigSaw(1);
+    gsMultiPatch<> jigsaw = getJigSaw3D(); //
 
+    for( index_t r = 0; r < numRefine; r++){
+        jigsaw.uniformRefine();
+    }
+
+    // Create startguess
+    index_t size    = jigsaw.patch(0).coefsSize();
+    index_t n       = 10;
+
+    //-------- 3D JIGSAW ------
+    gsVector<> vec;
+    vec.setLinSpaced(n,-5,5);
+
+    gsMatrix<> coefs_init(size,3);
+    for (index_t i = 0; i < n; i++){
+        for(index_t j = 0; j < n; j++){
+            for(index_t k = 0; k < n; k++){
+                coefs_init(k + j*n + i*n*n,0) = vec[j];
+                coefs_init(k + j*n + i*n*n,1) = vec[k];
+                coefs_init(k + j*n + i*n*n,2) = vec[i];
+            }
+        }
+    }
+
+    //-------- 2D JIGSAW ------
+    // gsVector<> vec;
+    // vec.setLinSpaced(n,0,-10);
+    //
+    // gsVector<> vec2;
+    // vec2.setLinSpaced(n,0,10);
+    //
+    // gsMatrix<> coefs_init(size,2);
+    // for (index_t i = 0; i < n; i++){
+    //     for(index_t j = 0; j < n; j++){
+    //         coefs_init(i + j*n,0) = vec[j];
+    //         coefs_init(i + j*n,1) = vec2[i];
+    //     }
+    // }
+
+    gsMultiPatch<> mp_init(jigsaw);
+    mp_init.patch(0).setCoefs(coefs_init);
+
+    gsShapeOptLog slog1(output,true,false,false);
+
+    std::string name = "init";
+    slog1.plotInParaview(mp_init,name);
+
+    gsSpringMethod spring(&mp_init);
+    gsInfo << spring.getFlat() << "\n";
+    // gsOptParam optP(&mp_init,&jigsaw,&slog1,param);
+    // gsMatrix<> v = optP.currentDesign();
+    // gsInfo << optP.evalObj(v) << "\n";
+    // gsInfo << optP.currentDesign() << "\n";
+    // optP.solve();
+
+    exit(0);
+
+
+
+
+}
+
+// Test hessian and jacobUpdate of winslow
+if (false) {
+    gsShapeOptLog slog1(output,true,false,false);
+    gsOptAntenna optA(&patches,numRefine,&slog1,param,quA,quB);
+
+    gsSpringMethod sM(&patches,optA.mappers());
+    sM.computeMap();
+    sM.update();
+
+    gsWinslow win(&patches,optA.mappers(),false,false,true,0);
+    // win.update();
+
+    gsOptAntenna optA2(&patches,numRefine,&slog1,param,quA,quB);
+
+    // convergenceTestOfParaJacobianAll(win);
+    // convergenceTestOfParaGradAll(win);
+    // convergenceTestOfParaGrad(win);
+    // convergenceTestOfParaHessianAll(win);
+    // convergenceTestOfParaHessian(win);
+    convergenceTestOfParamMethodJacobian(*optA2.m_paramMethod);
+
+    // Save Pc and Px
+    exit(0);
+}
+
+// Test shape optimization with new winslow
+if (false) {
+    gsShapeOptLog slog1(output,true,false,false);
+    gsOptAntenna optA(&patches,numRefine,&slog1,param,quA,quB);
+
+    gsSpringMethod sM(&patches,optA.mappers());
+    sM.computeMap();
+    sM.update();
+
+    gsWinslow win(&patches,optA.mappers(),false,false,true,0);
+    win.update();
+
+    // optA.m_paramMethod->update();
+
+    // gsAsVector<> result(optA.m_dJC->evalCon().data(),optA.numConstraints());
+
+    // optA.evalCon_into(ctmp,result);
+
+    // optA.updateDesignVariables(sM.getTagged());
+    // convergenceTestOfJacobian(optA);
+    // convergenceTestOfParamMethodJacobian(*optA.m_paramMethod);
+
+    gsOptAntenna optA2(&patches,numRefine,&slog1,param,quA,quB);
+    optA2.solve();
+
+    // optA2.runOptimization(maxiter);
+
+
+    exit(0);
+}
+
+// Test Winslow with and without checking for inf
+if (false){
+    gsMultiPatch<> js = getGeometry(nx,ny,degree);
+    // js.uniformRefine(1);
+    //
+    // gsMaxDetJac mDJ(&js,true);
+    // mDJ.update();
+    // mDJ.updateFlat(loadVec(mDJ.n_flat,BASE_FOLDER + output + "Jigsaw1/MaxDetJac.txt"));    //
+    gsWinslow win(&js,false,false,true,0);
+    win.update();
+    // testOfParametrizations_winslow_inf(output,quA,quB);
+    exit(0);
+}
+
+// Test aggregated constraints with unit square
+if (false) {
+    gsMultiPatch<> mp = getJigSaw(2);
+
+
+	std::string out = "winslow";
+	gsInfo << "Writing the gsMultiPatch to a paraview file: " << out << "\n\n";
+	gsWriteParaview(mp, out);
+
+    gsDetJacConstraint dJC(&mp);
+    gsInfo << dJC.evalCon().minCoeff() << "\n";
+
+    gsAggFun fun(dJC.n_constraints,alpha);
+    gsAggregatedConstraint aC(&mp, &dJC, &fun);
+
+    gsWinslow winslow(&mp,&aC);
     winslow.update();
 
+	out = "modLiao_aC";
+	gsInfo << "Writing the gsMultiPatch to a paraview file: " << out << "\n\n";
+	gsWriteParaview(mp, out);
     exit(0);
 }
 
 // Test aggregated constraints
 if (false) {
-    testOfAggregatedConstraints(output,quA,quB);
+    testOfAggregatedConstraints2nd(output,quA,quB);
+    //testOfAggregatedConstraints3rd(output,quA,quB,param,numRefine,maxiter,nx,ny,degree);
     exit(0);
 }
 
@@ -2400,8 +3420,8 @@ if (false){
 
         // gsInfo << "\n" << dJC.evalCon() << "\n";
 
-        winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_iter" + iter_str);
-        winslow.m_dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_iter" + iter_str,tol);
+        dJC.plotDetJ(BASE_FOLDER + output + "/detJ_iter" + iter_str);
+        dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_iter" + iter_str,tol);
 
         name = "d_iter" + iter_str;
         slog.saveVec(dJC.evalCon(),name);
@@ -2413,12 +3433,13 @@ if (false){
 
         winslow.refineElements(elMarked); // also resets stuff
         winslow.recreateMappers();      // Recreate m_mappers, see gsParamMethod.h for further information
-        winslow.m_dJC.setup();          // Reset the gsDetJacConstraint
+        winslow.m_dJC->setup();          // Reset the gsDetJacConstraint
+        dJC.setup();
         winslow.setupOptParameters();   // Reset optimization parameters
         winslow.print();
 
-        winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_justRefined_iter" + iter_str);
-        winslow.m_dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_justRefined_iter" + iter_str,tol);
+        dJC.plotDetJ(BASE_FOLDER + output + "/detJ_justRefined_iter" + iter_str);
+        dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_justRefined_iter" + iter_str,tol);
 
     }
     exit(0);
@@ -2461,8 +3482,8 @@ if (false){
 
         // gsInfo << "\n" << dJC.evalCon() << "\n";
 
-        winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_iter" + iter_str);
-        winslow.m_dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_iter" + iter_str,tol);
+        dJC.plotDetJ(BASE_FOLDER + output + "/detJ_iter" + iter_str);
+        dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_iter" + iter_str,tol);
 
         name = "d_iter" + iter_str;
         slog.saveVec(dJC.evalCon(),name);
@@ -2474,12 +3495,13 @@ if (false){
 
         winslow.refineElements(elMarked); // also resets stuff
         winslow.recreateMappers();      // Recreate m_mappers, see gsParamMethod.h for further information
-        winslow.m_dJC.setup();          // Reset the gsDetJacConstraint
+        winslow.m_dJC->setup();          // Reset the gsDetJacConstraint
+        dJC.setup();          // Reset the gsDetJacConstraint
         winslow.setupOptParameters();   // Reset optimization parameters
         winslow.print();
 
-        winslow.m_dJC.plotDetJ(BASE_FOLDER + output + "/detJ_justRefined_iter" + iter_str);
-        winslow.m_dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_justRefined_iter" + iter_str,tol);
+        dJC.plotDetJ(BASE_FOLDER + output + "/detJ_justRefined_iter" + iter_str);
+        dJC.plotActiveConstraints(elMarked,BASE_FOLDER + output + "/active_justRefined_iter" + iter_str,tol);
 
     }
     exit(0);

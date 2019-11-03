@@ -12,20 +12,22 @@ class gsMaxDetJac:  public gsParamMethod, public gsOptProblem<real_t>
 public:
 
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging bnd
-    gsMaxDetJac(gsMultiPatch<>* mpin);
+    gsMaxDetJac(gsMultiPatch<>* mpin, bool useTPSolver = false);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
     // design variables for shape optimization tagged.
-    gsMaxDetJac(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers);
+    gsMaxDetJac(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool useTPSolver = false);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     void setupOptParameters();
 
     // Update controlpoints. Basicly calls the solve method from gsOptProblem<>
-    void update();
+    // Returns false if the update failed
+    bool update();
 
     // Update controlpoints from tagged. Left empty for now..
-    void update(gsVector<> x){ GISMO_ERROR("Not implemented!");  };
+    // Returns false if the update failed
+    bool update(gsVector<> x){ GISMO_ERROR("Not implemented!");  };
 
     // Derivatives of update with respect to tagged Dofs. Left empty for now.
     gsMatrix<> jacobUpdate(gsVector<> x){ GISMO_ERROR("Not implemented!");  };

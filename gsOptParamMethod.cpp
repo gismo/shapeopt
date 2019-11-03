@@ -3,14 +3,30 @@
 using namespace gismo;
 
 gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructureforDJC):
-    gsParamMethod(mpin), m_dJC(mpin, useTensorStructureforDJC), use_detJacConstraint(use_dJC)
+    gsParamMethod(mpin), use_detJacConstraint(use_dJC)
 {
+    m_dJC = new gsDetJacConstraint(mpin, useTensorStructureforDJC);
     setupOptParameters();
 };
 
 gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC):
-        gsParamMethod(mpin, mappers), m_dJC(mpin), use_detJacConstraint(use_dJC)
+        gsParamMethod(mpin, mappers), use_detJacConstraint(use_dJC)
 {
+    // m_dJC = new gsDetJacConstraint(mpin, useTensorStructureforDJC);
+    setupOptParameters();
+};
+
+gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, gsConstraint* constraint):
+        gsParamMethod(mpin), m_dJC(constraint)
+{
+    use_detJacConstraint = true;
+    setupOptParameters();
+};
+
+gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, gsConstraint* constraint):
+        gsParamMethod(mpin, mappers), m_dJC(constraint)
+{
+    use_detJacConstraint = true;
     setupOptParameters();
 };
 
@@ -27,12 +43,12 @@ void gsOptParamMethod::setupOptParameters()
     // Constraint bounds is given by gsDetJacConstraint
     if (use_detJacConstraint){
         // Call once to setup solver
-        m_dJC.evalCon();
+        m_dJC->evalCon();
 
-        m_numConstraints = m_dJC.numConstraints();
+        m_numConstraints = m_dJC->numConstraints();
         gsDebugVar(m_numConstraints);
-        m_conLowerBounds = m_dJC.getLowerBounds();
-        m_conUpperBounds = m_dJC.getUpperBounds();
+        m_conLowerBounds = m_dJC->getLowerBounds();
+        m_conUpperBounds = m_dJC->getUpperBounds();
 
         // Set lagrange multipliers to zeros initially
         m_lambda.setZero(m_numConstraints,1);
@@ -45,13 +61,16 @@ void gsOptParamMethod::setupOptParameters()
     computeJacStructure();
 }
 
-void gsOptParamMethod::update()
+// Returns false if the update failed
+bool gsOptParamMethod::update()
 {
     // Update by solving the nonlinear optimization problem
+    // Start from design contained in *m_mp
+    m_curDesign = getFree();
     solve();
 
-    gsInfo << "\nMax Lagrange multipliers from parametrization " << m_lambda.maxCoeff() << "\n";
-    gsInfo << "Min Lagrange multipliers from parametrization " << m_lambda.minCoeff() << "\n\n";
+    return true; // FIXIT, make your own solve method that returns status
+
 };
 
 real_t gsOptParamMethod::evalObj ( const gsAsConstVector<real_t> & u) const
@@ -73,7 +92,7 @@ void gsOptParamMethod::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVect
     // gsInfo << "evalCon_into\n" << std::flush;
     updateFree(u);
     if (use_detJacConstraint){
-        m_dJC.evalCon_into(result);
+        m_dJC->evalCon_into(result);
     } else {
         return;
     }
@@ -81,7 +100,7 @@ void gsOptParamMethod::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVect
 
 gsIpOptSparseMatrix gsOptParamMethod::jacobCon() const
 {
-    return mapMatrix(m_dJC.space_mapper(),m_dJC.getJacobian());
+    return mapMatrix(m_dJC->space_mapper(),m_dJC->getJacobian());
 }
 
 void gsOptParamMethod::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const
@@ -185,16 +204,16 @@ void gsOptParamMethod::refineBasedOnDetJ(index_t strategy)
 
     if (strategy == 0) // Mark support of basis function with negative coefficient
     {
-        m_dJC.markElements(elMarked,-1);
+        m_dJC->markElements(elMarked,-1);
     } else { // Mark support of basis function with active coefficient (tol close to lower bound)
         real_t tol = 0.0001;
-        m_dJC.markElements(elMarked,tol);
+        m_dJC->markElements(elMarked,tol);
     }
 
     refineElements(elMarked); // Refine m_mp
 
     recreateMappers();      // Recreate m_mappers, see gsParamMethod.h for further information
-    m_dJC.setup();          // Reset the gsDetJacConstraint
+    m_dJC->setup();          // Reset the gsDetJacConstraint
     setupOptParameters();   // Reset optimization parameters
 
 }
@@ -202,7 +221,7 @@ void gsOptParamMethod::refineBasedOnDetJ(index_t strategy)
 real_t gsOptParamMethod::evalLagrangian () const
 {
     if (use_detJacConstraint) {
-        return evalObj() + (m_lambda.transpose()*m_dJC.evalCon())(0); // element (0) is accesssed to convert to double
+        return evalObj() + (m_lambda.transpose()*m_dJC->evalCon())(0); // element (0) is accesssed to convert to double
     } else { // If there are no constraints
         return evalObj();
     }
@@ -219,35 +238,66 @@ gsVector<> gsOptParamMethod::gradLagrangian () const
     }
 }
 
-gsMatrix<> gsOptParamMethod::hessLagrangian(gsMatrix<> &hessObjTagged) const
+gsMatrix<> gsOptParamMethod::hessObj(gsMatrix<> &Hcx) const
 {
+    gsDofMapper mapper;
+
+    gsMatrix<> all = hessAll(mapper);
+
+    // Map twice, is there a better way?
+    gsMatrix<> all2 = mapMatrix(mapper,all);
+
+    // Get Hcx by mapping all2
+    Hcx = mapMatrixToTagged(mapper,all2);
+
+    return mapMatrix(mapper,all2);
+}
+
+//FIXIT UPDATE
+gsMatrix<> gsOptParamMethod::hessLagrangian(gsMatrix<> &Hcx) const
+{
+    GISMO_ERROR("UPDATE!!!");
     if (use_detJacConstraint) {
         gsMatrix<> LT; // Lagrange Term
         LT.setZero(n_flat, n_flat);
 
-        gsVector<> zeta = m_dJC.massMatrixSolve(m_lambda); // M^(-1) * m_lambda, some kind of adjoint variable
+        gsVector<> zeta = m_dJC->massMatrixSolve(m_lambda); // M^(-1) * m_lambda, some kind of adjoint variable
 
         index_t iter = 0;
         for(index_t p = 0; p < m_mp->nBoxes(); p++){
-            for(index_t i = 0; i < m_dJC.m_detJacBasis.size(p); i++){
-                // gsDebugVar(m_dJC.hessD(p,i).rows());
-                // gsDebugVar(m_dJC.hessD(p,i).cols());
-                LT += m_dJC.hessD(p,i)*zeta[iter++];
+            for(index_t i = 0; i < m_dJC->sizeOfBasis(p); i++){
+                // gsDebugVar(m_dJC->hessD(p,i).rows());
+                // gsDebugVar(m_dJC->hessD(p,i).cols());
+                LT += m_dJC->hessD(p,i)*zeta[iter++];
             }
         }
 
-        gsMatrix<> tmp = mapMatrix(m_dJC.space_mapper(),LT);
-        gsMatrix<> LTTagged = mapMatrixToTagged(m_dJC.space_mapper(),tmp);
-        LT = mapMatrix(m_dJC.space_mapper(),tmp);
+        gsMatrix<> tmp = mapMatrix(m_dJC->space_mapper(),LT);
+        gsMatrix<> LTTagged_cx = mapMatrixToTagged(m_dJC->space_mapper(),tmp);
+
+        LT = mapMatrix(m_dJC->space_mapper(),tmp);
 
         // Compute hessian of objective
-        gsMatrix<> hessO = hessObj(hessObjTagged);
+        gsMatrix<> hessO = hessObj(Hcx);
 
         // Add Lagrange terms
-        hessObjTagged += LTTagged;
+        Hcx += LTTagged_cx;
 
         return hessO + LT;
     } else { // If there are no constraints
-        return hessObj(hessObjTagged);
+        return hessObj(Hcx);
     }
+}
+
+bool gsOptParamMethod::intermediateCallback(){
+    if (use_log){
+        gsVector<> d = m_d->evalCon();
+        *m_log << d.minCoeff() << " " << m_dJC->evalCon()[0] << "\n";
+        std::string name = "d_iter";
+        m_log->saveVec(d,name,m_iter);
+    }
+
+    m_iter++;
+
+    return true;
 }

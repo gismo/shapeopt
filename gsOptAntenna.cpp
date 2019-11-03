@@ -19,7 +19,6 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
         opt_param->setQuad(quA,quB);
         m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
-
     } else if (param == 2) {
         gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,true);
         opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
@@ -35,8 +34,11 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
         opt_param->setQuad(quA,quB);
         m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
-    } else{
-        GISMO_ERROR("Param value is not 0 or 1 or 2 or 3... wrong input..\n");
+    } else if (param ==5) {
+        m_paramMethod = new gsWinslowWithDeriv(m_mp,m_mappers,false,false,true,0);
+        // m_paramMethod->setQuad(quA,quB); FIXIT: implement, maybe with dynamic cast
+    } else {
+        GISMO_ERROR("Param value is not 0 to 5... wrong input..\n");
     }
 
     // Copy some data from m_paramMethod for ease of use
@@ -44,6 +46,69 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
     n_flat = m_paramMethod->n_flat;
     n_tagged = m_paramMethod->n_tagged;
     n_cps = m_paramMethod->n_cps;
+
+    setupOptParameters();
+
+    // Set design bounds
+    real_t lb_x = -d_bw*m_stateEq.pde_L_f/2;
+    real_t ub_x = d_bw*m_stateEq.pde_L_f/2;
+    real_t lb_y = d_g/2*m_stateEq.pde_L_f;
+    real_t ub_y = (d_g/2 + d_bh)*m_stateEq.pde_L_f;
+
+    m_desLowerBounds.setZero(n_tagged);
+    // X coordinates
+    gsVector<> xLowerBounds;
+    xLowerBounds.setConstant(m_mappers[0].taggedSize(),lb_x);
+    m_desLowerBounds.segment(0,m_mappers[0].taggedSize()) = xLowerBounds;
+
+    // Y coordinates
+    gsVector<> yLowerBounds;
+    yLowerBounds.setConstant(m_mappers[1].taggedSize(),lb_y);
+    m_desLowerBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yLowerBounds;
+
+    m_desUpperBounds.setZero(n_tagged);
+    // X coordinates
+    gsVector<> xUpperBounds;
+    xUpperBounds.setConstant(m_mappers[0].taggedSize(),ub_x);
+    m_desUpperBounds.segment(0,m_mappers[0].taggedSize()) = -xLowerBounds;
+
+    // Y coordinates
+    gsVector<> yUpperBounds;
+    yUpperBounds.setConstant(m_mappers[1].taggedSize(),ub_y);
+    m_desUpperBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yUpperBounds;
+
+
+    // Set the weight used in the objective function
+    delta = *(new gsFunctionExpr<>("exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    ddeltadx = *(new gsFunctionExpr<>("-x/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    ddeltady = *(new gsFunctionExpr<>("-y/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+
+}
+
+gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, gsConstraint* constraint, index_t param, real_t quA, index_t quB, bool use_Lagrangian):
+    gsShapeOptProblem(mp,slog,constraint), m_stateEq(mp,numRefine)
+{
+
+    if (use_Lagrangian)
+        GISMO_ERROR("You cannot use Lagrangian for linearizations with aggregated constraints, hessian is not implemented yet");
+
+    setupMappers();
+
+    *m_log << "quA for parametrization: " << quA << "\n";
+    *m_log << "quB for parametrization: " << quB << "\n\n";
+
+    // Allocate parametrization method
+    if (param == 0){
+        m_paramMethod = new gsSpringMethod(m_mp,m_mappers);
+        m_paramMethod->computeMap();
+    } else if (param == 1) {
+        gsModLiao *opt_param = new gsModLiao(m_mp,m_mappers,constraint);
+        opt_param->setQuad(quA,quB);
+        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod->computeMap();
+    } else {
+        GISMO_ERROR("Param value is not 0 or 1.. wrong input..\n");
+    }
 
     setupOptParameters();
 

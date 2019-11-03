@@ -36,7 +36,7 @@ public:
     real_t evalObj(gsVector<> c, gsVector<> x);
 
     // Update Reference parametrization by first solving m_optParamMethod and then reset
-    void updateAndReset() { m_optParamMethod->update(); reset(); };
+    bool updateAndReset() { m_optParamMethod->update(); reset(); return true; };
 
     // Updates the reference parametrization to the one currently hold in m_problem;
     // FIXIT:   This should perhaps compute also a new parametrization by calling
@@ -48,7 +48,7 @@ public:
     gsVector<> refFree(){ return m_refFree; }
     gsVector<> refTagged(){ return m_refTagged; }
 
-protected:
+public:
     // Pointer to gsOptParamMethod
     gsOptParamMethod* m_optParamMethod;
 
@@ -61,7 +61,8 @@ protected:
     real_t m_obj;
     gsVector<> m_grad;
     gsMatrix<> m_hess;
-    gsMatrix<> m_hessTagged; // Holds the second order derivatives wrt free and tagged
+
+    gsMatrix<> m_hessTagged;  
 
     // FIXIT: Is there a sparse structure to exploit here?
     // KKT system

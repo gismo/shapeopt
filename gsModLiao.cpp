@@ -96,7 +96,8 @@ gsVector<> gsModLiao::gradObj() const{
 
 }
 
-gsMatrix<> gsModLiao::hessObj(gsMatrix<> &hessObjTagged) const{
+gsMatrix<> gsModLiao::hessAll(gsDofMapper &space_mapper) const
+{
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(dbasis);
@@ -196,12 +197,7 @@ gsMatrix<> gsModLiao::hessObj(gsMatrix<> &hessObjTagged) const{
 
     all << xxMat, xyMat.transpose(), xyMat, yyMat;
 
-    // Map twice, is there a better way?
-    gsMatrix<> all2 = mapMatrix(u.mapper(),all);
-
-    // Map tagged part
-    hessObjTagged = mapMatrixToTagged(u.mapper(),all2);
-
-    return mapMatrix(u.mapper(),all2);
+    space_mapper = u.mapper();
+    return all;
 
 }

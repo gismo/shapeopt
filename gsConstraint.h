@@ -19,6 +19,8 @@ using namespace gismo;
 class gsConstraint{
 public:
 
+    gsConstraint(){}; // Empty constructor
+
     // Constructs from gsMultiPatch
     gsConstraint(gsMultiPatch<>* mpin);
 
@@ -26,18 +28,18 @@ public:
     virtual void evalCon_into(gsAsVector<real_t> & result);
 
     // Evaluate constraint, should be overloaded in derived class
-    virtual gsVector<> evalCon() = 0;
+    virtual gsVector<> evalCon(){ GISMO_NO_IMPLEMENTATION; };
 
     // Evaluate derivatives, should be overloaded in derived class
-    virtual gsIpOptSparseMatrix getJacobian() = 0;
+    virtual gsIpOptSparseMatrix getJacobian(){ GISMO_NO_IMPLEMENTATION; };
 
     // Access mapper for space used for assembling derivatives
     // FIXIT, find more elegant way, when derivativs do not depend on derivatives being assembled
     const gsDofMapper & space_mapper() const { return m_space_mapper; }
 
     // Get the upper and lower bounds of constraint
-    virtual gsVector<> getUpperBounds() = 0;
-    virtual gsVector<> getLowerBounds() = 0;
+    virtual gsVector<> getUpperBounds(){ GISMO_NO_IMPLEMENTATION; };
+    virtual gsVector<> getLowerBounds(){ GISMO_NO_IMPLEMENTATION; };
 
     // Accessors
     index_t numConstraints(){ return n_constraints; };
@@ -69,6 +71,12 @@ public:
 
 
     virtual index_t sizeOfBasis(index_t p)
+    {
+        GISMO_NO_IMPLEMENTATION;
+    };
+
+    // Method to for example evaluate constraint that is getting aggregated
+    virtual gsVector<> evalSubCon()
     {
         GISMO_NO_IMPLEMENTATION;
     };

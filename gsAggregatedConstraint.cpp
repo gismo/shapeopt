@@ -57,3 +57,7 @@ void gsAggregatedConstraint::setup()
     // Number of constraints is equal the target dimension of the map
     n_constraints = m_map->targetDim();
 }
+
+gsVector<> gsAggregatedConstraint::evalSubCon(){
+    return m_constraint->evalCon();
+}

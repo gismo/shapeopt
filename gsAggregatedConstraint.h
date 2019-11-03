@@ -50,6 +50,8 @@ public:
     //      (eg. when geometry is refined locally or globally)
     void setup();
 
+    gsVector<> evalSubCon();
+
 
 public:
     real_t m_eps = 0;

@@ -30,10 +30,12 @@ public:
 
     // Update controlpoints given by this method
     // OBS, as of now, computeMap has to be called first!
-    void update(gsVector<> x); // Ax + b
+    // Returns false if the update failed
+    bool update(gsVector<> x); // Ax + b
 
     // Update controlpoints, does not use A and b, but uses getUpdate
-    void update();
+    // Returns false if the update failed
+    bool update();
 
     // Derivatives of update with respect to tagged Dofs
     // OBS, as of now, computeMap has to be called first!

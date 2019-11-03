@@ -36,6 +36,8 @@ public:
         //FIXIT Antenna patch is hardcoded to 3.!!!
         pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.real(), pde_eps_cr_inv);
         pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.imag(), 0.0);
+        // pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_cr_inv, pde_eps_cr_inv);
+        // pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,0.0, 0.0);
         pde_mu_r_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_mu_rs, pde_mu_r);
         // plotSolution(pde_eps_cr_fun_real,"pde_eps_cr_fun_real");
         // plotSolution(pde_eps_cr_fun_imag,"pde_eps_cr_fun_imag");

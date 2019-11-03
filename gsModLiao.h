@@ -14,7 +14,7 @@ public:
 
     gsVector<> gradObj() const;
 
-    gsMatrix<> hessObj(gsMatrix<> &hessObjTagged) const;
+    gsMatrix<> hessAll(gsDofMapper &space_mapper) const;
 
 
 };

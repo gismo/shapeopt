@@ -15,7 +15,7 @@ public:
 
     gsVector<> gradObj() const;
 
-    gsMatrix<> hessObj(gsMatrix<> &hessObjTagged) const;
+    gsMatrix<> hessAll(gsDofMapper &space_mapper) const;
 
     void setLambdas(real_t l1, real_t l2){ lambda_1 = l1; lambda_2 = l2;}
 

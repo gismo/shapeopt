@@ -30,6 +30,24 @@ public:
         }
     };
 
+    void deriv_into(const gsMatrix<>& u, gsMatrix<>& result) const {
+        result.setZero(m_n,u.cols());
+
+        for (index_t i = 0; i < u.cols(); i++){
+            gsVector<> eax = (m_alpha*u.col(i)).array().exp();
+            real_t eaxsum = eax.sum();
+            real_t Salpha = eax.dot(u.col(i))/eaxsum;
+
+            for (index_t j = 0; j < m_n; j++){
+
+                result(j,i) = eax[j]/eaxsum * (1 + m_alpha*(u(j,i) - Salpha));
+            }
+        }
+
+
+
+    }
+
     short_t domainDim() const { return m_n; };
 
     short_t targetDim() const { return 1; };

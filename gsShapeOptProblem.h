@@ -32,6 +32,7 @@ using namespace gismo;
 #include "gsDetJacConstraint.h"
 #include "gsIpOptSparseMatrix.h"
 #include "gsParamMethod.h"
+#include "gsOptParamMethod.h"
 #include "gsShapeOptLog.h"
 #include <gsIpopt/gsOptProblem.h>
 
@@ -43,11 +44,27 @@ public:
     // eliminate boundaries.
     gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog);
 
+    // Constructs from a pointer to a parametrization method, should glue the interfaces together and
+    // eliminate boundaries.
+    //
+    // Used constraints from the \a constraint pointer
+    gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, gsConstraint* constraint);
+
     // Constructs from list of mappers, one for each dimension
     //      The design variables for the shape optimization should be tagged in the
     //      mappers. The "inner controlpoints", that needs updation by a parametrization
     //      method should be free. The rest (fixed cps) should be eliminated..
+    //
+    // Uses gsDetJacConstraints
     gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog);
+
+    // Constructs from list of mappers, one for each dimension
+    //      The design variables for the shape optimization should be tagged in the
+    //      mappers. The "inner controlpoints", that needs updation by a parametrization
+    //      method should be free. The rest (fixed cps) should be eliminated..
+    //
+    // Used constraints from the \a constraint pointer
+    gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog, gsConstraint* constraint);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     // these are automaticly generated from mappers and gsDetJacConstraint m_dJC
@@ -86,7 +103,8 @@ public:
     gsVector<> getDesignVariables() const;
 
     // Update the tagged DoFs by the parametrization methods in gsParamMethod
-    void updateDesignVariables(gsVector<> u) const;
+    // Returns false if the update failed
+    bool updateDesignVariables(gsVector<> u) const;
 
     // Computes the jacobian of the method updateDesignVariables
     //      m_paramMethod gives the jacobian wrt the free Cps,
@@ -114,6 +132,8 @@ public:
     // Method to run consecutive solves, resetting the parametrization method each time.
     void runOptimization(index_t maxiter);
 
+    void runOptimization_aggregatedConstraints(index_t maxiter);
+
     // Method that is called between each optimization iteration.. Can be used to log
     //      or check stuff. If it returns false the optimization will be interrupted.
     bool intermediateCallback();
@@ -129,7 +149,7 @@ public:
 
 public:
     mutable gsMultiPatch<>* m_mp;
-    mutable gsDetJacConstraint m_dJC;
+    mutable gsConstraint* m_dJC;
     mutable gsParamMethod* m_paramMethod;
 
     gsShapeOptLog* m_log;
@@ -144,6 +164,7 @@ public:
     index_t counter1 = 0; // Counts the number of iterations?
     index_t counter2 = 0; // Counts the number of times the reference is updated.
 
+    bool m_useOwnCons = false;
 };
 
 
