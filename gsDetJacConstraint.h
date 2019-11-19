@@ -68,10 +68,30 @@ public:
     //      (if it is zero it refines support of active coefficients)
     void markElements(std::vector<bool> & elMarked, real_t tol1 = 0, real_t tol2 = 0);
 
+    // Method to 'investigate' wether the current design has detJ > 0,
+    //   when tensor product structure is used
+    // It does uniformRefine for at most \a maxRefSteps refinements steps.
+    // returns the minimal element of d vector.
+    real_t provePositivityOfDetJ_TP(index_t & neededRefSteps, index_t maxRefSteps);
+
+    // Method to 'investigate' wether the current design has detJ > 0
+    // It uses gsHBSpline's to adaptively refine a copy of m_detJacBasis
+    // it makes at most \a maxRefSteps refinements steps.
+    // returns the minimal element of d vector.
+
+    // FIXIT: DEBUG
+    real_t provePositivityOfDetJ(index_t maxRefSteps = 10);
+
+    // FIXIT: DEBUG
+    void refineElements(std::vector<bool> & elMarked, gsMultiBasis<> & basis);
+
+
     // Method to setup m_detJacBasis and m_space_mapper
     // It is called in the constructor and should be called whenever the space of m_mp change,
     //      (eg. when geometry is refined locally or globally)
     void setup();
+
+    void reset(); // Does setup but dont recreate m_detJacBasis
 
     // Method to solve mass matrix system for arbitrary rhs
     gsVector<> massMatrixSolve(gsVector<> rhs) const;
@@ -79,9 +99,7 @@ public:
     // Method to calculate the hessian of D_(ii), the right hand side for projection step
     gsSparseMatrix<> hessD(index_t patch, index_t i) const;
 
-    index_t sizeOfBasis(index_t p){
-        return m_detJacBasis.size(p);
-    }
+    index_t sizeOfBasis(index_t k) const;
 
 public:
     gsMultiBasis<> m_detJacBasis;
@@ -95,6 +113,9 @@ public:
     gsVector<bool> m_areSolversSetup;
 
     index_t m_size;
+
+    index_t m_quA = 3;
+    index_t m_quB = 3;
 
 };
 

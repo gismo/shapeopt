@@ -28,7 +28,11 @@ public:
     real_t evalObj() const ;
 
     // Evaluation of the gradient wrt design variables (tagged cps)
+    // Main implementations are in gradAll()
     gsVector<> gradObj() const ;
+
+    // Evaluation of the gradient wrt all control points
+    gsVector<> gradAll() const ;
 
     // Mappers for antenna problem,
     // Interfaces are glued, the bnd of patch 3 is tagged and eliminated.
@@ -39,6 +43,8 @@ public:
     gsVector<> evaluateDerivativeTerm2(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
     gsVector<> gradientObjWithoutAdjoint() const;
     gsVector<> getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
+
+    gsDofMapper mapper_grad() const;
 
 public:
     // function for objective function and its derivatives
@@ -56,7 +62,7 @@ public:
 
     // Mapper used for assembling gradients
     mutable gsDofMapper m_mapper_grad;
-    bool m_mapper_grad_exist = false;
+    mutable bool m_mapper_grad_exist = false;
 
     // The patch of the antenna
     index_t fixedPatch = 3;

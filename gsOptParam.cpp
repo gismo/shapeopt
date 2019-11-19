@@ -50,6 +50,9 @@ gsOptParam::gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLo
     n_tagged = m_paramMethod->n_tagged;
     n_cps = m_paramMethod->n_cps;
 
+    name = "init";
+    m_log->saveVec(m_paramMethod->getTagged(),name);
+
     setupOptParameters();
 
     m_desLowerBounds.setZero(n_tagged);
@@ -63,6 +66,14 @@ gsOptParam::gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLo
     yLowerBounds.setConstant(m_mappers[1].taggedSize(),-100);
     m_desLowerBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yLowerBounds;
 
+    if (m_mp->targetDim() == 3)
+    {
+        // Z coordinates
+        gsVector<> zLowerBounds;
+        zLowerBounds.setConstant(m_mappers[2].taggedSize(),-100);
+        m_desLowerBounds.segment(m_mappers[1].taggedSize() + m_mappers[0].taggedSize(),m_mappers[2].taggedSize()) = zLowerBounds;
+    }
+
     m_desUpperBounds.setZero(n_tagged);
     // X coordinates
     gsVector<> xUpperBounds;
@@ -73,6 +84,14 @@ gsOptParam::gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLo
     gsVector<> yUpperBounds;
     yUpperBounds.setConstant(m_mappers[1].taggedSize(),100);
     m_desUpperBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yUpperBounds;
+
+    if (m_mp->targetDim() == 3)
+    {
+        // Z coordinates
+        gsVector<> zUpperBounds;
+        zUpperBounds.setConstant(m_mappers[2].taggedSize(),100);
+        m_desUpperBounds.segment(m_mappers[1].taggedSize() + m_mappers[0].taggedSize(),m_mappers[2].taggedSize()) = zUpperBounds;
+    }
 }
 
 real_t gsOptParam::evalObj() const {
@@ -84,6 +103,48 @@ gsVector<> gsOptParam::gradObj() const{
     return m_paramMethod->getTagged() - m_tagged_goal;
 };
 
+gsVector<> gsOptParam::gradAll() const{
+    gsVector<> out;
+    out.setZero(n_flat);
+
+    index_t iter = 0;
+    for (index_t d = 0; d < m_mp->targetDim(); d++){
+        for (index_t k = 0; k < m_mp->nBoxes(); k++){
+            for (index_t i = 0; i < m_mp->patch(k).coefsSize(); i++){
+                if (m_mappers[d].is_tagged(i,k))
+                {
+                    index_t ii = m_mappers[d].index(i,k);
+                    std::vector< std::pair < index_t, index_t > > res;
+
+                    m_mappers[d].preImage(ii,res);
+
+                    real_t size = res.size();
+                    // real_t size = 1;
+
+                    out[iter] = 1.0/size * (m_mp->patch(k).coef(i,d) - m_mp_goal->patch(k).coef(i,d));
+                }
+                iter++;
+            }
+        }
+    }
+
+    return out;
+
+};
+
 void gsOptParam::setupMappers(){
     m_mappers = m_pM_goal.mappers();
+}
+
+gsDofMapper gsOptParam::mapper_grad() const
+{
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(*m_mp);
+    A.setIntegrationElements(dbasis);
+
+    gsExprAssembler<>::space u = A.getSpace(dbasis,m_mp->geoDim()); // The gradient is a vector with targetDim values
+
+    A.initSystem();
+
+    return u.mapper();
 }

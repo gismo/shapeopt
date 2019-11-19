@@ -21,6 +21,9 @@ using namespace gismo;
 
 class gsAffineParamMethod: public gsParamMethod{
 public:
+    // Empty constructor
+    gsAffineParamMethod(){ };
+
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging bnd
     gsAffineParamMethod(gsMultiPatch<>* mpin);
 

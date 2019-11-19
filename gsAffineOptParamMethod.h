@@ -23,6 +23,11 @@ using namespace gismo;
 // FIXIT: Think of a better name for this class? QuadProg?
 class gsAffineOptParamMethod : public gsAffineParamMethod{
 public:
+    // Empty constructor
+    gsAffineOptParamMethod(){
+        gsInfo << "gsAffineOptParamMethod was called with empty constructor\n";
+    };
+
     // Construct from gsOptParamMethod
     gsAffineOptParamMethod(gsOptParamMethod* optParamMethod, bool use_Lagrangian = false);
 
@@ -62,7 +67,7 @@ public:
     gsVector<> m_grad;
     gsMatrix<> m_hess;
 
-    gsMatrix<> m_hessTagged;  
+    gsMatrix<> m_hessTagged;
 
     // FIXIT: Is there a sparse structure to exploit here?
     // KKT system

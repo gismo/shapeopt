@@ -20,9 +20,11 @@ using namespace gismo;
 
 class gsParamMethod{
 public:
+    // Empty constructor
+    gsParamMethod(){ };
 
     // Constructs from multipatch, should setup mappers and assume interfaces glued
-    // and boundary fixed; 
+    // and boundary fixed;
     gsParamMethod(gsMultiPatch<>* mpin);
 
     // Constructs from list of mappers
@@ -94,6 +96,7 @@ public:
     // Accessors
     std::vector< gsDofMapper > mappers() { return m_mappers; };
     gsMultiPatch<>* mp() { return m_mp; };
+    gsVector<> shift_free() const { return m_shift_free; };
 
     // Maps a vector from mapper_in indexing, to m_mappers.
     // E.g. used to map gradients with respect to all cps to be respect to free

@@ -25,6 +25,7 @@
 #include "gsAffineOptParamMethod.h"
 #include "gsIpOptSparseMatrix.h"
 #include "gsShapeOptProblem.h"
+#include "gsShapeOptWithReg.h"
 #include "gsOptAntenna.h"
 #include "gsOptParam.h"
 #include "gsShapeOptLog.h"
@@ -36,7 +37,7 @@ using namespace gismo;
 void readFromTxt(std::string name, gsMatrix<> &matrix){
 	std::ifstream infile;
 	infile.open(name);
-	// gsInfo << "Loading from " << name << "\n";
+	gsInfo << "Loading from " << name << "\n";
 	for(int i = 0; i < matrix.rows(); i++){
 		for(int j = 0; j < matrix.cols(); j++){
 			infile >> matrix(i,j);
@@ -1900,7 +1901,7 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
     if (n == 4 && m == 4 && degree == 2){
         folder = "/parametrizations/para_x4_y4_p2_q2/";
     } else if (n == 5 && m == 4 && degree == 2){
-        folder = "/parametrizations/para_x5_y4_p2_q2_circ/";
+        folder = "/parametrizations/para_x5_y4_p2_q2/";
     } else if (n == 6 && m == 4 && degree == 2){
         folder = "/parametrizations/para_x6_y4_p2_q2/";
     } else if (n == 7 && m == 4 && degree == 2){
@@ -2047,9 +2048,15 @@ gsMultiPatch<> getJigSaw(index_t i){
 
 }
 
-gsMultiPatch<> getJigSaw3D(){
+gsMultiPatch<> getJigSaw3D(index_t i){
 
-    index_t n = 10;
+    index_t n;
+    if (i == 1)
+        n = 10;
+    if (i == 2)
+        n = 6;
+    if (i == 3)
+        n = 5;
     index_t degree = 2;
 
     std::string folder = "/parametrizations/JigSaw/";
@@ -2065,7 +2072,12 @@ gsMultiPatch<> getJigSaw3D(){
 	gsMatrix<> coefs (greville.cols(), 3);
 
     gsInfo << BASE_FOLDER + folder + "jigsaw3d.txt \n";
-	readFromTxt(BASE_FOLDER + folder + "jigsaw3d.txt", coefs);
+    if (i == 1)
+	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d.txt", coefs);
+    if (i == 2)
+	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_small.txt", coefs);
+    if (i == 3)
+	   readFromTxt(BASE_FOLDER + folder + "example.txt", coefs);
     // gsDebugVar(coefs.rows());
     // gsDebugVar(coefs.cols());
     // gsDebugVar(coefs);
@@ -2074,7 +2086,7 @@ gsMultiPatch<> getJigSaw3D(){
 
 	// 4. putting basis and coefficients toghether
 	gsTensorBSpline<3, real_t>  left(basis, coefs);
-    changeSignOfDetJ(left);
+    // changeSignOfDetJ(left);
 
 	//! [Geometry data]
 	// Define Geometry, must be a gsMultiPatch object
@@ -2083,7 +2095,7 @@ gsMultiPatch<> getJigSaw3D(){
 
     // Change sign of determinant.
     // for (index_t i = 0; i < patches.nBoxes(); i++){
-        // changeSignOfDetJ(patches.patch(i));
+    //     changeSignOfDetJ(patches.patch(i));
     // }
 
 	double tol = 1e-2;
@@ -3014,6 +3026,7 @@ real_t lambda_2 = 1;
 int startDes = -1;
 
 real_t alpha = 0; // Parameter for constraint aggregation
+real_t eps = 0; // Parameter for constraint aggregation
 
 gsCmdLine cmd("A test of lumped mass matricies");
 cmd.addInt("p", "degree", "Degree of B-Splines.", degree);
@@ -3041,6 +3054,7 @@ cmd.addSwitch("savecps", "save controlpoinst for design during optimization", sa
 cmd.addInt("s", "startDes", "design number to start from", startDes);
 
 cmd.addReal("l", "alpha", "parameter for smoothed maximum in constraint aggregation", alpha);
+cmd.addReal("e", "eps", "parameter for Regularization with winslow", eps);
 
 cmd.getValues(argc,argv);
 
@@ -3092,25 +3106,117 @@ gsMultiPatch<> patches = mp;
 
 gsInfo << "The domain is a "<< patches <<"\n";
 
-gsStateEquationAntenna SE(&patches, 1);
-SE.printConstants();
+// gsStateEquationAntenna SE(&patches, 1);
+// SE.printConstants();
 
-// Test of gsOptParam
+if (startDes == 11) {
+    gsMultiPatch<> jigsaw = getJigSaw3D(2); //
+    mp = jigsaw;
+
+    gsWinslowWithDeriv win(&mp,false,false,true,0);
+
+    std::stringstream stream_in;
+    stream_in << BASE_FOLDER << output << "cps" << "_0_" << maxiter << ".txt";
+    std::string str_in = stream_in.str();
+    gsMatrix<> mat = win.getFlat();
+    readFromTxt(str_in,mat);
+    // gsInfo << mat;
+
+    win.updateFlat(mat);
+
+    gsDetJacConstraint dJC(&mp,true);
+    dJC.evalCon();
+    gsShapeOptLog slog1(output,true,false,false);
+
+    // gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
+
+    std::stringstream stream;
+    stream << BASE_FOLDER << output << "detJ";
+    std::string str = stream.str();
+    dJC.plotDetJ(str);
+    exit(0);
+
+
+
+}
+
+// calculate detJ constraints for different designs
+if (startDes == 10) {
+    gsMultiPatch<> jigsaw = getJigSaw3D(2); //
+    mp = jigsaw;
+
+    gsDetJacConstraint dJC(&mp,true);
+    gsShapeOptLog slog1(output,true,false,false);
+
+    // gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
+
+    // gsWinslowWithDeriv win(&mp,optA.mappers(),false,false,true,0);
+    gsWinslowWithDeriv win(&mp,false,false,true,0);
+    win.setQuad(quA,quB);
+
+    real_t minD,minDgauss;
+    index_t neededRefSteps;
+
+    gsMatrix<> out(maxiter,4);
+    out.setZero(maxiter,4);
+
+    for (index_t i = 0; i < maxiter; i += 10)
+    {
+        std::stringstream stream;
+        stream << BASE_FOLDER << output << "cps" << "_0_" << i << ".txt";
+        std::string str = stream.str();
+        gsMatrix<> mat = win.getFlat();
+        readFromTxt(str,mat);
+        // gsInfo << mat;
+
+        win.updateFlat(mat);
+
+        minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 3);
+
+        minDgauss = win.minDetJInGaussPts();
+
+        out(i,0) = minD;
+        out(i,1) = neededRefSteps;
+        out(i,2) = minDgauss;
+        out(i,3) = win.minDetJInGaussPts(15);
+    }
+
+    std::stringstream stream;
+    stream << BASE_FOLDER << output << "detJ.txt";
+    std::string str = stream.str();
+    saveMat(out,str);
+    exit(0);
+
+
+
+}
+
+// test harmonic derivatives
 if (true) {
-    // gsMultiPatch<> jigsaw = getJigSaw(1);
-    gsMultiPatch<> jigsaw = getJigSaw3D(); //
+    gsHarmonic harmonic(&mp,false);
+    convergenceTestOfParaJacobian(harmonic);
+    exit(0);
+}
+
+// Test of gsOptParam with reg
+if (false) {
+    // gsMultiPatch<> jigsaw = getJigSaw(startDes);
+    gsMultiPatch<> jigsaw = getJigSaw3D(3); //
 
     for( index_t r = 0; r < numRefine; r++){
         jigsaw.uniformRefine();
     }
 
+    changeSignOfDetJ(jigsaw.patch(0)); // Use for 3D small
+
     // Create startguess
-    index_t size    = jigsaw.patch(0).coefsSize();
-    index_t n       = 10;
 
     //-------- 3D JIGSAW ------
+    index_t size    = jigsaw.patch(0).coefsSize();
+    index_t n       = 5;
+
     gsVector<> vec;
-    vec.setLinSpaced(n,-5,5);
+    vec.setLinSpaced(n,-2.5,2.5);
 
     gsMatrix<> coefs_init(size,3);
     for (index_t i = 0; i < n; i++){
@@ -3123,7 +3229,12 @@ if (true) {
         }
     }
 
+
     //-------- 2D JIGSAW ------
+    //
+    // index_t size    = jigsaw.patch(0).coefsSize();
+    // index_t n       = sqrt(size);
+    //
     // gsVector<> vec;
     // vec.setLinSpaced(n,0,-10);
     //
@@ -3140,6 +3251,9 @@ if (true) {
 
     gsMultiPatch<> mp_init(jigsaw);
     mp_init.patch(0).setCoefs(coefs_init);
+    changeSignOfDetJ(mp_init.patch(0)); // Use for 3D small
+
+    // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
 
     gsShapeOptLog slog1(output,true,false,false);
 
@@ -3147,12 +3261,167 @@ if (true) {
     slog1.plotInParaview(mp_init,name);
 
     gsSpringMethod spring(&mp_init);
-    gsInfo << spring.getFlat() << "\n";
-    // gsOptParam optP(&mp_init,&jigsaw,&slog1,param);
-    // gsMatrix<> v = optP.currentDesign();
+    gsSpringMethod spring2(&jigsaw);
+
+    // gsInfo << (spring.getFlat() - spring2.getFlat()).norm() << "\n";
+    // gsInfo << (mp_init.patch(0).coefs() - jigsaw.patch(0).coefs()).norm() << "\n";
+    // mat << spring.getTagged(), spring2.getTagged();
+
+    // gsInfo << spring.n_tagged << "\n";
+    gsOptParam optP(&mp_init,&jigsaw,&slog1,param);
+    // gsMatrix<> v = optP.currentDesign()*0.99999;
+    // optP.m_paramMethod->update();
     // gsInfo << optP.evalObj(v) << "\n";
     // gsInfo << optP.currentDesign() << "\n";
+    // gsInfo << optP.numDesignVars() << "\n";
     // optP.solve();
+    gsShapeOptWithReg optWR(&mp_init,&optP,numRefine,&slog1,quA,quB,eps);
+    // optWR.gradObj();
+    optWR.solve();
+    exit(0);
+
+}
+
+// Test Regularization with winslow for antenna problem
+if (false) {
+    gsInfo << output << "\n";
+    gsShapeOptLog slog1(output,true,false,false);
+    gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
+
+    gsSpringMethod spring(&mp,optA.mappers());
+    spring.update();
+
+    gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
+    optWR.solve();
+
+}
+
+// calculate detJ constraints for different designs
+if (false) {
+    // gsMultiPatch<> jigsaw = getJigSaw(1);
+    gsMultiPatch<> jigsaw = getJigSaw3D(2); //
+    gsSpringMethod spring(&jigsaw);
+    gsDetJacConstraint dJC(&jigsaw,true);
+
+    gsMatrix<> minDetJ(maxiter,3);
+
+    for (index_t i = 0; i < maxiter; i++){
+
+        std::stringstream stream;
+        stream << BASE_FOLDER << output << "cps" << "_0_" << i << ".txt";
+        std::string str = stream.str();
+        gsMatrix<> mat = spring.getFlat();
+        readFromTxt(str,mat);
+        // gsInfo << mat;
+
+        spring.updateFlat(mat);
+
+        minDetJ(i,0) = dJC.evalCon().minCoeff();
+
+        gsMultiPatch<> ref(jigsaw);
+        ref.uniformRefine();
+        gsDetJacConstraint dJCr(&ref,true);
+
+        minDetJ(i,1) = dJCr.evalCon().minCoeff();
+        //
+        ref.uniformRefine();
+        gsDetJacConstraint dJCr2(&ref,true);
+
+        minDetJ(i,2) = dJCr2.evalCon().minCoeff();
+        //
+        // ref.uniformRefine();
+        // gsDetJacConstraint dJCr3(&ref,true);
+        //
+        // minDetJ(i,3) = dJCr3.evalCon().minCoeff();
+
+    }
+
+    std::stringstream stream;
+    stream << BASE_FOLDER << output << "detJ.txt";
+    std::string str = stream.str();
+    saveMat(minDetJ,str);
+    exit(0);
+
+
+
+}
+
+// Test of gsOptParam
+if (false) {
+    // gsMultiPatch<> jigsaw = getJigSaw(1);
+    gsMultiPatch<> jigsaw = getJigSaw3D(1); //
+
+    for( index_t r = 0; r < numRefine; r++){
+        jigsaw.uniformRefine();
+    }
+
+    changeSignOfDetJ(jigsaw.patch(0));
+
+    // Create startguess
+    index_t size    = jigsaw.patch(0).coefsSize();
+    index_t n       = 10;
+
+    //-------- 3D JIGSAW ------
+    gsVector<> vec;
+    vec.setLinSpaced(n,-2.5,2.5);
+
+    gsMatrix<> coefs_init(size,3);
+    for (index_t i = 0; i < n; i++){
+        for(index_t j = 0; j < n; j++){
+            for(index_t k = 0; k < n; k++){
+                coefs_init(k + j*n + i*n*n,0) = vec[j];
+                coefs_init(k + j*n + i*n*n,1) = vec[k];
+                coefs_init(k + j*n + i*n*n,2) = vec[i];
+            }
+        }
+    }
+
+
+    //-------- 2D JIGSAW ------
+    //
+    // index_t size    = jigsaw.patch(0).coefsSize();
+    // index_t n       = 10;
+    //
+    // gsVector<> vec;
+    // vec.setLinSpaced(n,0,-10);
+    //
+    // gsVector<> vec2;
+    // vec2.setLinSpaced(n,0,10);
+    //
+    // gsMatrix<> coefs_init(size,2);
+    // for (index_t i = 0; i < n; i++){
+    //     for(index_t j = 0; j < n; j++){
+    //         coefs_init(i + j*n,0) = vec[j];
+    //         coefs_init(i + j*n,1) = vec2[i];
+    //     }
+    // }
+
+    gsMultiPatch<> mp_init(jigsaw);
+    mp_init.patch(0).setCoefs(coefs_init);
+    changeSignOfDetJ(mp_init.patch(0));
+
+    // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+
+    gsShapeOptLog slog1(output,true,false,false);
+
+    std::string name = "init";
+    slog1.plotInParaview(mp_init,name);
+
+    gsSpringMethod spring(&mp_init);
+    gsSpringMethod spring2(&jigsaw);
+
+    // gsInfo << (spring.getFlat() - spring2.getFlat()).norm() << "\n";
+    // gsInfo << (mp_init.patch(0).coefs() - jigsaw.patch(0).coefs()).norm() << "\n";
+    // mat << spring.getTagged(), spring2.getTagged();
+
+    // gsInfo << spring.n_tagged << "\n";
+    gsOptParam optP(&mp_init,&jigsaw,&slog1,param);
+    // gsMatrix<> v = optP.currentDesign()*0.99999;
+    // optP.m_paramMethod->update();
+    // gsInfo << optP.evalObj(v) << "\n";
+    // gsInfo << optP.currentDesign() << "\n";
+    // gsInfo << optP.numDesignVars() << "\n";
+    optP.solve();
 
     exit(0);
 
@@ -3266,6 +3535,8 @@ if (false) {
 if (false) {
     gsOptAntenna optA(&patches,numRefine,&slog,param,quA,quB);
     gsWinslow winslow(&patches, optA.mappers(), useDJC);
+
+    gsStateEquationAntenna SE(&patches, 1);
 
     winslow.updateFlat(loadVec(winslow.n_flat,BASE_FOLDER + output + "Spring/cps_0_178.txt"));
 

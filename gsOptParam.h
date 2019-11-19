@@ -24,8 +24,13 @@ public:
 
     // Evaluation of the gradient wrt design variables (tagged cps)
     gsVector<> gradObj() const ;
-    
+
+    // Evaluation of the gradient wrt all cps, needed for gsShapeOptWithReg
+    gsVector<> gradAll() const ;
+
     void setupMappers();
+
+    gsDofMapper mapper_grad() const;
 
 public:
     gsMultiPatch<> *m_mp_goal;

@@ -148,6 +148,13 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
 
 }
 
+gsDofMapper gsOptAntenna::mapper_grad() const {
+    if (m_mapper_grad_exist) // If they exist
+        return m_mapper_grad;
+
+    GISMO_ERROR("m_mapper_grad does not exist!");
+}
+
 real_t gsOptAntenna::evalObj() const {
     gsMultiPatch<> u_real,u_imag;
     m_stateEq.solve(u_real,u_imag);
@@ -197,12 +204,9 @@ gsVector<> gsOptAntenna::gradientObjWithoutAdjoint() const{
     return out.transpose();
 };
 
-// Adjoint method for sensitivities.
-gsVector<> gsOptAntenna::gradObj() const{
+gsVector<> gsOptAntenna::gradAll() const{
     gsMultiPatch<> u_real,u_imag;
     m_stateEq.solve(u_real,u_imag);
-
-    gsMatrix<> dcdx = jacobDesignUpdate();
 
     gsMatrix<> mat = m_stateEq.getDerivativeWithoutSolving(u_real,u_imag);
     gsVector<> dJdu = getObjDerivativeDu(u_real,u_imag);
@@ -213,7 +217,15 @@ gsVector<> gsOptAntenna::gradObj() const{
     // m_stateEq.printMatSize(adjoint,"adjoint");
     gsVector<> term2 = adjoint.transpose()*mat;
 
-    gsMatrix<> dEdc = mapGradient(m_mapper_grad,-2*(evaluateDerivativeTerm1(u_real,u_imag) + term2));
+    return -2*(evaluateDerivativeTerm1(u_real,u_imag) + term2);
+}
+
+// Adjoint method for sensitivities.
+gsVector<> gsOptAntenna::gradObj() const{
+
+    gsMatrix<> dcdx = jacobDesignUpdate();
+
+    gsMatrix<> dEdc = mapGradient(m_mapper_grad, gradAll());
 
     gsMatrix<> out = dEdc.transpose()*dcdx;
 
@@ -255,6 +267,7 @@ gsVector<> gsOptAntenna::evaluateDerivativeTerm1(gsMultiPatch<> &u_real, gsMulti
     // Save the mapper used to calculate these guys..
     if (! m_mapper_grad_exist){
         m_mapper_grad = u.mapper();
+        m_mapper_grad_exist = true;
     }
 
 

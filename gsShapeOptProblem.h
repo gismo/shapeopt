@@ -81,6 +81,11 @@ public:
     // Use for the optimization
     virtual gsVector<> gradObj() const = 0;
 
+    // Gradient with respect to all control points
+    virtual gsVector<> gradAll() const { GISMO_NO_IMPLEMENTATION; };
+
+    virtual gsDofMapper mapper_grad() const { GISMO_NO_IMPLEMENTATION; };
+
     // Mappers for the specific problem, should be overloaded in children
     virtual void setupMappers() = 0;
 

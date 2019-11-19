@@ -3,15 +3,15 @@
 using namespace gismo;
 
 gsWinslowWithDeriv::gsWinslowWithDeriv(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
-    gsWinslow(mpin,use_dJC,useTensorStructureforDJC,checkForInf,checkForInf_eps),
-    m_aff(this,false)
+    gsWinslow(mpin,use_dJC,useTensorStructureforDJC,checkForInf,checkForInf_eps)
+    //, m_aff(this,false)
 {
     // m_aff.computeMap();
 }
 
 gsWinslowWithDeriv::gsWinslowWithDeriv(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
-    gsWinslow(mpin,mappers,use_dJC,useTensorStructureforDJC,checkForInf,checkForInf_eps),
-    m_aff(this,false)
+    gsWinslow(mpin,mappers,use_dJC,useTensorStructureforDJC,checkForInf,checkForInf_eps)
+    //, m_aff(this,false)
 {
     // m_aff.computeMap();
 }
@@ -22,6 +22,10 @@ bool gsWinslowWithDeriv::update(gsVector<> x)
     gsVector<> tagged = getTagged();
     gsVector<> flat = getFlat();
     real_t diff = (x-tagged).norm();
+    // gsMatrix<> mat(n_tagged,2);
+    // mat << x,tagged;
+    // gsInfo << mat <<"\n\n";
+
     gsInfo << "Difference in tagged and x: " << diff << "\n";
 
     if (diff == 0){
@@ -73,24 +77,12 @@ gsMatrix<> gsWinslowWithDeriv::jacobUpdate(gsVector<> x)
 }
 
 bool gsWinslowWithDeriv::checkForNegativeDetJ(){
-    gsExprAssembler<> A(1,1);
-    gsMultiBasis<> dbasis(*m_mp);
-    A.setIntegrationElements(dbasis);
-
-    gsExprEvaluator<> ev(A);
-    ev.options().setInt("quB",m_quB);
-    ev.options().setReal("quA",m_quA);
-
-    typedef gsExprAssembler<>::geometryMap geometryMap;
-
-    geometryMap G = A.getMap(*m_mp);
-
-    real_t minDJ = ev.min(jac(G).det());
 
     // gsInfo << "norm of flat : " << getFlat().norm() << "\n";
     // gsInfo << "norm of tagged : " << getTagged().norm() << "\n";
     // gsInfo << "quA, quB = " << m_quA << ", " << m_quB << "\n";
     // gsInfo << "MIN JAC G = " << minDJ << "\n";
+    real_t minDJ = minDetJInGaussPts();
 
     if (minDJ <= m_checkForInf_eps) // Check for too small value of detJ at gauss points
     {
@@ -98,4 +90,21 @@ bool gsWinslowWithDeriv::checkForNegativeDetJ(){
     }
 
     return true;
+}
+
+real_t gsWinslowWithDeriv::minDetJInGaussPts(index_t incPts){
+
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(*m_mp);
+    A.setIntegrationElements(dbasis);
+
+    gsExprEvaluator<> ev(A);
+    ev.options().setInt("quB",m_quB + incPts);
+    ev.options().setReal("quA",m_quA);
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+
+    geometryMap G = A.getMap(*m_mp);
+
+    return ev.min(jac(G).det());
 }

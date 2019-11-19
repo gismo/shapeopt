@@ -1,5 +1,6 @@
 #include <gismo.h>
 #include "gsHarmonic.h"
+#include "gsMyExpressions.h"
 using namespace gismo;
 
 real_t gsHarmonic::evalObj() const {

@@ -18,7 +18,6 @@ gsWinslow::gsWinslow(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, b
     gsInfo << "Check for inf in Winslow: " << checkForInf << " with eps " << checkForInf_eps << "\n";
 }
 
-
 real_t gsWinslow::evalObj() const {
     // gsInfo << "evalObj() \n";
     gsExprAssembler<> A(1,1);
@@ -53,7 +52,10 @@ real_t gsWinslow::evalObj() const {
 
     auto detJinv = jac(G).inv().det(); // The inverse of det J
 
-    return ev.integral(jac(G)%jac(G)*detJinv);
+    real_t out = ev.integral(jac(G)%jac(G)*detJinv);
+
+    return out;
+
 }
 
 gsVector<> gsWinslow::gradObj() const{
@@ -165,6 +167,7 @@ gsVector<> gsWinslow::gradAll(gsDofMapper &space_mapper) const{
     // );
     // A.assemble(2*detJinv*jac(u)%jac(G) - detJinv2*JTJ*jac(u)%jac(G).adj().tr());
     A.assemble(2*detJinv*jac(u)%jac(G) - detJinv*JTJ*jac(u)%jac(G).inv().tr());
+
 
     space_mapper = u.mapper();
     return A.rhs();

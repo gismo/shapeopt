@@ -26,7 +26,7 @@ public:
 
     gsVector<> gradAll() const;
     gsVector<> gradAll(gsDofMapper &space_mapper) const;
-    
+
     gsVector<> gradObj(gsVector<> &gradObjTagged) const;
 
 public:
@@ -34,6 +34,7 @@ public:
     bool m_checkForInf = false;
     real_t m_checkForInf_eps = 0;
 
+    real_t lambda = 1;
 };
 
 #endif //GSWINSLOW_H

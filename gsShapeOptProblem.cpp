@@ -94,6 +94,8 @@ real_t gsShapeOptProblem::evalObj( const gsAsConstVector<real_t> & u ) const
 void gsShapeOptProblem::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result ) const
 {
     gsInfo << "gradObj_into\n";
+    // gsInfo << " desVars: " << m_numDesignVars << "\n";
+    // gsInfo << "gradObj, u = " << u << "\n" << std::flush;
     if (!updateDesignVariables(u)){
         // GISMO_ERROR("UPDATE WENT WRONG IN GRADOBJINTO\n");
         gsInfo << "\n ============================= \n";

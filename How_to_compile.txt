@@ -1,0 +1,137 @@
+=============================================
+ Guide for compilation of G+Smo and shapeopt
+=============================================
+NOTE: it is important that everything is done in the appropiate folder, such that you dont mess up the gismo folder with build file.. If you ar unlucky to build in the gismo folder you can clean up by running a command (DONT REMEMBER NAME ATM)
+
+Go to you git directory, e.g.
+
+	$ mkdir git
+	$ cd git
+
+Clone G+SMO from GitHub
+
+	$ git clone https://github.com/gismo/gismo.git
+
+Switch to the Improved Expressions branch and fetch code
+
+	$ git checkout ImproveExpressions
+	$ git fecht (note: perhaps this step is not necessary)
+
+Make a build folder that is seperate and go into this folder
+
+	$ mkdir build
+	$ cd build
+
+Run cmake from the build folder linking to the source code
+
+	$ cmake ../gismo
+
+Run ccmake to choose the necessary options
+
+	$ ccmake .
+
+Choose options:
+
+	CMAKE_BUILD_TYPE : RelWithDebInfo (To allow debugging, only use Release mode for fast execution when program is correct)
+
+	GISMO_WITH_IPOPT : ON		(Gets and compiles Ipopt to do optimization)
+	GISMO_BUILD_EXAMPLES : ON   (Builds examples)
+
+Press [c] and then [g] to generate
+
+Use the new settings by running cmake
+
+	$ cmake .
+
+Build with make 
+
+	$ make -j 3 (To use 3 cores)
+
+
+=========================================================
+ERROR
+
+[  2%] Built target gsMesh
+[  9%] Built target gsNurbs
+[ 10%] Built target gzstream
+[ 11%] Performing download step (download, verify and extract) for 'IpOpt'
+-- downloading...
+     src='http://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz'
+     dst='/zhome/2b/e/77581/git/build/extensions/gsIpopt/IpOpt-prefix/src/Ipopt-3.12.6.tgz'
+     timeout='none'
+-- [download 100% complete]
+CMake Error at IpOpt-prefix/src/IpOpt-stamp/download-IpOpt.cmake:22 (message):
+  error: downloading
+  'http://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz' failed
+
+    status_code: 1
+    status_string: "unsupported protocol"
+    log: About to connect() to www.coin-or.org port 80 (#0)
+    Trying 130.127.206.21... connected
+
+  Connected to www.coin-or.org (130.127.206.21) port 80 (#0)
+
+  GET /download/source/Ipopt/Ipopt-3.12.6.tgz HTTP/1.1
+
+  User-Agent: curl/7.16.1
+
+  Host: www.coin-or.org
+
+  Accept: */*
+
+  
+
+  HTTP/1.1 301 Moved Permanently
+
+  Date: Tue, 19 Nov 2019 09:53:33 GMT
+
+  Server: Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips mod_fcgid/2.3.9
+  mod_nss/1.0.14 NSS/3.28.4 SVN/1.7.14 mod_wsgi/3.4 Python/2.7.5 PHP/7.3.11
+  mod_perl/2.0.10 Perl/v5.16.3
+
+  Location: https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz
+
+  Content-Length: 270
+
+  Content-Type: text/html; charset=iso-8859-1
+
+  Ignoring the response-body
+
+  <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+  <html><head>
+
+  <title>301 Moved Permanently</title>
+
+  </head><body>
+
+  <h1>Moved Permanently</h1>
+
+  <p>The document has moved <a
+  href="https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz">here</a>.</p>
+
+
+  </body></html>
+
+  Connection #0 to host www.coin-or.org left intact
+
+  Issue another request to this URL:
+  'https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz'
+
+  libcurl was built with SSL disabled, https: not supported!
+
+  unsupported protocol
+
+  Closing connection #0
+
+  
+
+
+
+make[2]: *** [extensions/gsIpopt/IpOpt-prefix/src/IpOpt-stamp/IpOpt-download] Error 1
+make[1]: *** [extensions/gsIpopt/CMakeFiles/IpOpt.dir/all] Error 2
+make: *** [all] Error 2
+
+
+
+

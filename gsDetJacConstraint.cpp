@@ -11,7 +11,7 @@ gsDetJacConstraint::gsDetJacConstraint(gsMultiPatch<>* mpin, bool useTPSolver):
     m_useTPSolver(useTPSolver),
     m_solversTensor(mpin->nBoxes())
 {
-    GISMO_ERROR("STOP");
+    // GISMO_ERROR("STOP");
     setup(); // Method to setup m_detJacBasis and m_space_mapper
 
     // gsInfo << "n_controlpoints = " << n_controlpoints << "\n \n";
@@ -190,6 +190,7 @@ gsVector<> gsDetJacConstraint::getLowerBounds()
 
 gsMultiPatch<> gsDetJacConstraint::getDetJ()
 {
+
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
     typedef gsExprAssembler<>::space       space;
@@ -201,21 +202,29 @@ gsMultiPatch<> gsDetJacConstraint::getDetJ()
     A.setIntegrationElements(m_detJacBasis);
     gsExprEvaluator<> ev(A);
 
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
+
     space u = A.getSpace(m_detJacBasis);
 
     geometryMap G = A.getMap(*m_mp);
 
     A.initSystem();
-    A.assemble(u*u.tr());
-    gsSparseSolver<>::CGDiagonal solver;
-    solver.compute(A.matrix());
 
     gsMatrix<> solVector;
     solution u_sol = A.getSolution(u, solVector);
 
     A.assemble(u*jac(G).det());
 
-    solVector = solver.solve(A.rhs());
+    if (m_useTPSolver && m_mp->nBoxes() == 1)
+        m_solversTensor[0]->apply(A.rhs(), solVector);
+    else
+    {
+        A.assemble(u*u.tr());
+        gsSparseSolver<>::CGDiagonal solver;
+        solver.compute(A.matrix());
+        solVector = solver.solve(A.rhs());
+    }
 
     // for (index_t i = 0; i < solVector.size(); i++){
     //     if (solVector(i,0) > 0){
@@ -253,8 +262,10 @@ void gsDetJacConstraint::plotDetJ(std::string name)
     variable out = A.getCoeff(dJ);
 
     gsInfo<<"Plotting " << name << " in Paraview...\n";
-    ev.writeParaview( out   , G, name);
+    // gsWriteParaview(dJ,name,100000,true);
     ev.options().setSwitch("plot.elements", true);
+    ev.options().setInt("plot.npts", 5000000);
+    ev.writeParaview( out   , G, name);
 
 }
 
@@ -301,7 +312,7 @@ void gsDetJacConstraint::plotActiveConstraints(std::vector<bool> & elMarked, std
         index_t len = m_detJacBasis.size(p);
         for(int i = 0; i < len; i++){
             if (d[start + i] - m_eps < tol1 ){
-                gsInfo << "d[" << start + i << "] = " << d[start + i] << " and m_eps = " << m_eps << " and tol1 = " << tol1 << "\n";
+                // gsInfo << "d[" << start + i << "] = " << d[start + i] << " and m_eps = " << m_eps << " and tol1 = " << tol1 << "\n";
                 basMarking.patch(p).coef(i,0) = 1;
             }
         }
@@ -382,9 +393,6 @@ void gsDetJacConstraint::setup()
     gsMultiBasis<> bas(*m_mp);
     m_detJacBasis = bas;
 
-    for (index_t i = 0; i < m_mp->nBoxes(); i++){
-        m_areSolversSetup[i] = false;
-    }
     // Prepare basis for detJac
     // by setting the degree to (2p-1) for 2D, and (3p-1) for 3D
     int p = m_detJacBasis.maxCwiseDegree();
@@ -392,6 +400,16 @@ void gsDetJacConstraint::setup()
     // and reducing the continuity
     m_detJacBasis.reduceContinuity(1);
     // gsInfo << "\n..detJacBasis degree is: " << 2*p-1 << "\n";
+
+    reset();
+
+}
+
+void gsDetJacConstraint::reset(){
+    for (index_t i = 0; i < m_mp->nBoxes(); i++){
+        m_areSolversSetup[i] = false;
+    }
+
     m_size = m_detJacBasis.size();
     gsInfo << "m_size : " << m_size << "\n";
 
@@ -494,4 +512,130 @@ gsSparseMatrix<> gsDetJacConstraint::hessD(index_t patch, index_t i) const
 
     return A.matrix();
 
+}
+
+index_t gsDetJacConstraint::sizeOfBasis(index_t k) const{
+    return m_detJacBasis.size(k);
+}
+
+real_t gsDetJacConstraint::provePositivityOfDetJ_TP(index_t & neededRefSteps, index_t maxRefSteps)
+{
+
+    // Save old basis
+
+    real_t minD;
+
+    for (index_t i = 0; i < maxRefSteps; i++)
+    {
+        neededRefSteps = i;
+
+        minD = evalCon().minCoeff();
+
+        // If all coefficients, i.e. the minimal one, is positive stop the loop
+        if (minD > 0)
+        {
+            setup();
+            return minD;
+        }
+
+        // refine and setup the class with the new basis
+        m_detJacBasis.uniformRefine();
+        reset();
+    }
+
+    gsInfo << "DetJ could not be proven positive in " << maxRefSteps << "iterations. Smallest coef was still " << minD << "\n";
+    setup();
+    return minD;
+}
+
+// FIXIT: DEBUG
+real_t gsDetJacConstraint::provePositivityOfDetJ(index_t maxRefSteps)
+{
+
+    // Does not work as long as solver is Tensor product
+    GISMO_ASSERT(!m_useTPSolver,"Cannot use adaptive refinement when Tensor Product solver is enabled.\n");
+
+    // Save old basis
+    gsMultiBasis<> tmpBasis(m_detJacBasis);
+
+    // Create gsMultiBasis to hold the adaptive refinable basis, and fill it with H-spline bases
+    gsMultiBasis<> basis;
+    for (index_t pn = 0; pn < m_detJacBasis.nPieces(); pn ++){
+        gsTensorBSplineBasis<2,real_t> bas = dynamic_cast<gsTensorBSplineBasis<2,real_t>&>(tmpBasis.basis(pn));
+        gsHBSplineBasis<2> HBbas(bas);
+        basis.addBasis(HBbas.clone());
+    }
+
+    // Overwrite current one
+    m_detJacBasis = basis;
+
+    real_t minD;
+
+    for (index_t i = 0; i < maxRefSteps; i++)
+    {
+        // Setup the class with the new basis
+        setup();
+
+        minD = evalCon().minCoeff();
+
+        // Mark elements where a basis function with negative coefficient has support
+        std::vector<bool> elMarked;
+        markElements(elMarked,0);
+        refineElements(elMarked,m_detJacBasis);
+
+        // If all coefficients, i.e. the minimal one, is positive stop the loop
+        if (minD > 0)
+            return minD;
+    }
+
+    gsInfo << "DetJ could not be proven positive in " << maxRefSteps << "iterations. Smallest coef was still " << minD << "\n";
+    m_detJacBasis = tmpBasis;
+    return minD;
+}
+
+// FIXIT: DEBUG
+void gsDetJacConstraint::refineElements(std::vector<bool> & elMarked, gsMultiBasis<> & basis)
+{
+
+    const int dim = basis.dim();
+
+    // numMarked: Number of marked cells on current patch, also currently marked cell
+    // poffset  : offset index for the first element on a patch
+    // globalCount: counter for the current global element index
+    int numMarked, poffset = 0, globalCount = 0;
+
+    // refBoxes: contains marked boxes on a given patch
+    gsMatrix<> refBoxes;
+
+    for (unsigned pn=0; pn < basis.nBases(); ++pn )// for all patches
+    {
+        // Get number of elements to be refined on this patch
+        const int numEl = basis[pn].numElements();
+        numMarked = std::count_if(elMarked.begin() + poffset,
+                                  elMarked.begin() + poffset + numEl,
+                                  std::bind2nd(std::equal_to<bool>(), true) );
+        poffset += numEl;
+        refBoxes.resize(dim, 2*numMarked);
+        //gsDebugVar(numMarked);
+        numMarked = 0;// counting current patch element to be refined
+
+        // for all elements in patch pn
+        typename gsBasis<>::domainIter domIt = basis.basis(pn).makeDomainIterator();
+        for (; domIt->good(); domIt->next())
+        {
+            if( elMarked[ globalCount++ ] ) // refine this element ?
+            {
+                // Construct degenerate box by setting both
+                // corners equal to the center
+                refBoxes.col(2*numMarked  ) =
+                        refBoxes.col(2*numMarked+1) = domIt->centerPoint();
+
+                // Advance marked cells counter
+                numMarked++;
+            }
+        }
+        // Refine all of the found refBoxes in this patch
+        basis.basis(pn).refine( refBoxes );
+
+    }
 }
