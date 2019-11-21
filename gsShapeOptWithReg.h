@@ -40,6 +40,9 @@ public:
     //      or check stuff. If it returns false the optimization will be interrupted.
     bool intermediateCallback();
 
+    // Method to run optimization again and again while decreasing the regularization parameter
+    void runOptimization(index_t maxiter);
+
 
 public:
     real_t m_eps = 1; // Regularization parameter

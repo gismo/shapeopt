@@ -1901,7 +1901,7 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
     if (n == 4 && m == 4 && degree == 2){
         folder = "/parametrizations/para_x4_y4_p2_q2/";
     } else if (n == 5 && m == 4 && degree == 2){
-        folder = "/parametrizations/para_x5_y4_p2_q2/";
+        folder = "/parametrizations/para_x5_y4_p2_q2_circ/";
     } else if (n == 6 && m == 4 && degree == 2){
         folder = "/parametrizations/para_x6_y4_p2_q2/";
     } else if (n == 7 && m == 4 && degree == 2){
@@ -3109,6 +3109,13 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // gsStateEquationAntenna SE(&patches, 1);
 // SE.printConstants();
 
+// test harmonic derivatives
+if (true) {
+    gsHarmonic harmonic(&mp,false);
+    convergenceTestOfParaJacobian(harmonic);
+    exit(0);
+}
+
 if (startDes == 11) {
     gsMultiPatch<> jigsaw = getJigSaw3D(2); //
     mp = jigsaw;
@@ -3142,7 +3149,7 @@ if (startDes == 11) {
 
 // calculate detJ constraints for different designs
 if (startDes == 10) {
-    gsMultiPatch<> jigsaw = getJigSaw3D(2); //
+    gsMultiPatch<> jigsaw = getJigSaw3D(3); //
     mp = jigsaw;
 
     gsDetJacConstraint dJC(&mp,true);
@@ -3191,12 +3198,6 @@ if (startDes == 10) {
 
 }
 
-// test harmonic derivatives
-if (true) {
-    gsHarmonic harmonic(&mp,false);
-    convergenceTestOfParaJacobian(harmonic);
-    exit(0);
-}
 
 // Test of gsOptParam with reg
 if (false) {
@@ -3283,7 +3284,7 @@ if (false) {
 }
 
 // Test Regularization with winslow for antenna problem
-if (false) {
+if (true) {
     gsInfo << output << "\n";
     gsShapeOptLog slog1(output,true,false,false);
     gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
@@ -3292,7 +3293,8 @@ if (false) {
     spring.update();
 
     gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
-    optWR.solve();
+    // optWR.solve();
+    optWR.runOptimization(maxiter);
 
 }
 

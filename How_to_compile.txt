@@ -15,7 +15,8 @@ Clone G+SMO from GitHub
 Switch to the Improved Expressions branch and fetch code
 
 	$ git checkout ImproveExpressions
-	$ git fecht (note: perhaps this step is not necessary)
+	$ git fetch (note: perhaps this step is not necessary)
+
 
 Make a build folder that is seperate and go into this folder
 
@@ -47,90 +48,63 @@ Build with make
 
 	$ make -j 3 (To use 3 cores)
 
+------ Note ------
 
-=========================================================
-ERROR
+If there is an issue with IpOpt you can download and unpack the file
 
-[  2%] Built target gsMesh
-[  9%] Built target gsNurbs
-[ 10%] Built target gzstream
-[ 11%] Performing download step (download, verify and extract) for 'IpOpt'
--- downloading...
-     src='http://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz'
-     dst='/zhome/2b/e/77581/git/build/extensions/gsIpopt/IpOpt-prefix/src/Ipopt-3.12.6.tgz'
-     timeout='none'
--- [download 100% complete]
-CMake Error at IpOpt-prefix/src/IpOpt-stamp/download-IpOpt.cmake:22 (message):
-  error: downloading
-  'http://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz' failed
+  https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz
 
-    status_code: 1
-    status_string: "unsupported protocol"
-    log: About to connect() to www.coin-or.org port 80 (#0)
-    Trying 130.127.206.21... connected
+In a folder, and run 
 
-  Connected to www.coin-or.org (130.127.206.21) port 80 (#0)
+	$ ./configure 
+	$ make -j3 install
+		
+		(or ./configure --with-blas="/usr/lib64/libblas.so.3")
 
-  GET /download/source/Ipopt/Ipopt-3.12.6.tgz HTTP/1.1
+and in ccmake choose
+	
+	IpOpt_DIR = /path/to/IpOpt/
+	(eg. IpOpt_DIR = /zhome/2b/e/77581/git/IpOpt/Ipopt-3.12.6 )
 
-  User-Agent: curl/7.16.1
-
-  Host: www.coin-or.org
-
-  Accept: */*
-
-  
-
-  HTTP/1.1 301 Moved Permanently
-
-  Date: Tue, 19 Nov 2019 09:53:33 GMT
-
-  Server: Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips mod_fcgid/2.3.9
-  mod_nss/1.0.14 NSS/3.28.4 SVN/1.7.14 mod_wsgi/3.4 Python/2.7.5 PHP/7.3.11
-  mod_perl/2.0.10 Perl/v5.16.3
-
-  Location: https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz
-
-  Content-Length: 270
-
-  Content-Type: text/html; charset=iso-8859-1
-
-  Ignoring the response-body
-
-  <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-
-  <html><head>
-
-  <title>301 Moved Permanently</title>
-
-  </head><body>
-
-  <h1>Moved Permanently</h1>
-
-  <p>The document has moved <a
-  href="https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz">here</a>.</p>
-
-
-  </body></html>
-
-  Connection #0 to host www.coin-or.org left intact
-
-  Issue another request to this URL:
-  'https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz'
-
-  libcurl was built with SSL disabled, https: not supported!
-
-  unsupported protocol
-
-  Closing connection #0
-
-  
+------------------
 
 
 
-make[2]: *** [extensions/gsIpopt/IpOpt-prefix/src/IpOpt-stamp/IpOpt-download] Error 1
-make[1]: *** [extensions/gsIpopt/CMakeFiles/IpOpt.dir/all] Error 2
-make: *** [all] Error 2
+=================================== 
+Using shapeopt
+=================================== 
+
+Get the code from git
+
+	$ git clone https://github.com/gismo/shapeopt.git
+
+Now we need to run cmake.
+
+------ Note ------
+
+You need c++ > 11 to compile the code. If cmake version is >3.1 you can write 
+
+	set(CMAKE_CXX_STANDARD, 14) 
+
+in the CMakeList.txt file, if cmake version is <3.1 you can write
+	
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+
+------------------
+
+
+
+=================================
+Version
+=================================
+
+Perhaps ImprovedExpression branch is too new. One git hash that worked the 21/11 2019 is
+
+649d6b79475e82cf1079bb053f0e122e4bab60cc
+
+to use this write
+
+	$ git reset --hard 649d6b79475e82cf1079bb053f0e122e4bab60cc
 
 
 

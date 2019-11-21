@@ -200,11 +200,11 @@ bool gsShapeOptWithReg::intermediateCallback() {
     gsVector<> v(3);
     v << obj, winslow, gradn;
 
-    if (counter1 % 10 == 0)
-    {
-        std::string name = "geo";
-        m_log->plotInParaview(*m_mp,name,counter1);
-    }
+    // if (counter1 % 10 == 0)
+    // {
+    //     std::string name = "geo";
+    //     m_log->plotInParaview(*m_mp,name,counter1);
+    // }
 
     if (m_log->saveCps()){
         std::string name = "cps";
@@ -214,3 +214,34 @@ bool gsShapeOptWithReg::intermediateCallback() {
     }
     return true;
 }
+
+void gsShapeOptWithReg::runOptimization(index_t maxiter)
+{
+    *m_log << "N.o. cps: " << n_cps << "\n";
+    *m_log << "N.o. free cps: " << n_free<< "\n";
+    *m_log << "N.o. tagged cps: " << n_tagged << "\n";
+    *m_log << "N.o. flat cps: " << n_flat << "\n\n";
+
+    *m_log << "m_eps = " << m_eps << "\n\n";
+
+    // gsInfo << "DoFs for analysis: " << m_stateEq.dbasis.size() << "\n";
+
+    counter2 = 0;
+
+    real_t k = 0.25; // factor to decrease eps with every iteration
+    *m_log << "factor to decrease m_eps; k = " << k << "\n\n";
+
+    // Run optimization
+    for (index_t i = 0; i < maxiter; i++){
+        counter1 = 0;
+
+        *m_log << "m_eps = " << m_eps << "\n";
+
+        // Solve the current optimization problem
+        solve();
+
+        counter2++;
+
+        m_eps *= k;
+    }
+};
