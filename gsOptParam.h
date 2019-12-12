@@ -32,6 +32,9 @@ public:
 
     gsDofMapper mapper_grad() const;
 
+    // Method to set the bounds on the design variables,
+    void setupDesignBounds();
+
 public:
     gsMultiPatch<> *m_mp_goal;
     gsSpringMethod m_pM_goal;

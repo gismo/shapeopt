@@ -1,6 +1,7 @@
 #include <gismo.h>
 #include <fstream>
 #include "gsParamMethod.h"
+#include "gsDetJacConstraint.h"
 using namespace gismo;
 
 gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin,std::vector< gsDofMapper > mappers):
@@ -503,6 +504,7 @@ void gsParamMethod::refineElements(const std::vector<bool> & elMarked)
         numMarked = std::count_if(elMarked.begin() + poffset,
                                   elMarked.begin() + poffset + numEl,
                                   std::bind2nd(std::equal_to<bool>(), true) );
+        gsInfo << "Patch " << pn << ", " << numMarked << "\n" << std::flush;
         poffset += numEl;
         refBoxes.resize(dim, 2*numMarked);
         //gsDebugVar(numMarked);
@@ -531,10 +533,17 @@ void gsParamMethod::refineElements(const std::vector<bool> & elMarked)
         dynamic_cast<gsHTensorBasis<2,real_t>&> (m_mp->patch(pn).basis()).transfer(OX, transf);
         //gsDebug<<"tranf orig:\n"<<transf<<std::endl;
         m_mp->patch(pn).coefs() = transf*m_mp->patch(pn).coefs();
+        if (true)
+        {
+            gsInfo << "Patch " << pn << "\n" << m_mp->patch(pn).coefsSize() << "\n" << std::flush;
+            gsInfo << "Size of basis "  << m_mp->patch(pn).basis().size() << "\n" << std::flush;
+            // gsInfo << m_mp->patch(pn).coefs() << "\n ==================== \n\n" << std::flush;
+        }
 
     }
 
     m_mp->repairInterfaces();
+    m_mp->computeTopology();
 }
 
 void gsParamMethod::recreateMappers()

@@ -31,7 +31,8 @@ real_t gsShapeOptWithReg::evalObj() const
 gsVector<> gsShapeOptWithReg::gradObj() const
 {
     gsVector<> gradAll = m_opt->gradAll() + m_eps * m_winslow->gradAll();
-    return m_winslow->mapMatrix(m_opt->mapper_grad(),gradAll);
+    gsVector<> out = m_winslow->mapMatrix(m_opt->mapper_grad(),gradAll);
+    return out;
 };
 
 void gsShapeOptWithReg::setupMappers()
@@ -192,13 +193,13 @@ void gsShapeOptWithReg::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVe
 }
 
 bool gsShapeOptWithReg::intermediateCallback() {
-    // gsInfo << "obj: " << evalObj() << "\n";
     real_t obj = m_opt->evalObj();
     real_t winslow = m_winslow->evalObj();
-    real_t gradn = gradObj().norm();
+    // real_t gradn = gradObj().norm();
 
-    gsVector<> v(3);
-    v << obj, winslow, gradn;
+    gsVector<> v(2);
+    // gsInfo << "norm of grad: " << gradObj().norm() << "\n";
+    v << obj, winslow;
 
     // if (counter1 % 10 == 0)
     // {
@@ -228,7 +229,7 @@ void gsShapeOptWithReg::runOptimization(index_t maxiter)
 
     counter2 = 0;
 
-    real_t k = 0.25; // factor to decrease eps with every iteration
+    real_t k = 1.0/sqrt(2); // factor to decrease eps with every iteration
     *m_log << "factor to decrease m_eps; k = " << k << "\n\n";
 
     // Run optimization

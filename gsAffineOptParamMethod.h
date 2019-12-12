@@ -41,17 +41,23 @@ public:
     real_t evalObj(gsVector<> c, gsVector<> x);
 
     // Update Reference parametrization by first solving m_optParamMethod and then reset
-    bool updateAndReset() { m_optParamMethod->update(); reset(); return true; };
+    bool updateAndReset();
 
     // Updates the reference parametrization to the one currently hold in m_problem;
     // FIXIT:   This should perhaps compute also a new parametrization by calling
     //          gsOptParamMethod.update();
     void reset();
 
+    void refineBasedOnDetJ(index_t strategy){ m_optParamMethod->refineBasedOnDetJ(strategy); };
+    void refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC){ m_optParamMethod->refineBasedOnDetJ(strategy, dJC);; };
+
     // Accesors
     index_t numDesignVars(){ return n_free; }
     gsVector<> refFree(){ return m_refFree; }
     gsVector<> refTagged(){ return m_refTagged; }
+
+    void setupOptParameters() { m_optParamMethod->setupOptParameters();};
+    void setIntegrationBasis( gsMultiBasis<> &mesh ) { m_optParamMethod->setIntegrationBasis(mesh);};
 
 public:
     // Pointer to gsOptParamMethod

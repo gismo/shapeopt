@@ -53,8 +53,52 @@ gsOptParam::gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLo
     name = "init";
     m_log->saveVec(m_paramMethod->getTagged(),name);
 
+    // Also calls setupDesignBounds
     setupOptParameters();
 
+}
+
+real_t gsOptParam::evalObj() const {
+    gsVector<> diff = (m_tagged_goal - m_paramMethod->getTagged());
+    return 0.5*diff.squaredNorm();
+}
+
+gsVector<> gsOptParam::gradObj() const{
+    return m_paramMethod->getTagged() - m_tagged_goal;
+};
+
+gsVector<> gsOptParam::gradAll() const{
+    gsVector<> out;
+    out.setZero(n_flat);
+
+    index_t iter = 0;
+    for (index_t d = 0; d < m_mp->targetDim(); d++){
+        for (index_t k = 0; k < m_mp->nBoxes(); k++){
+            for (index_t i = 0; i < m_mp->patch(k).coefsSize(); i++){
+                if (m_mappers[d].is_tagged(i,k))
+                {
+                    index_t ii = m_mappers[d].index(i,k);
+                    std::vector< std::pair < index_t, index_t > > res;
+
+                    m_mappers[d].preImage(ii,res);
+
+                    real_t size = res.size();
+                    // real_t size = 1;
+
+                    out[iter] = 1.0/size * (m_mp->patch(k).coef(i,d) - m_mp_goal->patch(k).coef(i,d));
+                }
+                iter++;
+            }
+        }
+    }
+
+
+    return out;
+
+};
+
+void gsOptParam::setupDesignBounds()
+{
     m_desLowerBounds.setZero(n_tagged);
     // X coordinates
     gsVector<> xLowerBounds;
@@ -93,44 +137,6 @@ gsOptParam::gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLo
         m_desUpperBounds.segment(m_mappers[1].taggedSize() + m_mappers[0].taggedSize(),m_mappers[2].taggedSize()) = zUpperBounds;
     }
 }
-
-real_t gsOptParam::evalObj() const {
-    gsVector<> diff = (m_tagged_goal - m_paramMethod->getTagged());
-    return 0.5*diff.squaredNorm();
-}
-
-gsVector<> gsOptParam::gradObj() const{
-    return m_paramMethod->getTagged() - m_tagged_goal;
-};
-
-gsVector<> gsOptParam::gradAll() const{
-    gsVector<> out;
-    out.setZero(n_flat);
-
-    index_t iter = 0;
-    for (index_t d = 0; d < m_mp->targetDim(); d++){
-        for (index_t k = 0; k < m_mp->nBoxes(); k++){
-            for (index_t i = 0; i < m_mp->patch(k).coefsSize(); i++){
-                if (m_mappers[d].is_tagged(i,k))
-                {
-                    index_t ii = m_mappers[d].index(i,k);
-                    std::vector< std::pair < index_t, index_t > > res;
-
-                    m_mappers[d].preImage(ii,res);
-
-                    real_t size = res.size();
-                    // real_t size = 1;
-
-                    out[iter] = 1.0/size * (m_mp->patch(k).coef(i,d) - m_mp_goal->patch(k).coef(i,d));
-                }
-                iter++;
-            }
-        }
-    }
-
-    return out;
-
-};
 
 void gsOptParam::setupMappers(){
     m_mappers = m_pM_goal.mappers();

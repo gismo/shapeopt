@@ -22,7 +22,7 @@ real_t gsWinslow::evalObj() const {
     // gsInfo << "evalObj() \n";
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
-    A.setIntegrationElements(dbasis);
+    A.setIntegrationElements(*m_integrationBasis);
 
     gsExprEvaluator<> ev(A);
     ev.options().setInt("quB",m_quB);
@@ -69,7 +69,7 @@ gsMatrix<> gsWinslow::hessAll(gsDofMapper &space_mapper) const
 {
         gsExprAssembler<> A(1,1);
         gsMultiBasis<> dbasis(*m_mp);
-        A.setIntegrationElements(dbasis);
+        A.setIntegrationElements(*m_integrationBasis);
         gsExprEvaluator<> ev(A);
 
         A.options().setInt("quB",m_quB);
@@ -136,7 +136,7 @@ gsVector<> gsWinslow::gradAll(gsDofMapper &space_mapper) const{
     // gsInfo << "gradObj() \n";
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
-    A.setIntegrationElements(dbasis);
+    A.setIntegrationElements(*m_integrationBasis);
 
     gsExprEvaluator<> ev(A);
     A.options().setInt("quB",m_quB);

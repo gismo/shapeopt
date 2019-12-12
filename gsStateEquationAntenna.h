@@ -151,6 +151,9 @@ public:
         }
     }
 
+    real_t quA() { return m_quA; };
+    index_t quB() { return m_quB; };
+
 
 public:
     gsMultiPatch<>* mp;
@@ -218,6 +221,9 @@ public:
     gsMultiPatch<> pde_eps_cr_fun_imag;
 
     gsMultiPatch<> pde_mu_r_fun_real;
+
+    real_t m_quA = 2;   // Quadrature option
+    index_t m_quB = 2;   // Quadrature option
 };
 
 

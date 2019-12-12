@@ -29,6 +29,7 @@ public:
 
     gsVector<> gradObj(gsVector<> &gradObjTagged) const;
 
+
 public:
     // Flags that determines whether objective should be set to inf if detJ is smaller that m_checkForInf_eps in a gauss point.
     bool m_checkForInf = false;

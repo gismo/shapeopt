@@ -81,7 +81,12 @@ public:
         GISMO_NO_IMPLEMENTATION;
     };
 
+    virtual real_t refineUntilPositive(index_t maxRefSteps = 10, real_t tol = 0)
+    {
+        GISMO_NO_IMPLEMENTATION;
+    };
 
+    void setEps(real_t eps) { m_eps = eps; };
 
 public:
     gsMultiPatch<>* m_mp;
@@ -93,6 +98,8 @@ public:
 
     index_t n_controlpoints;
     index_t n_constraints;
+
+    real_t m_eps = 0;
 
 };
 

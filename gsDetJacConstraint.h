@@ -68,10 +68,15 @@ public:
     //      (if it is zero it refines support of active coefficients)
     void markElements(std::vector<bool> & elMarked, real_t tol1 = 0, real_t tol2 = 0);
 
+    // Mark elements where constraints are active based on lagrange multipliers \a lambda
+    // \a tol is the tolerance that decides if an element of \a lambda is zero.
+    void markElements(std::vector<bool> & elMarked, gsVector<> lambda, real_t tol = 1e-5);
+
     // Method to 'investigate' wether the current design has detJ > 0,
     //   when tensor product structure is used
     // It does uniformRefine for at most \a maxRefSteps refinements steps.
     // returns the minimal element of d vector.
+    // FIXIT: change name to _uniformRefine instead of _TP.
     real_t provePositivityOfDetJ_TP(index_t & neededRefSteps, index_t maxRefSteps);
 
     // Method to 'investigate' wether the current design has detJ > 0
@@ -80,10 +85,21 @@ public:
     // returns the minimal element of d vector.
 
     // FIXIT: DEBUG
+    real_t refineUntilPositive(index_t maxRefSteps = 10, real_t tol = 0);
+
+    real_t refineDetJSurfaceUntilPositive(index_t nRefSteps, gsMultiPatch<> & dJ);
+
     real_t provePositivityOfDetJ(index_t maxRefSteps = 10);
 
     // FIXIT: DEBUG
     void refineElements(std::vector<bool> & elMarked, gsMultiBasis<> & basis);
+
+    void refineElements(const std::vector<bool> & elMarked, gsMultiPatch<> & mp);
+
+    void testSplineDetJ();
+    void testSplineDetJ(gsMultiPatch<> & dJ);
+
+    gsMultiPatch<> getDetJSurface(bool zero = false);
 
 
     // Method to setup m_detJacBasis and m_space_mapper
@@ -104,7 +120,7 @@ public:
 public:
     gsMultiBasis<> m_detJacBasis;
 
-    real_t m_eps = 0;
+    // real_t m_eps = 0;
 
     // use tensor product structure when solving system
     bool m_useTPSolver;
@@ -116,6 +132,8 @@ public:
 
     index_t m_quA = 3;
     index_t m_quB = 3;
+
+    bool m_Hspline_flag = false;
 
 };
 

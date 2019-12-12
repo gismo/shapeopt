@@ -18,7 +18,7 @@ public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
     // Uses gsDetJacConstraint as default
-    gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool use_Lagrangian = false);
+    gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool useDetJCons = false, bool use_Lagrangian = false);
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
     // Uses specified constraint from \a constraint
@@ -37,6 +37,9 @@ public:
     // Mappers for antenna problem,
     // Interfaces are glued, the bnd of patch 3 is tagged and eliminated.
     void setupMappers();
+
+    // Method to set the bounds on the design variables,
+    void setupDesignBounds();
 
     // Helper methods to calculate the gradient
     gsVector<> evaluateDerivativeTerm1(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;

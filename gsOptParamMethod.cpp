@@ -6,19 +6,24 @@ gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC, bool useT
     gsParamMethod(mpin), use_detJacConstraint(use_dJC)
 {
     m_dJC = new gsDetJacConstraint(mpin, useTensorStructureforDJC);
+    m_integrationBasis = new gsMultiBasis<>(*m_mp);
     setupOptParameters();
 };
 
 gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC):
         gsParamMethod(mpin, mappers), use_detJacConstraint(use_dJC)
 {
-    // m_dJC = new gsDetJacConstraint(mpin, useTensorStructureforDJC);
+    // if (use_detJacConstraint)
+    m_dJC = new gsDetJacConstraint(mpin, useTensorStructureforDJC);
+    m_integrationBasis = new gsMultiBasis<>(*m_mp);
+
     setupOptParameters();
 };
 
 gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, gsConstraint* constraint):
         gsParamMethod(mpin), m_dJC(constraint)
 {
+    m_integrationBasis = new gsMultiBasis<>(*m_mp);
     use_detJacConstraint = true;
     setupOptParameters();
 };
@@ -26,6 +31,7 @@ gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, gsConstraint* constrain
 gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, gsConstraint* constraint):
         gsParamMethod(mpin, mappers), m_dJC(constraint)
 {
+    m_integrationBasis = new gsMultiBasis<>(*m_mp);
     use_detJacConstraint = true;
     setupOptParameters();
 };
@@ -69,7 +75,7 @@ bool gsOptParamMethod::update()
     m_curDesign = getFree();
     solve();
 
-    return true; // FIXIT, make your own solve method that returns status
+    return m_status; // Return status from optimization, see gsOptProblem.h for details
 
 };
 
@@ -204,7 +210,7 @@ void gsOptParamMethod::refineBasedOnDetJ(index_t strategy)
 
     if (strategy == 0) // Mark support of basis function with negative coefficient
     {
-        m_dJC->markElements(elMarked,-1);
+        m_dJC->markElements(elMarked,0);
     } else { // Mark support of basis function with active coefficient (tol close to lower bound)
         real_t tol = 0.0001;
         m_dJC->markElements(elMarked,tol);
@@ -213,9 +219,27 @@ void gsOptParamMethod::refineBasedOnDetJ(index_t strategy)
     refineElements(elMarked); // Refine m_mp
 
     recreateMappers();      // Recreate m_mappers, see gsParamMethod.h for further information
-    m_dJC->setup();          // Reset the gsDetJacConstraint
+    // m_dJC->setup();          // Reset the gsDetJacConstraint
     setupOptParameters();   // Reset optimization parameters
+}
 
+void gsOptParamMethod::refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC)
+{
+    std::vector<bool> elMarked;
+
+    if (strategy == 0) // Mark support of basis function with negative coefficient
+    {
+        dJC->markElements(elMarked,0);
+    } else { // Mark support of basis function with active coefficient (tol close to lower bound)
+        real_t tol = 0.0001;
+        dJC->markElements(elMarked,tol);
+    }
+
+    refineElements(elMarked); // Refine m_mp
+
+    recreateMappers();      // Recreate m_mappers, see gsParamMethod.h for further information
+    // m_dJC->setup();          // Reset the gsDetJacConstraint
+    setupOptParameters();   // Reset optimization parameters
 }
 
 real_t gsOptParamMethod::evalLagrangian () const

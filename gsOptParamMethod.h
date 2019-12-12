@@ -120,12 +120,15 @@ public:
     //      1 - refine where detJ constraints are active
     // Remember that you have to update mappers afterwards
     void refineBasedOnDetJ(index_t strategy);
+    void refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC);
 
     void setLog(gsShapeOptLog* inLog, gsDetJacConstraint* d){ m_d = d; m_log = inLog; use_log = true; };
 
     // Method that is called between each optimization iteration.. Can be used to log
     //      or check stuff. If it returns false the optimization will be interrupted.
     bool intermediateCallback();
+
+    void setIntegrationBasis(gsMultiBasis<> &mesh) { m_integrationBasis = &mesh; };
 
 public:
     bool use_detJacConstraint = false;
@@ -140,6 +143,11 @@ public:
     // Control over no quadrature points. Set by setQuad(quA,quB) method.
     real_t m_quA = 4;
     real_t m_quB = 4;
+
+    // pointer to basis on which to perform integration
+    // It is derived from *m_mp as default, but can be set to some other basis
+    // This could be a locally refined mesh
+    gsMultiBasis<> *m_integrationBasis;
 };
 
 #endif //GSOPTPARAMMETHOD_H

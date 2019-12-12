@@ -1,14 +1,19 @@
 #include <gismo.h>
 #include "gsShapeOptProblem.h"
+#include "gsWinslow.h"
+#include "gsAffineOptParamMethod.h"
 
 // FIXIT: Implement functionality?
-gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog):
+gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, bool useDetJCons):
     m_mp(mp),
     m_mappers(mp->targetDim()),
-    m_log(slog)
+    m_log(slog),
+    m_useDetJCons(useDetJCons)
 {
     gsInfo << "\n Constructor 1 \n";
-    // m_dJC = new gsDetJacConstraint(mp);
+    if (m_useDetJCons)
+        m_dJC = new gsDetJacConstraint(mp);
+
 };
 
 gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, gsConstraint* constraint):
@@ -47,22 +52,33 @@ void gsShapeOptProblem::setupOptParameters()
     m_numDesignVars = n_tagged;
 
     // Default behaviour is without design bounds
-    m_desLowerBounds.setConstant(n_tagged, -1e9);
-    m_desUpperBounds.setConstant(n_tagged, 1e9);
+    setupDesignBounds();
+    // m_desLowerBounds.setConstant(n_tagged, -1e9);
+    // m_desUpperBounds.setConstant(n_tagged, 1e9);
 
+    setupConstraints();
+};
+
+void gsShapeOptProblem::setupConstraints()
+{
     // Default constraints are the gsDetJacConstraints
     // Call once to setup solver
-    // m_dJC->evalCon();
+    if (m_useDetJCons) {
+        m_dJC->evalCon();
 
-    m_numConstraints = 0;
-    m_numConJacNonZero = 0;
-    // m_numConstraints = m_dJC->numConstraints();
-    // m_conLowerBounds = m_dJC->getLowerBounds();
-    // m_conUpperBounds = m_dJC->getUpperBounds();
-    //
-    // //compute jac structure, default is without sparsity
-    // computeJacStructure();
-};
+        m_numConstraints = m_dJC->numConstraints();
+        m_conLowerBounds = m_dJC->getLowerBounds();
+        m_conUpperBounds = m_dJC->getUpperBounds();
+
+        //compute jac structure, default is without sparsity
+        computeJacStructure();
+    } else {
+        m_numConstraints = 0;
+        m_numConJacNonZero = 0;
+
+    }
+
+}
 
 void gsShapeOptProblem::computeJacStructure()
 {
@@ -93,7 +109,6 @@ real_t gsShapeOptProblem::evalObj( const gsAsConstVector<real_t> & u ) const
 
 void gsShapeOptProblem::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result ) const
 {
-    gsInfo << "gradObj_into\n";
     // gsInfo << " desVars: " << m_numDesignVars << "\n";
     // gsInfo << "gradObj, u = " << u << "\n" << std::flush;
     if (!updateDesignVariables(u)){
@@ -102,12 +117,14 @@ void gsShapeOptProblem::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVe
         gsInfo << "GRAD OBJ FAILED\n";
         gsInfo << "============================= \n";
     }
+    // gsInfo << "gradObj_into\n" << std::flush;
+    // gsInfo << "size of gradObj" << gradObj().rows() << "\n\n" << std::flush;
     result = gradObj();
 }
 
 void gsShapeOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const
 {
-    gsInfo << "evalCon_into\n" << std::flush;
+    // gsInfo << "evalCon_into\n" << std::flush;
     // gsInfo << "evalcon, u = " << u << "\n" << std::flush;
     if (!updateDesignVariables(u)){
         // GISMO_ERROR("UPDATE WENT WRONG IN EVALCONINTO\n");
@@ -124,7 +141,7 @@ void gsShapeOptProblem::evalCon_into( const gsAsConstVector<real_t> & u, gsAsVec
 
 void gsShapeOptProblem::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const
 {
-    gsInfo << "jacobCon_into\n";
+    // gsInfo << "jacobCon_into\n";
     if (!updateDesignVariables(u)){
         // GISMO_ERROR("UPDATE WENT WRONG IN JACOBCONINTO\n");
         gsInfo << "\n ============================= \n";
@@ -256,6 +273,7 @@ gsIpOptSparseMatrix gsShapeOptProblem::jacobDetJac() const
 
 void gsShapeOptProblem::runOptimization(index_t maxiter)
 {
+
     *m_log << "N.o. cps: " << n_cps << "\n";
     *m_log << "N.o. free cps: " << n_free<< "\n";
     *m_log << "N.o. tagged cps: " << n_tagged << "\n";
@@ -276,12 +294,63 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
         // Update parametrization
         *m_log << " Objective function before updating: " << evalObj() << "\n";
         *m_log << " Min d before updating: " << m_dJC->evalCon().minCoeff() << "\n\n";
-        m_paramMethod->updateAndReset();
+        gsInfo << " Min d before updating: " << m_dJC->evalCon().minCoeff() << "\n\n";
+
+        gsVector<> flat = m_paramMethod->getFlat();
+
+        gsMultiBasis<> intBas(*m_mp);
+        intBas.uniformRefine();
+        (dynamic_cast< gsAffineOptParamMethod* >(m_paramMethod))->setIntegrationBasis(intBas);
+
+
+        bool status = m_paramMethod->updateAndReset();
+        // bool status = true;
+
+
+            // m_paramMethod->refineBasedOnDetJ(0,dynamic_cast< gsDetJacConstraint*>(m_dJC));
+        m_dJC->setup();
+        real_t mind = m_dJC->evalCon().minCoeff();
+        *m_log << " Min d after updating: " << mind << "\n\n";
+        gsInfo << " Min d after updating: " << mind << "\n\n";
+
+        gsMultiPatch<> dJ = (dynamic_cast< gsDetJacConstraint* >(m_dJC))->getDetJSurface();
+        std::string namedj = "detJ";
+        m_log->plotInParaview(dJ,namedj,counter2);
+
+        m_dJC->refineUntilPositive(7,0);
+        // m_paramMethod->updateAndReset();
+        // gsMultiPatch<> dJ = (dynamic_cast< gsDetJacConstraint* >(m_dJC))->getDetJ();
+        // std::string namedj = "detJ";
+        // m_log->plotMultiPatchOnGeometry(*m_mp,dJ,namedj,ct+10*counter2);
+        mind = m_dJC->evalCon().minCoeff();
+        *m_log << " Min d after refinement: " << mind << "\n";
+        gsInfo << " Min d after refinement: " << mind << "\n";
+        // m_dJC->refineUntilPositive(1,mind*1.01);
+        // mind = m_dJC->evalCon().minCoeff();
+        // *m_log << " Min d after 2nd refinement: " << mind << "\n";
+        // gsInfo << " Min d after 2nd refinement: " << mind << "\n";
+
+        m_dJC->setEps(0.25*mind);
+
+        // m_dJC->refineUntilPositive(5);
+        setupOptParameters();
+        print();
+
+        // *m_log << "Refined m_dJC <5 times, number of constraints are now " << m_numConstraints << "\n";
+
+        if (not status){
+            // GISMO_ERROR("m_paramMethod failed");
+        }
+
         m_paramMethod->computeMap();
 
         // FIXIT: log whether param was succesful
         *m_log << " Objective function after updating: " << evalObj() << "\n";
-        *m_log << " Min d after updating: " << -m_dJC->evalCon().minCoeff() << "\n\n";
+        *m_log << " Min d after updating: " << m_dJC->evalCon().minCoeff() << "\n\n";
+
+        m_paramMethod->update(m_curDesign);
+        *m_log << " Min d after updating with affine: " << m_dJC->evalCon().minCoeff() << "\n\n";
+        gsInfo << " Min d after updating with affine: " << m_dJC->evalCon().minCoeff() << "\n\n";
 
         std::string nameAU = "cps_afterUpdate";
         m_log->saveVec(getFlat(),nameAU ,counter2);
@@ -382,15 +451,15 @@ void gsShapeOptProblem::runOptimization_aggregatedConstraints(index_t maxiter)
 bool gsShapeOptProblem::intermediateCallback() {
     // gsInfo << "obj: " << evalObj() << "\n";
     real_t obj = evalObj();
-    real_t winslow = m_paramMethod->evalObj();
-    real_t gradn = gradObj().norm();
-    real_t iters = (dynamic_cast< gsOptParamMethod *>(m_paramMethod))->iterations();
+    // real_t winslow = m_paramMethod->evalObj();
+    // real_t gradn = gradObj().norm();
+    // real_t iters = (dynamic_cast< gsOptParamMethod *>(m_paramMethod))->iterations();
 
-    gsVector<> v(4);
-    v << obj, winslow, gradn,iters;
+    gsVector<> v(1);
+    v << obj;
 
-    std::string name = "geo";
-    m_log->plotInParaview(*m_mp,name,counter1);
+    // std::string name = "geo";
+    // m_log->plotInParaview(*m_mp,name,counter1);
 
     if (m_log->saveCps()){
         std::string name = "cps";
@@ -400,5 +469,50 @@ bool gsShapeOptProblem::intermediateCallback() {
         if (m_useOwnCons)
             *m_log << m_dJC->evalSubCon().minCoeff() <<  " " << m_dJC->evalCon().minCoeff() << "\n\n";
     }
+
     return true;
+}
+
+void gsShapeOptProblem::print()
+{
+  gsInfo << "m_numDesignVars  = " <<  m_numDesignVars << "\n";
+  gsInfo << "m_numConstraints  = " <<  m_numConstraints << "\n";
+
+  gsInfo << "m_eps = " << m_dJC->m_eps << "\n";
+
+  gsInfo << "m_numConJacNonZero  = " <<  m_numConJacNonZero << "\n";
+  gsInfo << "m_conJacRows.size  = " <<  m_conJacRows.size() << "\n";
+
+  // for(std::vector<index_t>::iterator it = m_conJacRows.begin(); it != m_conJacCols.end(); ++it){
+  //     gsInfo << " " << *it;
+  // }
+
+  gsInfo << "\nm_conJacCols.size  = " <<  m_conJacCols.size() << "\n";
+
+  gsInfo << "m_conUpperBounds.size() = " << m_conUpperBounds.size() << "\n";
+  gsInfo << "m_conLowerBounds.size() = " << m_conLowerBounds.size() << "\n";
+
+  gsInfo << "\nm_conUpperBounds.max() = " << m_conUpperBounds.maxCoeff() << "\n";
+  gsInfo << "m_conUpperBounds.min() = " << m_conUpperBounds.minCoeff() << "\n";
+
+  gsInfo << "\nm_conLowerBounds.max() = " << m_conLowerBounds.maxCoeff() << "\n";
+  gsInfo << "m_conLowerBounds.min() = " << m_conLowerBounds.minCoeff() << "\n";
+
+  gsInfo << "m_desUpperBounds.size() = " << m_desUpperBounds.size() << "\n";
+  gsInfo << "m_desLowerBounds.size() = " << m_desLowerBounds.size() << "\n";
+
+  gsInfo << " \nMin d" << m_dJC->evalCon().minCoeff() << "\n";
+
+  gsInfo << "m_curDesign.size() = " << m_curDesign.size() << "\n";
+
+  gsMatrix<> disp(m_desUpperBounds.size(),3);
+  disp << m_desLowerBounds,m_curDesign,m_desUpperBounds;
+  // gsInfo << ".. design upper and lower bounds\n";
+  // gsInfo << disp << "\n";
+  //
+  gsMatrix<> disp2(m_conUpperBounds.size(),2);
+  disp2 << m_conLowerBounds,m_conUpperBounds;
+  // gsInfo << ".. constraint upper and lower bounds\n";
+  // gsInfo << disp2 << "\n";
+
 }

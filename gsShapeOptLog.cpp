@@ -92,7 +92,7 @@ void gsShapeOptLog::saveVec(gsVector<> const &vec, std::string &name, index_t i,
 
 void gsShapeOptLog::plotInParaview(gsMultiPatch<> &mp, std::string &name)
 {
-    gsWriteParaview(mp, BASE_FOLDER + m_output + name,10000,true);
+    gsWriteParaview(mp, BASE_FOLDER + m_output + name,10000,true,true);
 }
 
 void gsShapeOptLog::plotInParaview(gsMultiPatch<> &mp, std::string &name, index_t i)

@@ -11,6 +11,9 @@ gsMatrix<> gsStateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
 	gsExprAssembler<> A(1,1);
 	gsExprEvaluator<> ev(A);
 
+    A.options().setReal("quA",m_quA);
+    A.options().setInt("quB",m_quB);
+
 	geometryMap G = A.getMap(*mp);
 
 	gsFunctionExpr<> zero("0.0",2);
@@ -134,6 +137,9 @@ gsMatrix<> gsStateEquationAntenna::getDerivativeOfAuPart2(index_t realOrImag, gs
     typedef gsExprAssembler<>::variable    variable;
     typedef gsExprAssembler<>::space       space;
     typedef gsExprAssembler<>::solution    solution;
+
+    A.options().setReal("quA",m_quA);
+    A.options().setInt("quB",m_quB);
 
     geometryMap G = A.getMap(*mp);
 
@@ -390,6 +396,7 @@ void gsStateEquationAntenna::printMatSize(gsMatrix<> mat, std::string name){
 void gsStateEquationAntenna::plotSolution(gsMultiPatch<> &sol, std::string name){
 	gsExprAssembler<> A(1,1);
 	gsExprEvaluator<> ev(A);
+
   A.setIntegrationElements(dbasis);
 
   geometryMap G = A.getMap(*mp);
@@ -460,6 +467,9 @@ void gsStateEquationAntenna::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, 
 
 	gsExprAssembler<> A(1,1);
 	gsExprEvaluator<> ev(A);
+
+    A.options().setReal("quA",m_quA);
+    A.options().setInt("quB",m_quB);
 
     geometryMap G = A.getMap(*mp);
 
@@ -589,6 +599,7 @@ void gsStateEquationAntenna::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_ima
 		// Plot
 		gsExprAssembler<> A(1,1);
 		gsExprEvaluator<> ev(A);
+
 
 		geometryMap G = A.getMap(*mp);
 

@@ -17,6 +17,7 @@ Author(s): A. Limkilde, A. Mantzaflaris
 using namespace gismo;
 
 #include "gsIpOptSparseMatrix.h"
+#include "gsDetJacConstraint.h"
 
 class gsParamMethod{
 public:
@@ -122,6 +123,11 @@ public:
 
     virtual real_t evalObj() const { GISMO_NO_IMPLEMENTATION };
     // virtual int iterations() const { GISMO_NO_IMPLEMENTATION };
+
+    virtual void refineBasedOnDetJ(index_t strategy){ GISMO_NO_IMPLEMENTATION; };
+    virtual void refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC){ GISMO_NO_IMPLEMENTATION; };
+
+    virtual void setupOptParameters() { GISMO_NO_IMPLEMENTATION; };
 
 public:
     mutable gsMultiPatch<>* m_mp;

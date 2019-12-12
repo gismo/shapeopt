@@ -42,7 +42,7 @@ public:
     // FIXIT: NOT IMPLEMENTED YET
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
-    gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog);
+    gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, bool useDetJCons = false);
 
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
@@ -69,6 +69,7 @@ public:
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     // these are automaticly generated from mappers and gsDetJacConstraint m_dJC
     void setupOptParameters();
+    void setupConstraints();
 
     // Method overloaded from gsOptProblem<>
     // Uses gsDetJacConstraint as default constraint
@@ -152,6 +153,13 @@ public:
     // Accessors
     std::vector< gsDofMapper > mappers() { return m_mappers; };
 
+    // Method to set the bounds on the design variables,
+    // should be overloaded in child classes
+    virtual void setupDesignBounds() = 0;
+
+    // Method to print optimization parameters
+    void print();
+
 public:
     mutable gsMultiPatch<>* m_mp;
     mutable gsConstraint* m_dJC;
@@ -170,6 +178,7 @@ public:
     index_t counter2 = 0; // Counts the number of times the reference is updated.
 
     bool m_useOwnCons = false;
+    bool m_useDetJCons;
 };
 
 

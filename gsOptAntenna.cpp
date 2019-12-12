@@ -2,8 +2,8 @@
 #include "gsOptAntenna.h"
 
 // Implement
-gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool use_Lagrangian):
-    gsShapeOptProblem(mp,slog), m_stateEq(mp,numRefine)
+gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool useDetJCons, bool use_Lagrangian):
+    gsShapeOptProblem(mp,slog,useDetJCons), m_stateEq(mp,numRefine)
 {
     setupMappers();
 
@@ -34,11 +34,18 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
         opt_param->setQuad(quA,quB);
         m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
-    } else if (param ==5) {
+    } else if (param == 5) {
         m_paramMethod = new gsWinslowWithDeriv(m_mp,m_mappers,false,false,true,0);
         // m_paramMethod->setQuad(quA,quB); FIXIT: implement, maybe with dynamic cast
+    } else if (param == 6) {
+        gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,false,false,true,0);
+        // opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
+        opt_param->setQuad(7,7);
+        *m_log << "quA, quB = " << opt_param->m_quA << ", " << opt_param->m_quB << "\n";
+        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod->computeMap();
     } else {
-        GISMO_ERROR("Param value is not 0 to 5... wrong input..\n");
+        GISMO_ERROR("Param value is not 0 to 6... wrong input..\n");
     }
 
     // Copy some data from m_paramMethod for ease of use
@@ -47,36 +54,9 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
     n_tagged = m_paramMethod->n_tagged;
     n_cps = m_paramMethod->n_cps;
 
+    // Setup optimization setupOptParameters
+    // Calls the setupDesignBounds method
     setupOptParameters();
-
-    // Set design bounds
-    real_t lb_x = -d_bw*m_stateEq.pde_L_f/2;
-    real_t ub_x = d_bw*m_stateEq.pde_L_f/2;
-    real_t lb_y = d_g/2*m_stateEq.pde_L_f;
-    real_t ub_y = (d_g/2 + d_bh)*m_stateEq.pde_L_f;
-
-    m_desLowerBounds.setZero(n_tagged);
-    // X coordinates
-    gsVector<> xLowerBounds;
-    xLowerBounds.setConstant(m_mappers[0].taggedSize(),lb_x);
-    m_desLowerBounds.segment(0,m_mappers[0].taggedSize()) = xLowerBounds;
-
-    // Y coordinates
-    gsVector<> yLowerBounds;
-    yLowerBounds.setConstant(m_mappers[1].taggedSize(),lb_y);
-    m_desLowerBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yLowerBounds;
-
-    m_desUpperBounds.setZero(n_tagged);
-    // X coordinates
-    gsVector<> xUpperBounds;
-    xUpperBounds.setConstant(m_mappers[0].taggedSize(),ub_x);
-    m_desUpperBounds.segment(0,m_mappers[0].taggedSize()) = -xLowerBounds;
-
-    // Y coordinates
-    gsVector<> yUpperBounds;
-    yUpperBounds.setConstant(m_mappers[1].taggedSize(),ub_y);
-    m_desUpperBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yUpperBounds;
-
 
     // Set the weight used in the objective function
     delta = *(new gsFunctionExpr<>("exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
@@ -102,44 +82,21 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
         m_paramMethod = new gsSpringMethod(m_mp,m_mappers);
         m_paramMethod->computeMap();
     } else if (param == 1) {
+    // Setup optimization setupOptParameters
+    // Calls the setupDesignBounds method
         gsModLiao *opt_param = new gsModLiao(m_mp,m_mappers,constraint);
         opt_param->setQuad(quA,quB);
         m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
     } else {
+    // Setup optimization setupOptParameters
+    // Calls the setupDesignBounds method
         GISMO_ERROR("Param value is not 0 or 1.. wrong input..\n");
     }
 
+    // Setup optimization setupOptParameters
+    // Calls the setupDesignBounds method
     setupOptParameters();
-
-    // Set design bounds
-    real_t lb_x = -d_bw*m_stateEq.pde_L_f/2;
-    real_t ub_x = d_bw*m_stateEq.pde_L_f/2;
-    real_t lb_y = d_g/2*m_stateEq.pde_L_f;
-    real_t ub_y = (d_g/2 + d_bh)*m_stateEq.pde_L_f;
-
-    m_desLowerBounds.setZero(n_tagged);
-    // X coordinates
-    gsVector<> xLowerBounds;
-    xLowerBounds.setConstant(m_mappers[0].taggedSize(),lb_x);
-    m_desLowerBounds.segment(0,m_mappers[0].taggedSize()) = xLowerBounds;
-
-    // Y coordinates
-    gsVector<> yLowerBounds;
-    yLowerBounds.setConstant(m_mappers[1].taggedSize(),lb_y);
-    m_desLowerBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yLowerBounds;
-
-    m_desUpperBounds.setZero(n_tagged);
-    // X coordinates
-    gsVector<> xUpperBounds;
-    xUpperBounds.setConstant(m_mappers[0].taggedSize(),ub_x);
-    m_desUpperBounds.segment(0,m_mappers[0].taggedSize()) = -xLowerBounds;
-
-    // Y coordinates
-    gsVector<> yUpperBounds;
-    yUpperBounds.setConstant(m_mappers[1].taggedSize(),ub_y);
-    m_desUpperBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yUpperBounds;
-
 
     // Set the weight used in the objective function
     delta = *(new gsFunctionExpr<>("exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
@@ -162,10 +119,8 @@ real_t gsOptAntenna::evalObj() const {
     gsExprAssembler<> A(1,1);
     gsExprEvaluator<> ev(A);
 
-    gsOptionList opts = A.options();
-    opts.setInt("quB",20); // FIXIT lower no points
-    opts.setReal("quA",20); // FIXIT lower no points
-    A.setOptions(opts);
+    ev.options().setInt("quB",m_stateEq.quA()); // FIXIT lower no points
+    ev.options().setReal("quA",m_stateEq.quB()); // FIXIT lower no points
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -209,6 +164,7 @@ gsVector<> gsOptAntenna::gradAll() const{
     m_stateEq.solve(u_real,u_imag);
 
     gsMatrix<> mat = m_stateEq.getDerivativeWithoutSolving(u_real,u_imag);
+
     gsVector<> dJdu = getObjDerivativeDu(u_real,u_imag);
 
     gsVector<> adjoint = m_stateEq.solveAdjoint(dJdu);
@@ -239,11 +195,8 @@ gsVector<> gsOptAntenna::evaluateDerivativeTerm1(gsMultiPatch<> &u_real, gsMulti
     A.setIntegrationElements(m_stateEq.dbasis);
     gsExprEvaluator<> ev(A);
 
-    // opts.setReal("quA",2);
-    // gsOptionList opts = A.options();
-    // opts.setInt("quB",1);
-    // gsInfo << opts << "\n";
-    // A.setOptions(opts);
+    A.options().setReal("quA",m_stateEq.quA());
+    A.options().setInt("quB",m_stateEq.quB());
 
     //gsInfo<<"Active options:\n"<< A.options() <<"\n";
     typedef gsExprAssembler<>::geometryMap geometryMap;
@@ -340,6 +293,8 @@ gsVector<> gsOptAntenna::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch
     A.setIntegrationElements(m_stateEq.dbasis);
     gsExprEvaluator<> ev(A);
 
+    A.options().setReal("quA",m_stateEq.quA());
+    A.options().setInt("quB",m_stateEq.quB());
 
     // opts.setReal("quA",2);
     // gsOptionList opts = A.options();
@@ -439,4 +394,36 @@ void gsOptAntenna::setupMappers()
     for(index_t i = 0; i < m_mp->targetDim(); i++){
         n_free += m_mappers[i].freeSize();
     }
+}
+
+void gsOptAntenna::setupDesignBounds()
+{
+
+    // Set design bounds
+    real_t lb_x = -d_bw*m_stateEq.pde_L_f/2;
+    real_t ub_x = d_bw*m_stateEq.pde_L_f/2;
+    real_t lb_y = d_g/2*m_stateEq.pde_L_f;
+    real_t ub_y = (d_g/2 + d_bh)*m_stateEq.pde_L_f;
+
+    m_desLowerBounds.setZero(n_tagged);
+    // X coordinates
+    gsVector<> xLowerBounds;
+    xLowerBounds.setConstant(m_mappers[0].taggedSize(),lb_x);
+    m_desLowerBounds.segment(0,m_mappers[0].taggedSize()) = xLowerBounds;
+
+    // Y coordinates
+    gsVector<> yLowerBounds;
+    yLowerBounds.setConstant(m_mappers[1].taggedSize(),lb_y);
+    m_desLowerBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yLowerBounds;
+
+    m_desUpperBounds.setZero(n_tagged);
+    // X coordinates
+    gsVector<> xUpperBounds;
+    xUpperBounds.setConstant(m_mappers[0].taggedSize(),ub_x);
+    m_desUpperBounds.segment(0,m_mappers[0].taggedSize()) = -xLowerBounds;
+
+    // Y coordinates
+    gsVector<> yUpperBounds;
+    yUpperBounds.setConstant(m_mappers[1].taggedSize(),ub_y);
+    m_desUpperBounds.segment(m_mappers[0].taggedSize(),m_mappers[1].taggedSize()) = yUpperBounds;
 }

@@ -221,9 +221,10 @@ gsMultiPatch<> gsDetJacConstraint::getDetJ()
     else
     {
         A.assemble(u*u.tr());
-        gsSparseSolver<>::CGDiagonal solver;
+        gsSparseSolver<>::LU solver;
         solver.compute(A.matrix());
         solVector = solver.solve(A.rhs());
+        // solVector = evalCon();
     }
 
     // for (index_t i = 0; i < solVector.size(); i++){
@@ -251,6 +252,9 @@ void gsDetJacConstraint::plotDetJ(std::string name)
 
     gsExprAssembler<> A(1,1);
 
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
+
     // Elements used for numerical integration
     A.setIntegrationElements(m_detJacBasis);
     gsExprEvaluator<> ev(A);
@@ -264,9 +268,148 @@ void gsDetJacConstraint::plotDetJ(std::string name)
     gsInfo<<"Plotting " << name << " in Paraview...\n";
     // gsWriteParaview(dJ,name,100000,true);
     ev.options().setSwitch("plot.elements", true);
-    ev.options().setInt("plot.npts", 5000000);
+    ev.options().setInt("plot.npts", 50000);
     ev.writeParaview( out   , G, name);
 
+}
+
+gsMultiPatch<> gsDetJacConstraint::getDetJSurface(bool zero)
+{
+    GISMO_ASSERT(m_mp->targetDim() == 2, "getDetJSurface only works for 2D");
+
+    // gsMultiPatch in which to store the surface
+    gsMultiPatch<> detJSurface;
+
+    gsVector<> d = evalCon();
+    index_t start = 0;
+
+    real_t max = 1;
+    for (index_t i = 0; i < d.size(); i++)
+    {
+        if (d[i] > max)
+            d[i] = max;
+
+        if (zero)
+            d[i] = 0;
+    }
+
+    for (index_t p = 0; p < m_mp->nBoxes(); p++)
+    {
+        gsMultiPatch<> singlePatch(m_mp->patch(p));
+        gsMultiBasis<> multibas(m_detJacBasis.basis(p));
+
+        // Prepare coefficient matrix
+        gsMatrix<> greville = m_detJacBasis.basis(p).anchors();
+        gsMatrix<> coefs;
+        coefs.setOnes(greville.cols(), 3);
+
+        index_t len   = m_detJacBasis.size(p);
+        coefs.col(2) = d.segment(start,len);
+        start += len;
+
+        // Project G into m_detJacBasis's space
+        typedef gsExprAssembler<>::geometryMap geometryMap;
+        typedef gsExprAssembler<>::variable    variable;
+        typedef gsExprAssembler<>::space       space;
+
+        gsExprAssembler<> A(1,1);
+
+        // Elements used for numerical integration
+        A.setIntegrationElements(multibas);
+        gsExprEvaluator<> ev(A);
+
+        A.options().setInt("quB",m_quB);
+        A.options().setReal("quA",m_quA);
+
+        space u = A.getSpace(m_detJacBasis.basis(p));
+
+        gsMatrix<> solVector;
+
+        A.initSystem();
+
+        for (index_t dim = 0; dim < m_mp->targetDim(); dim++)
+        {
+            gsMultiPatch<> x = singlePatch.coord(dim);
+            variable xvar = ev.getVariable(x);
+
+            A.initSystem();
+            A.assemble(u*xvar);
+
+            gsMatrix<> rhs = A.rhs();
+
+            if (m_useTPSolver){
+                m_solversTensor[p]->apply(rhs, solVector);
+            } else {
+                solVector = m_solversMassMatrix[p].solve(rhs);
+            }
+
+            coefs.col(dim) = solVector;
+        }
+
+        // gsGeometry<>::uPtr gg = gsNurbsCreator<>::BSplineSquare();
+        // gsHBSplineBasis<2> hb(gg->basis());
+        // gsMatrix<> mm(hb.size(),1); mm.setZero();
+        // gsHBSpline<2> geom(hb,mm);
+
+	    gsTHBSpline<2> geom(m_detJacBasis.basis(p), coefs);
+        detJSurface.addPatch(geom);
+
+    }
+
+    return detJSurface;
+
+
+
+}
+
+real_t gsDetJacConstraint::refineDetJSurfaceUntilPositive(index_t nRefSteps, gsMultiPatch<> & dJ)
+{
+
+    // Does not work as long as solver is Tensor product
+    GISMO_ASSERT(!m_useTPSolver,"Cannot use adaptive refinement when Tensor Product solver is enabled.\n");
+
+    // Create gsMultiBasis to hold the adaptive refinable basis, and fill it with H-spline bases
+
+
+    // Create copy of m_detJacBasis.
+    gsMultiBasis<> basis(m_detJacBasis);
+
+    // Clear m_detJacBasis to delete all bases inside,
+    //      to make room for the gsHBSplineBasis version that allow adaptivity
+    m_detJacBasis.clear();
+    gsInfo << "Size of m_detJacBasis : " << m_detJacBasis.size() << "\n";
+
+    // Fill it with H-spline bases made from those in basis
+    for (index_t pn = 0; pn < basis.nPieces(); pn ++){
+        gsTensorBSplineBasis<2,real_t> bas = dynamic_cast<gsTensorBSplineBasis<2,real_t>&>(basis.basis(pn));
+        gsTHBSplineBasis<2> HBbas(bas);
+        m_detJacBasis.addBasis(HBbas.clone());
+    }
+
+    real_t minD;
+
+    for (index_t i = 0; i < nRefSteps; i++)
+    {
+        // Reset the class with the new basis
+        reset();
+
+        minD = evalCon().minCoeff();
+
+        // If all coefficients, i.e. the minimal one, is positive stop the loop
+        // if (minD > 0)
+        //     return minD;
+
+        // Mark elements where a basis function with negative coefficient has support
+        std::vector<bool> elMarked;
+        markElements(elMarked,0);
+        refineElements(elMarked,m_detJacBasis);
+        refineElements(elMarked,dJ);
+
+    }
+
+    testSplineDetJ();
+    setup();
+    return minD;
 }
 
 gsSparseMatrix<> gsDetJacConstraint::getMassMatrix(index_t i)
@@ -342,56 +485,12 @@ void gsDetJacConstraint::plotActiveConstraints(std::vector<bool> & elMarked, std
 
 }
 
-void gsDetJacConstraint::markElements(std::vector<bool> & elMarked, real_t tol1 , real_t tol2 )
-{
-    // Create gsMultiPatch to save sum of basis functions which supporting elements should be marked
-    gsMultiPatch<> basMarking;
-    for(int p = 0; p < m_mp->nBoxes(); p++)
-    {
-        gsMatrix<> coefs;
-        coefs.setZero(m_detJacBasis.size(p),1);
-        basMarking.addPatch( m_detJacBasis.basis(p).makeGeometry( coefs ) );
-    }
-
-    gsVector<> d = evalCon();
-
-    // Loop through d-vector and mark
-    index_t start = 0;
-    for(int p = 0; p < m_mp->nBoxes(); p++){
-        // Save result in result vector
-        index_t len = m_detJacBasis.size(p);
-        for(int i = 0; i < len; i++){
-            if (d[start + i] - m_eps < tol1 ){
-                gsInfo << "d[" << start + i << "] = " << d[start + i] << " and m_eps = " << m_eps << " and tol1 = " << tol1 << "\n";
-                basMarking.patch(p).coef(i,0) = 1;
-            }
-        }
-        start += m_detJacBasis.size(p);
-    }
-
-    // Integrate element wise to get support marked
-    gsExprEvaluator<> ev;
-    ev.setIntegrationElements(m_detJacBasis);
-    gsExprEvaluator<>::variable markfun = ev.getVariable(basMarking);
-    // Get the element-wise norms.
-    ev.integralElWise(markfun);
-    const std::vector<real_t> & eltErrs  = ev.elementwise();
-
-    // Mark with true false
-    elMarked.resize( eltErrs.size() );
-    // Now just check for each element, whether the local error
-    // is above the computed threshold or not, and mark accordingly.
-
-    typename std::vector<real_t>::const_iterator err = eltErrs.begin();
-    for(std::vector<bool>::iterator i = elMarked.begin(); i!=  elMarked.end(); ++i, ++err)
-        *i = ( *err > tol2 );
-
-}
-
 void gsDetJacConstraint::setup()
 {
     gsMultiBasis<> bas(*m_mp);
     m_detJacBasis = bas;
+
+    m_Hspline_flag = false;
 
     // Prepare basis for detJac
     // by setting the degree to (2p-1) for 2D, and (3p-1) for 3D
@@ -411,7 +510,8 @@ void gsDetJacConstraint::reset(){
     }
 
     m_size = m_detJacBasis.size();
-    gsInfo << "m_size : " << m_size << "\n";
+    // gsInfo << "m_size : " << m_size << "\n";
+    // gsInfo << "m_eps  : " << m_eps << "\n";
 
     // Count the total number of controlpoints
     n_controlpoints = 0;
@@ -422,7 +522,7 @@ void gsDetJacConstraint::reset(){
         // gsInfo << "Patch " << i << " has " << mp->patch(i).coefsSize() << " cps... \n";
         // gsInfo << "Patch " << i << " gets " << m_detJacBasis.size(i) << " constraints... \n";
     }
-    gsInfo << "n_constraints = " << n_constraints << "\n";
+    // gsInfo << "n_constraints = " << n_constraints << "\n";
 
     // FIXIT: Clean this up
     // Save mapper
@@ -548,6 +648,63 @@ real_t gsDetJacConstraint::provePositivityOfDetJ_TP(index_t & neededRefSteps, in
     return minD;
 }
 
+real_t gsDetJacConstraint::refineUntilPositive(index_t maxRefSteps, real_t tol)
+{
+
+    // Does not work as long as solver is Tensor product
+    GISMO_ASSERT(!m_useTPSolver,"Cannot use adaptive refinement when Tensor Product solver is enabled.\n");
+
+    // Create gsMultiBasis to hold the adaptive refinable basis, and fill it with H-spline bases
+
+    if (not m_Hspline_flag)
+    {
+        // Create copy of m_detJacBasis.
+        gsMultiBasis<> basis(m_detJacBasis);
+
+        // Clear m_detJacBasis to delete all bases inside,
+        //      to make room for the gsHBSplineBasis version that allow adaptivity
+        m_detJacBasis.clear();
+        // gsInfo << "Size of m_detJacBasis : " << m_detJacBasis.size() << "\n";
+
+        // Fill it with H-spline bases made from those in basis
+        for (index_t pn = 0; pn < basis.nPieces(); pn ++){
+            gsTensorBSplineBasis<2,real_t> bas = dynamic_cast<gsTensorBSplineBasis<2,real_t>&>(basis.basis(pn));
+            gsTHBSplineBasis<2> HBbas(bas);
+            m_detJacBasis.addBasis(HBbas.clone());
+        }
+
+        m_Hspline_flag = true;
+    }
+
+
+    // gsInfo << "Size of m_detJacBasis : " << m_detJacBasis.size() << "\n";
+
+    real_t minD;
+
+    for (index_t i = 0; i < maxRefSteps; i++)
+    {
+        // Reset the class with the new basis
+        reset();
+
+        minD = evalCon().minCoeff();
+
+        // If all coefficients, i.e. the minimal one, is positive stop the loop
+        if (minD > tol)
+            return minD;
+
+        // Mark elements where a basis function with negative coefficient has support
+        std::vector<bool> elMarked;
+        markElements(elMarked,tol);
+        refineElements(elMarked,m_detJacBasis);
+
+    }
+
+    reset();
+    minD = evalCon().minCoeff();
+    gsInfo << "DetJ could not be proven positive in " << maxRefSteps << "iterations. Smallest coef was still " << minD << "\n";
+    return minD;
+}
+
 // FIXIT: DEBUG
 real_t gsDetJacConstraint::provePositivityOfDetJ(index_t maxRefSteps)
 {
@@ -558,37 +715,10 @@ real_t gsDetJacConstraint::provePositivityOfDetJ(index_t maxRefSteps)
     // Save old basis
     gsMultiBasis<> tmpBasis(m_detJacBasis);
 
-    // Create gsMultiBasis to hold the adaptive refinable basis, and fill it with H-spline bases
-    gsMultiBasis<> basis;
-    for (index_t pn = 0; pn < m_detJacBasis.nPieces(); pn ++){
-        gsTensorBSplineBasis<2,real_t> bas = dynamic_cast<gsTensorBSplineBasis<2,real_t>&>(tmpBasis.basis(pn));
-        gsHBSplineBasis<2> HBbas(bas);
-        basis.addBasis(HBbas.clone());
-    }
+    // Refine until positive detJ coefs
+    real_t minD = refineUntilPositive(maxRefSteps);
 
-    // Overwrite current one
-    m_detJacBasis = basis;
-
-    real_t minD;
-
-    for (index_t i = 0; i < maxRefSteps; i++)
-    {
-        // Setup the class with the new basis
-        setup();
-
-        minD = evalCon().minCoeff();
-
-        // Mark elements where a basis function with negative coefficient has support
-        std::vector<bool> elMarked;
-        markElements(elMarked,0);
-        refineElements(elMarked,m_detJacBasis);
-
-        // If all coefficients, i.e. the minimal one, is positive stop the loop
-        if (minD > 0)
-            return minD;
-    }
-
-    gsInfo << "DetJ could not be proven positive in " << maxRefSteps << "iterations. Smallest coef was still " << minD << "\n";
+    // Go back to original basis
     m_detJacBasis = tmpBasis;
     return minD;
 }
@@ -597,6 +727,57 @@ real_t gsDetJacConstraint::provePositivityOfDetJ(index_t maxRefSteps)
 void gsDetJacConstraint::refineElements(std::vector<bool> & elMarked, gsMultiBasis<> & basis)
 {
 
+    const int dim = basis.dim();
+
+    // numMarked: Number of marked cells on current patch, also currently marked cell
+    // poffset  : offset index for the first element on a patch
+    // globalCount: counter for the current global element index
+    int numMarked, poffset = 0, globalCount = 0;
+
+    // refBoxes: contains marked boxes on a given patch
+    gsMatrix<> refBoxes;
+
+
+    for (unsigned pn=0; pn < basis.nBases(); ++pn )// for all patches
+    {
+        // Get number of elements to be refined on this patch
+        const int numEl = basis[pn].numElements();
+        numMarked = std::count_if(elMarked.begin() + poffset,
+                                  elMarked.begin() + poffset + numEl,
+                                  std::bind2nd(std::equal_to<bool>(), true) );
+        gsInfo << "Refine " << numMarked << "elements\n" << std::flush;
+        poffset += numEl;
+        refBoxes.resize(dim, 2*numMarked);
+        //gsDebugVar(numMarked);
+        numMarked = 0;// counting current patch element to be refined
+
+        // for all elements in patch pn
+        typename gsBasis<>::domainIter domIt = basis.basis(pn).makeDomainIterator();
+        for (; domIt->good(); domIt->next())
+        {
+            if( elMarked[ globalCount++ ] ) // refine this element ?
+            {
+                // Construct degenerate box by setting both
+                // corners equal to the center
+                refBoxes.col(2*numMarked  ) =
+                        refBoxes.col(2*numMarked+1) = domIt->centerPoint();
+
+                // Advance marked cells counter
+                numMarked++;
+            }
+        }
+        // Refine all of the found refBoxes in this patch
+        (dynamic_cast< gsTHBSplineBasis<2> &>(basis.basis(pn))).refine( refBoxes );
+        // Check if basis.basis(pn) is refined..
+
+    }
+    // gsInfo << "Size of basis = " << basis.size() << "\n";
+}
+
+// FIXIT: Implement refExtension functionally.. ask Angelos
+void gsDetJacConstraint::refineElements(const std::vector<bool> & elMarked, gsMultiPatch<> & mp)
+{
+    gsMultiBasis<> basis(mp);
     const int dim = basis.dim();
 
     // numMarked: Number of marked cells on current patch, also currently marked cell
@@ -635,7 +816,137 @@ void gsDetJacConstraint::refineElements(std::vector<bool> & elMarked, gsMultiBas
             }
         }
         // Refine all of the found refBoxes in this patch
-        basis.basis(pn).refine( refBoxes );
+        // FIXIT: make dimension independet.. Find way to replace 2 with dim.
+        std::vector<gsSortedVector<unsigned> > OX = dynamic_cast<gsHTensorBasis<2,real_t>&> (mp.patch(pn).basis()).getXmatrix();
+        mp.patch(pn).basis().refine( refBoxes );
+        gsSparseMatrix<> transf;
+        dynamic_cast<gsHTensorBasis<2,real_t>&> (mp.patch(pn).basis()).transfer(OX, transf);
+        //gsDebug<<"tranf orig:\n"<<transf<<std::endl;
+        mp.patch(pn).coefs() = transf*mp.patch(pn).coefs();
 
     }
+
+    mp.repairInterfaces();
+}
+
+void gsDetJacConstraint::markElements(std::vector<bool> & elMarked, gsVector<> lambda, real_t tol)
+{
+    // Create gsMultiPatch to save sum of basis functions which supporting elements should be marked
+    gsMultiPatch<> basMarking;
+    for(int p = 0; p < m_mp->nBoxes(); p++)
+    {
+        gsMatrix<> coefs;
+        coefs.setZero(m_detJacBasis.size(p),1);
+        basMarking.addPatch( m_detJacBasis.basis(p).makeGeometry( coefs ) );
+    }
+
+    // Loop through lambda and mark
+    index_t start = 0;
+    for(int p = 0; p < m_mp->nBoxes(); p++){
+        // Save result in result vector
+        index_t len = m_detJacBasis.size(p);
+        for(int i = 0; i < len; i++){
+            if (lambda[start + i] > tol ){
+                gsInfo << "lambda[" << start + i << "] = " << lambda[start + i] << " and m_eps = " << m_eps << " and tol = " << tol << "\n" << std::flush;
+                basMarking.patch(p).coef(i,0) = 1;
+            }
+        }
+        start += m_detJacBasis.size(p);
+    }
+
+    // Integrate element wise to get support marked
+    gsExprEvaluator<> ev;
+    ev.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<>::variable markfun = ev.getVariable(basMarking);
+    // Get the element-wise norms.
+    ev.integralElWise(markfun);
+    const std::vector<real_t> & eltErrs  = ev.elementwise();
+
+    // Mark with true false
+    elMarked.resize( eltErrs.size() );
+    // Now just check for each element, whether the local error
+    // is above the computed threshold or not, and mark accordingly.
+
+    typename std::vector<real_t>::const_iterator err = eltErrs.begin();
+    for(std::vector<bool>::iterator i = elMarked.begin(); i!=  elMarked.end(); ++i, ++err)
+        *i = ( *err > 0 );
+}
+
+void gsDetJacConstraint::markElements(std::vector<bool> & elMarked, real_t tol1 , real_t tol2 )
+{
+    // Create gsMultiPatch to save sum of basis functions which supporting elements should be marked
+    gsMultiPatch<> basMarking;
+    for(int p = 0; p < m_mp->nBoxes(); p++)
+    {
+        gsMatrix<> coefs;
+        coefs.setZero(m_detJacBasis.size(p),1);
+        basMarking.addPatch( m_detJacBasis.basis(p).makeGeometry( coefs ) );
+    }
+
+    gsVector<> d = evalCon();
+
+    // Loop through d-vector and mark
+    index_t start = 0;
+    for(int p = 0; p < m_mp->nBoxes(); p++){
+        // Save result in result vector
+        index_t len = m_detJacBasis.size(p);
+        for(int i = 0; i < len; i++){
+            if (d[start + i] < tol1 ){
+                gsInfo << "d[" << start + i << "] = " << d[start + i] << " and m_eps = " << m_eps << " and tol1 = " << tol1 << "\n";
+                basMarking.patch(p).coef(i,0) = 1;
+            }
+        }
+        start += len;
+    }
+
+    // Integrate element wise to get support marked
+    gsExprEvaluator<> ev;
+    ev.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<>::variable markfun = ev.getVariable(basMarking);
+    // Get the element-wise norms.
+    ev.integralElWise(markfun);
+    const std::vector<real_t> & eltErrs  = ev.elementwise();
+
+    // Mark with true false
+    elMarked.resize( eltErrs.size() );
+    // Now just check for each element, whether the local error
+    // is above the computed threshold or not, and mark accordingly.
+
+    typename std::vector<real_t>::const_iterator err = eltErrs.begin();
+    for(std::vector<bool>::iterator i = elMarked.begin(); i!=  elMarked.end(); ++i, ++err)
+        *i = ( *err > tol2 );
+
+}
+
+void gsDetJacConstraint::testSplineDetJ()
+{
+    gsMultiPatch<> dJ = getDetJ();
+    testSplineDetJ(dJ);
+}
+
+void gsDetJacConstraint::testSplineDetJ(gsMultiPatch<> & dJ)
+{
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    gsExprAssembler<> A(1,1);
+
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
+
+    // Elements used for numerical integration
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
+
+    space u = A.getSpace(m_detJacBasis);
+
+    geometryMap G = A.getMap(*m_mp);
+
+    variable dj = ev.getVariable(dJ);
+
+    real_t diff = ev.integral(dj.val() - jac(G).det());
+    gsInfo << "diff = " << diff << "\n";
 }

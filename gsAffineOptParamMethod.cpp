@@ -36,6 +36,13 @@ void gsAffineOptParamMethod::reset(){
     m_solver.compute(m_KKTsystem);
 }
 
+bool gsAffineOptParamMethod::updateAndReset()
+{
+    bool status = m_optParamMethod->update();
+    reset();
+    return status;
+}
+
 gsVector<> gsAffineOptParamMethod::getUpdate(gsVector<> x){
     // Setup rhs
     m_rhs = -m_grad - m_hessTagged*(x-m_refTagged);
