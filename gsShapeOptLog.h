@@ -66,6 +66,15 @@ public:
     // name concatenated with two indicies
     void plotMultiPatchOnGeometry(gsMultiPatch<> &mp,  gsMultiPatch<> &fun, std::string &name, index_t i);
 
+    // Write gsMultiBasis (ie. its mesh) to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    void plotMultiBasisOnGeometry(gsMultiPatch<> &mp, gsMultiBasis<> &bas, std::string &name);
+
+    // Write gsMultiBasis (ie. its mesh) to paraview, concatenated with another multipatch (that defines the geometry)
+    // mp denotes geometry, fun denotes the multipatch to plot
+    // name concatenated with a index
+    void plotMultiBasisOnGeometry(gsMultiPatch<> &mp,  gsMultiBasis<> &bas, std::string &name, index_t i);
+
     // Write the sign of a gsMultiPatch to paraview, concatenated with another multipatch (that defines the geometry)
     // mp denotes geometry, fun denotes the multipatch to plot
     void plotSignMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> fun, std::string &name);

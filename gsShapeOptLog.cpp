@@ -132,8 +132,9 @@ void gsShapeOptLog::plotMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> 
     variable out = A.getCoeff(fun);
 
     gsInfo<<"Plotting " << BASE_FOLDER + m_output + name << " in Paraview...\n";
-    ev.writeParaview( out   , G, BASE_FOLDER + m_output + name);
     ev.options().setSwitch("plot.elements", true);
+    ev.options().setInt("plot.npts", 10000);
+    ev.writeParaview( out   , G, BASE_FOLDER + m_output + name);
 
 
 }
@@ -144,6 +145,19 @@ void gsShapeOptLog::plotMultiPatchOnGeometry(gsMultiPatch<> &mp,  gsMultiPatch<>
     stream << name << "_" << i;
     std::string str = stream.str();
     plotMultiPatchOnGeometry(mp,fun,str);
+}
+
+void gsShapeOptLog::plotMultiBasisOnGeometry(gsMultiPatch<> &mp, gsMultiBasis<> &bas, std::string &name)
+{
+    gsWriteParaview(bas,mp,BASE_FOLDER + m_output + name,3000);
+}
+
+void gsShapeOptLog::plotMultiBasisOnGeometry(gsMultiPatch<> &mp,  gsMultiBasis<> &bas, std::string &name, index_t i)
+{
+    std::stringstream stream;
+    stream << name << "_" << i;
+    std::string str = stream.str();
+    plotMultiBasisOnGeometry(mp,bas,str);
 }
 
 void gsShapeOptLog::plotSignMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> fun, std::string &name)

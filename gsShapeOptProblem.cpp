@@ -299,22 +299,21 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
         gsVector<> flat = m_paramMethod->getFlat();
 
         gsMultiBasis<> intBas(*m_mp);
-        intBas.uniformRefine();
+        // intBas.uniformRefine();
         (dynamic_cast< gsAffineOptParamMethod* >(m_paramMethod))->setIntegrationBasis(intBas);
 
 
         bool status = m_paramMethod->updateAndReset();
         // bool status = true;
 
-
-            // m_paramMethod->refineBasedOnDetJ(0,dynamic_cast< gsDetJacConstraint*>(m_dJC));
+        // m_paramMethod->refineBasedOnDetJ(0,dynamic_cast< gsDetJacConstraint*>(m_dJC));
         m_dJC->setup();
         real_t mind = m_dJC->evalCon().minCoeff();
         *m_log << " Min d after updating: " << mind << "\n\n";
         gsInfo << " Min d after updating: " << mind << "\n\n";
 
         gsMultiPatch<> dJ = (dynamic_cast< gsDetJacConstraint* >(m_dJC))->getDetJSurface();
-        std::string namedj = "detJ";
+        std::string namedj = "detJSurf";
         m_log->plotInParaview(dJ,namedj,counter2);
 
         m_dJC->refineUntilPositive(7,0);
@@ -331,6 +330,10 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
         // gsInfo << " Min d after 2nd refinement: " << mind << "\n";
 
         m_dJC->setEps(0.25*mind);
+
+        gsMultiBasis<> bas = (dynamic_cast< gsDetJacConstraint* >(m_dJC))->m_detJacBasis;
+        namedj = "detJBasis";
+        m_log->plotMultiBasisOnGeometry(*m_mp,bas,namedj,counter2);
 
         // m_dJC->refineUntilPositive(5);
         setupOptParameters();

@@ -100,6 +100,7 @@ public:
     void testSplineDetJ(gsMultiPatch<> & dJ);
 
     gsMultiPatch<> getDetJSurface(bool zero = false);
+    gsMultiPatch<> getDetJFromCoef();
 
 
     // Method to setup m_detJacBasis and m_space_mapper

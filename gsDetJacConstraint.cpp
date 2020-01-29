@@ -273,6 +273,41 @@ void gsDetJacConstraint::plotDetJ(std::string name)
 
 }
 
+gsMultiPatch<> gsDetJacConstraint::getDetJFromCoef()
+{
+    GISMO_ASSERT(m_mp->targetDim() == 2, "getDetJSurface only works for 2D");
+
+    // gsMultiPatch in which to store the surface
+    gsMultiPatch<> detJ;
+
+    gsVector<> d = evalCon();
+    index_t start = 0;
+
+    for (index_t p = 0; p < m_mp->nBoxes(); p++)
+    {
+        gsMultiPatch<> singlePatch(m_mp->patch(p));
+        gsMultiBasis<> multibas(m_detJacBasis.basis(p));
+
+        // Prepare coefficient matrix
+        gsMatrix<> greville = m_detJacBasis.basis(p).anchors();
+        gsMatrix<> coefs;
+        coefs.setOnes(greville.cols(), 1);
+
+        index_t len   = m_detJacBasis.size(p);
+        coefs.col(0) = d.segment(start,len);
+        start += len;
+
+	    gsTHBSpline<2> geom(m_detJacBasis.basis(p), coefs);
+        detJ.addPatch(geom);
+
+    }
+
+    return detJ;
+
+
+
+}
+
 gsMultiPatch<> gsDetJacConstraint::getDetJSurface(bool zero)
 {
     GISMO_ASSERT(m_mp->targetDim() == 2, "getDetJSurface only works for 2D");

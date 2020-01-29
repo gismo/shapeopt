@@ -50,21 +50,27 @@ Build with make
 
 ------ Note ------
 
-If there is an issue with IpOpt you can download and unpack the file
+If there is an issue with IpOpt you can download the file
 
-  https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz
+  	https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.6.tgz
 
-In a folder, and run 
+and put it in the folder
 
-	$ ./configure 
-	$ make -j3 install
-		
-		(or ./configure --with-blas="/usr/lib64/libblas.so.3")
+	extensions/gsIpopt/IpOpt-prefix/src/
 
-and in ccmake choose
-	
-	IpOpt_DIR = /path/to/IpOpt/
-	(eg. IpOpt_DIR = /zhome/2b/e/77581/git/IpOpt/Ipopt-3.12.6 )
+then in the file 
+
+	../gismo/extensions/gsIpopt/CMakeLists.txt
+
+comment out the line
+
+   	#URL http://www.coin-or.org/download/source/Ipopt/Ipopt-${IPOPT_VER}.tgz 
+
+and replace with the
+
+	URL ${CMAKE_CURRENT_BINARY_DIR}/IpOpt-prefix/src/IpOpt-${IPOPT_VER}.tgz
+
+to tell gismo to look for the tgz file here and not on coin-or.org/
 
 ------------------
 
@@ -91,6 +97,11 @@ in the CMakeList.txt file, if cmake version is <3.1 you can write
 	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 
 ------------------
+
+again we have to set 
+
+	CMAKE_BUILD_TYPE = RelWithDebInfo
+	CMAKE_CXX_STANDARD = 14
 
 
 

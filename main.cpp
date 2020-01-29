@@ -2225,8 +2225,9 @@ gsMultiPatch<> mp = getGeometry(nx,ny,degree);
 
 gsMultiPatch<> patches = mp;
 
+gsMultiBasis<> bas(patches);
+
 // gsMultiPatch<> patches3d = get3DGeometry();
-// gsMultiPatch<> patches(patches3d.patch(2));
 
 // gsMultiPatch<> patches = seastar;
 
@@ -2251,7 +2252,7 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // exit(0);
 
 // test winslow derivatives
-if (false) {
+if (true) {
     gsWinslow winslow(&mp,false);
     convergenceTestOfParaJacobian(winslow);
     exit(0);
@@ -2490,11 +2491,19 @@ if (true) {
         gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
         gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
         optWR.solve();
-    } else {
+    } else if (param == 6) {
         gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
-        // optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output + "cps_start.txt"));
+        // optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
+        // gsInfo << optA.evalObj() << "\n";
+        // exit(0);
         // optA.solve();
         optA.runOptimization(maxiter);
+		// convergenceTestOfJacobian(optA);
+    } else if (param == 0) {
+        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
+        gsInfo << optA.evalObj() << "\n";
+        exit(0);
     }
 
     exit(0);

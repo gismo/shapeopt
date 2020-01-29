@@ -40,7 +40,7 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
     } else if (param == 6) {
         gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,false,false,true,0);
         // opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
-        opt_param->setQuad(7,7);
+        opt_param->setQuad(4,4);
         *m_log << "quA, quB = " << opt_param->m_quA << ", " << opt_param->m_quB << "\n";
         m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
         m_paramMethod->computeMap();
