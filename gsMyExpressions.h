@@ -100,6 +100,8 @@ class dJacdc_expr : public _expr<dJacdc_expr<E> >
     const gsFeSpace<Scalar> & colVar() const
     {return gsNullExpr<Scalar>::get();}
 
+    index_t cardinality_impl() const { return _u.cardinality_impl(); }
+
     static constexpr bool rowSpan() {return E::rowSpan(); }
     static constexpr bool colSpan() {return false;}
 

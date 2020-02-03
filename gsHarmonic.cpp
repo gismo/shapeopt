@@ -201,6 +201,7 @@ gsMatrix<> gsHarmonic::hessAll(gsDofMapper &space_mapper) const
     A.assemble(2*lambda_1*hess(u)%hess(u));
     A.assemble(2*lambda_2*dJacdc(u,0)%dJacdc(u,0));
     A.assemble(2*dLxdcx*dLxdcx.tr());
+
     A.assemble(Lxd2Lxdcxcx);
 
     A.assemble(2*dLydcx*dLydcx.tr());
