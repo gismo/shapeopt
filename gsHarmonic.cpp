@@ -38,40 +38,40 @@ real_t gsHarmonic::evalObj() const {
     return out;
 }
 
-// gsVector<> gsHarmonic::gradObj() const{
-//     gsVector<> u = getFree();
-//     const index_t n = u.rows();
-//     //GISMO_ASSERT((index_t)m_numDesignVars == n*m, "Wrong design.");
-//
-//     gsVector<> result(n);
-//
-//     gsMatrix<real_t> uu = u;//copy
-//     gsAsVector<real_t> tmp(uu.data(), n);
-//     gsAsConstVector<real_t> ctmp(uu.data(), n);
-//     index_t c = 0;
-//
-//     // for all partial derivatives (column-wise)
-//     for ( index_t i = 0; i!=n; i++ )
-//     {
-//         // to do: add m_desLowerBounds m_desUpperBounds check
-//         tmp[i]  += real_t(0.00001);
-//         updateFree(tmp);
-//         const real_t e1 = this->evalObj();
-//         tmp[i]   = u[i] + real_t(0.00002);
-//         updateFree(tmp);
-//         const real_t e3 = this->evalObj();
-//         tmp[i]   = u[i] - real_t(0.00001);
-//         updateFree(tmp);
-//         const real_t e2 = this->evalObj();
-//         tmp[i]   = u[i] - real_t(0.00002);
-//         updateFree(tmp);
-//         const real_t e4 = this->evalObj();
-//         tmp[i]   = u[i];
-//         updateFree(tmp);
-//         result[c++]= ( 8 * (e1 - e2) + e4 - e3 ) / real_t(0.00012);
-//     }
-//     return result;
-// }
+/* gsVector<> gsHarmonic::gradObj() const{
+     gsVector<> u = getFree();
+     const index_t n = u.rows();
+     //GISMO_ASSERT((index_t)m_numDesignVars == n*m, "Wrong design.");
+
+     gsVector<> result(n);
+
+     gsMatrix<real_t> uu = u;//copy
+     gsAsVector<real_t> tmp(uu.data(), n);
+     gsAsConstVector<real_t> ctmp(uu.data(), n);
+     index_t c = 0;
+
+     // for all partial derivatives (column-wise)
+     for ( index_t i = 0; i!=n; i++ )
+     {
+         // to do: add m_desLowerBounds m_desUpperBounds check
+         tmp[i]  += real_t(0.00001);
+         updateFree(tmp);
+         const real_t e1 = this->evalObj();
+         tmp[i]   = u[i] + real_t(0.00002);
+         updateFree(tmp);
+         const real_t e3 = this->evalObj();
+         tmp[i]   = u[i] - real_t(0.00001);
+         updateFree(tmp);
+         const real_t e2 = this->evalObj();
+         tmp[i]   = u[i] - real_t(0.00002);
+         updateFree(tmp);
+         const real_t e4 = this->evalObj();
+         tmp[i]   = u[i];
+         updateFree(tmp);
+         result[c++]= ( 8 * (e1 - e2) + e4 - e3 ) / real_t(0.00012);
+     }
+     return result;
+ } */
 
 // FIXIT: make dimension independent
 gsVector<> gsHarmonic::gradObj() const{

@@ -382,12 +382,12 @@ gsMatrix<> gsParamMethod::mapMatrix(gsDofMapper mapper_in, gsMatrix<> mat_in) co
     mapper_in_shifts.setZero(m_mp->targetDim());
 
     for(index_t d = 1; d < m_mp->targetDim(); d++){
-        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
+        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize(0);
     }
 
     // FIXIT: take this information as input instead..
-    bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
-    bool col = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
+    bool row = mapper_in.freeSize(0) + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
+    bool col = mapper_in.freeSize(0) + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
     gsMatrix<> mat_out;
 
     if(row){
@@ -434,14 +434,13 @@ gsMatrix<> gsParamMethod::mapMatrixToTagged(gsDofMapper mapper_in, gsMatrix<> ma
     tagged_shift.setZero(m_mp->targetDim());
 
     for(index_t d = 1; d < m_mp->targetDim(); d++){
-        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize();
+        mapper_in_shifts[d] = mapper_in_shifts[d-1] + mapper_in.freeSize(0);
         tagged_shift[d] = tagged_shift[d-1] + m_mappers[d].taggedSize();
     }
-    gsDebugVar(tagged_shift);
 
     // FIXIT: take this information as input instead..
-    bool row = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
-    bool col = mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
+    bool row = mapper_in.freeSize(0) + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.rows();
+    bool col = mapper_in.freeSize(0) + mapper_in_shifts[m_mp->targetDim()-1] == mat_in.cols();
     gsMatrix<> mat_out;
 
     if(row){

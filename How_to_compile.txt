@@ -113,6 +113,31 @@ again we have to set
 	CMAKE_CXX_STANDARD = 14
 
 
+=================================
+Compiling on the cluster
+=================================
+
+We need to use the gcc/5.4.0 module
+
+	$ module load gcc/5.4.0
+
+Then after building gismo in the folder build, here are the options to set in ccmake:
+
+    CMAKE_CXX_COMPILER               gcc
+    CMAKE_C_COMPILER                 gcc
+    CMAKE_C_COMPILER_WITH_PATH       gcc
+	
+Use the same ones in shapeopt.
+Remember to use the same build type for shapeopt and gismo
+Remember to turn on gismo_with_ipopt.
+
+Now in shape opt remember to update gismo_dir to point at ../build
+
+Also you might need the following additional flags:
+
+	-lstdc++ -lm -lcurl
+
+
 
 =================================
 Version

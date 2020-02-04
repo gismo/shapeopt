@@ -252,7 +252,7 @@ void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
     gsDebugVar(hess.rows());
     gsDebugVar(hess.cols());
 
-	// std::srand((unsigned int) std::time(0));
+	std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
 	ran.setRandom(lOP.n_free);
 
@@ -314,6 +314,8 @@ void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
 	disp << Eps,Error0,Error1,rate,Error2,rate2;
 	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
 	gsInfo << disp << "\n";
+
+	lOP.updateFree(des);
 
 }
 
@@ -761,7 +763,7 @@ void convergenceTestOfParaJacobianAll(gsWinslow &lOP){
     gsDebugVar(hess.rows());
     gsDebugVar(hess.cols());
 
-	// std::srand((unsigned int) std::time(0));
+	std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
 	ran.setRandom(lOP.n_flat);
 
@@ -801,7 +803,7 @@ void convergenceTestOfParaJacobianAll(gsWinslow &lOP){
 		real_t guess1 = liao + grad.transpose()*perturp;
 		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
 
-		gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
+		// gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
 		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
 
 		real_t error0 = std::abs(guess0 - newLiao);
@@ -823,6 +825,8 @@ void convergenceTestOfParaJacobianAll(gsWinslow &lOP){
 	disp << Eps,Error0,Error1,rate,Error2,rate2;
 	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
 	gsInfo << disp << "\n";
+
+	lOP.updateFlat(des);
 
 }
 
@@ -2254,15 +2258,29 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // test winslow derivatives
 if (true) {
     gsWinslow winslow(&mp,false);
+
+    convergenceTestOfParaJacobianAll(winslow);
+
     convergenceTestOfParaJacobian(winslow);
-    exit(0);
+
+    //exit(0);
 }
 
 // test harmonic derivatives
-if (false) {
+if (true) {
     gsHarmonic harmonic(&mp,false);
     convergenceTestOfParaJacobian(harmonic);
     exit(0);
+}
+
+// test of optAntenna derivatives
+if (false)
+{
+	gsShapeOptLog slog1(output,true,false,false);
+
+	gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+	convergenceTestOfJacobian(optA);
+	exit(0);
 }
 
 if (startDes == 11) {
