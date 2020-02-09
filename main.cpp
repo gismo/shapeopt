@@ -1,3 +1,6 @@
+//#undef __cplusplus
+//#define __cplusplus 201402L
+
 #include <gismo.h>
 #include <stdio.h>
 #include <math.h>       /* pow */
@@ -136,8 +139,8 @@ void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
 
 		gsVector<> perturp;
 		perturp.setZero(des.size());
-		for(index_t i = 0; i < des.size(); i++){
-			perturp[i] = ran[i];
+		for(index_t j = 0; j < des.size(); j++){
+			perturp[j] = ran[j];
 		}
 
 		perturp /= perturp.norm();
@@ -203,8 +206,8 @@ void convergenceTestOfConstraint(gsOptParamMethod &pM, gsConstraint &con){
 
 		gsVector<> perturp;
 		perturp.setZero(des.size());
-		for(index_t i = 0; i < des.size(); i++){
-			perturp[i] = ran[i];
+		for(index_t j = 0; j < des.size(); j++){
+			perturp[j] = ran[j];
 		}
 
 		perturp /= perturp.norm();
@@ -274,8 +277,8 @@ void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
 		gsVector<> perturp;
 		perturp.setZero(lOP.n_free);
 
-		for(index_t i = 0; i < lOP.n_free; i++){
-			perturp[i] = ran[i];
+		for(index_t j = 0; j < lOP.n_free; j++){
+			perturp[j] = ran[j];
 		}
 
 		perturp /= perturp.norm();
@@ -353,8 +356,8 @@ void convergenceTestOfParaLagrangianJacobian(gsOptParamMethod &lOP){
 		gsVector<> perturp;
 		perturp.setZero(lOP.n_free);
 
-		for(index_t i = 0; i < lOP.n_free; i++){
-			perturp[i] = ran[i];
+		for(index_t j = 0; j < lOP.n_free; j++){
+			perturp[j] = ran[j];
 		}
 
 		perturp /= perturp.norm();
@@ -423,8 +426,8 @@ void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
 		perturp.setZero(sOP.numDesignVars());
 
 		index_t k = sOP.numDesignVars()/8;
-		for(index_t i = 0; i < sOP.numDesignVars(); i++){
-			perturp[i] = ran[i];
+		for(index_t j = 0; j < sOP.numDesignVars(); j++){
+			perturp[j] = ran[j];
 		}
 
 		perturp /= perturp.norm();
@@ -489,8 +492,8 @@ void convergenceTestOfParamMethodJacobian(gsParamMethod &pM){
 
 		gsVector<> perturp;
 		perturp.setZero(tag.size());
-		for(index_t i = 0; i < tag.size(); i++){
-			perturp[i] = ran[i];
+		for(index_t j = 0; j < tag.size(); j++){
+			perturp[j] = ran[j];
 		}
 
 		// perturp /= perturp.norm();
@@ -510,8 +513,8 @@ void convergenceTestOfParamMethodJacobian(gsParamMethod &pM){
         gsInfo << FD.norm() << " \t" << deriv.norm() << "\n";
         if (false && i == 7){
             gsInfo << "FD \t jac \n";
-            for (index_t i = 0; i < FD.size(); i++){
-                gsInfo << FD[i] << " \t" << deriv[i] << "\n";
+            for (index_t j = 0; j < FD.size(); i++){
+                gsInfo << FD[j] << " \t" << deriv[j] << "\n";
             }
         }
 
@@ -563,11 +566,11 @@ void convergenceTestOfParaHessian(gsOptParamMethod &lOP){
 		gsVector<> q;
 		q.setZero(lOP.n_tagged);
 
-		for(index_t i = 0; i < lOP.n_free; i++){
-			p[i] = ran_free[i];
+		for(index_t j = 0; j < lOP.n_free; j++){
+			p[j] = ran_free[j];
 		}
-		for(index_t i = 0; i < lOP.n_tagged; i++){
-			q[i] = ran_tagged[i];
+		for(index_t j = 0; j < lOP.n_tagged; j++){
+			q[j] = ran_tagged[j];
 		}
 
 		gsVector<> newDes = des + eps*p;
@@ -692,11 +695,11 @@ void convergenceTestOfParaGrad(gsWinslow &lOP){
 		gsVector<> q;
 		q.setZero(lOP.n_tagged);
 
-		for(index_t i = 0; i < lOP.n_free; i++){
-			p[i] = ran_free[i];
+		for(index_t j = 0; j < lOP.n_free; j++){
+			p[j] = ran_free[j];
 		}
-		for(index_t i = 0; i < lOP.n_tagged; i++){
-			q[i] = ran_tagged[i];
+		for(index_t j = 0; j < lOP.n_tagged; j++){
+			q[j] = ran_tagged[j];
 		}
 
 		gsVector<> newDes = des + eps*p;
@@ -785,8 +788,8 @@ void convergenceTestOfParaJacobianAll(gsWinslow &lOP){
 		gsVector<> perturp;
 		perturp.setZero(lOP.n_flat);
 
-		for(index_t i = 0; i < lOP.n_flat; i++){
-			perturp[i] = ran[i];
+		for(index_t j = 0; j < lOP.n_flat; j++){
+			perturp[j] = ran[j];
 		}
 
 		perturp /= perturp.norm();
@@ -857,9 +860,9 @@ void convergenceTestOfParaHessianAll(gsWinslow &lOP){
 		gsVector<> q;
 		q.setZero(lOP.n_flat);
 
-		for(index_t i = 0; i < lOP.n_flat; i++){
-			p[i] = ran1[i];
-			q[i] = ran2[i];
+		for(index_t j = 0; j < lOP.n_flat; j++){
+			p[j] = ran1[j];
+			q[j] = ran2[j];
 		}
 
         // W(c + eps*p)
@@ -929,14 +932,14 @@ void convergenceTestOfParaGradAll(gsWinslow &lOP){
 		pA.setZero(lOP.n_flat);
 
 
-		for(index_t i = 0; i < lOP.n_flat; i++){
-			pA[i] = ran_flat[i];
+		for(index_t j = 0; j < lOP.n_flat; j++){
+			pA[j] = ran_flat[j];
 		}
-		for(index_t i = 0; i < lOP.n_free; i++){
-			p[i] = ran_free[i];
+		for(index_t j = 0; j < lOP.n_free; j++){
+			p[j] = ran_free[j];
 		}
-		for(index_t i = 0; i < lOP.n_tagged; i++){
-			q[i] = ran_tagged[i];
+		for(index_t j = 0; j < lOP.n_tagged; j++){
+			q[j] = ran_tagged[j];
 		}
 
 
@@ -2256,7 +2259,7 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // exit(0);
 
 // test winslow derivatives
-if (true) {
+if (false) {
     gsWinslow winslow(&mp,false);
 
     convergenceTestOfParaJacobianAll(winslow);
@@ -2267,15 +2270,14 @@ if (true) {
 }
 
 // test harmonic derivatives
-if (true) {
+if (false) {
     gsHarmonic harmonic(&mp,false);
     convergenceTestOfParaJacobian(harmonic);
     exit(0);
 }
 
 // test of optAntenna derivatives
-if (false)
-{
+if (false) {
 	gsShapeOptLog slog1(output,true,false,false);
 
 	gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
@@ -2515,8 +2517,8 @@ if (true) {
         // gsInfo << optA.evalObj() << "\n";
         // exit(0);
         // optA.solve();
-        optA.runOptimization(maxiter);
-		// convergenceTestOfJacobian(optA);
+        //optA.runOptimization(maxiter);
+	 convergenceTestOfJacobian(optA);
     } else if (param == 0) {
         gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
         optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
