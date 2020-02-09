@@ -1,0 +1,76 @@
+module load gcc/9.20 openblas/0.3.7
+
+mkdir build_openblas
+
+cd build_openblas
+
+cmake ../gismo/
+
+ccmake .
+
+	"t"  # To toggle advanced options
+	
+	CMAKE_BUILD_TYPE = RelWithDebInfo
+	CMAKE_CXX_COMPILER = g++
+	CMAKE_C_COMPILER = gcc
+	GISMO_WITH_IPOPT = ON
+	CMAKE_EXE_LINKER_FLAGS = -L/appl/OpenBLAS/0.3.7/XeonE5-2660v3/gcc-9.2.0/lib/ -lopenblas
+
+	"c"  # To configure
+	"e"  # To exit help
+	"c"  # To configure
+	"q"  # To generate
+
+cp ../build/extensions/gsIpopt/IpOpt-prefix/src/IpOpt-3.12.6.tgz extensions/gsIpopt/IpOpt-Prefix/src/IpOpt-3.12.6.tgz
+
+vim ../gismo/extensions/gsIpopt/CMakeLists.txt
+
+	Replace the line 
+		URL http://.....
+	with
+	    URL ${CMAKE_CURRENT_BINARY_DIR}/IpOpt-prefix/src/IpOpt-${IPOPT_VER}.tgz
+
+	and at the end of the line 
+		CONFIGURE_COMMAND ... 
+	add
+		--with-blas=/appl/OpenBLAS/0.3.7/XeonE5-2660v3/gcc-9.2.0/lib/libopenblas-r0.3.7.so
+	
+ccmake . 
+
+	"t"
+
+	make sure the correct options are chosen..! see earlier ccmake command.
+
+	"c"
+	"c"
+	"g"
+
+make -j3 gismo	
+
+	check that " ... lapack ... yes " in output from ipopt.
+
+cd ../shapeopt
+
+ccmake .
+
+	"t"	
+
+	CMAKE_BUILD_TYPE = RelWithDebInfo
+	CMAKE_CXX_COMPILER = g++
+	CMAKE_C_COMPILER = gcc
+	CMAKE_EXE_LINKER_FLAGS = -L/appl/OpenBLAS/0.3.7/XeonE5-2660v3/gcc-9.2.0/lib/ -lopenblas
+	gismo_DIR = /zhome/2b/e/77581/git/build_openblas
+	
+	"c"
+	"c"
+	"g"
+
+make -j3
+
+
+
+
+
+---- NOTE ----
+$MODULE_OPENBLAS_LIB_DIR = /appl/OpenBLAS/0.3.7/XeonE5-2660v3/gcc-9.2.0/lib/.
+--------------

@@ -95,7 +95,7 @@ void saveSparseMat(gsSparseMatrix<> mat, std::string name){
         std::ofstream file (name);
         for (int k=0; k<mat.outerSize(); ++k){
             for (gsSparseMatrix<real_t>::InnerIterator it(mat,k); it; ++it)
-            {
+           {
                 file << std::setprecision(12) << it.row();   // row index
                 file << " ";
                 file << it.col();   // col index (here it is equal to k)
@@ -400,7 +400,7 @@ void convergenceTestOfParaLagrangianJacobian(gsOptParamMethod &lOP){
 }
 
 void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
-	std::srand((unsigned int) std::time(0));
+	//std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
 	ran.setRandom(sOP.numDesignVars());
 
@@ -2140,7 +2140,7 @@ int main(int argc, char* argv[]){
 gsInfo <<  "Hello G+Smo.\n";
 
 // Parse command line
-std::string output("");
+std::string output("/");
 int degree = 2;
 int nx = 5;
 int ny = 4;
@@ -2164,6 +2164,9 @@ real_t lambda_1 = 1;
 real_t lambda_2 = 1;
 
 int startDes = -1;
+
+bool startFromFile = false;
+std::string startFile("");
 
 real_t alpha = 0; // Parameter for constraint aggregation
 real_t eps = 0; // Parameter for constraint aggregation
@@ -2196,7 +2199,13 @@ cmd.addInt("s", "startDes", "design number to start from", startDes);
 cmd.addReal("l", "alpha", "parameter for smoothed maximum in constraint aggregation", alpha);
 cmd.addReal("e", "eps", "parameter for Regularization with winslow", eps);
 
+cmd.addSwitch("startFromFile", "Start optimization with design from file as starting guess", startFromFile);
+cmd.addString("f", "startFile", "design to start from", startFile);
+
 cmd.getValues(argc,argv);
+
+output = "/" + output;
+startFile = "/" + startFile;
 
 char buffer [50];
 std::sprintf(buffer,"p = %d \n n = %d\n",degree,numRefine);
@@ -2258,6 +2267,30 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // // gsHBSpline<2> bb(gg->basis(),mm);
 // exit(0);
 
+if (startFromFile) {
+    gsShapeOptLog slog1(output,true,false,false);
+	gsWinslow winslow(&mp);
+	winslow.updateFlat( loadVec(winslow.n_flat,BASE_FOLDER + startFile));
+
+    if (param == 5) // Use regularization
+    {
+        gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
+        gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
+        optWR.solve();
+    } else if (param == 6) {
+        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        optA.runOptimization(maxiter);
+    } else if (param == 0) {
+        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
+        gsInfo << optA.evalObj() << "\n";
+    }
+
+    exit(0);
+
+
+}
+
 // test winslow derivatives
 if (false) {
     gsWinslow winslow(&mp,false);
@@ -2277,10 +2310,14 @@ if (false) {
 }
 
 // test of optAntenna derivatives
-if (false) {
+if (true)
+{
+    gsWinslow winslow(&mp,false);
+	//gsInfo << winslow.getFlat() << "\n";
 	gsShapeOptLog slog1(output,true,false,false);
 
 	gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+	// gsInfo << "obj : " << optA.evalObj() << "\n";
 	convergenceTestOfJacobian(optA);
 	exit(0);
 }
@@ -2348,8 +2385,6 @@ if (startDes == 10) {
         win.updateFlat(mat);
 
         minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 3);
-
-        minDgauss = win.minDetJInGaussPts();
 
         out(i,0) = minD;
         out(i,1) = neededRefSteps;
