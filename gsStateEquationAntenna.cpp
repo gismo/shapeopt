@@ -245,39 +245,40 @@ gsMatrix<> gsStateEquationAntenna::getDerivativeOfAuPart2(index_t realOrImag, gs
 
 }
 //
-// gsMatrix<> gsStateEquationAntenna::getKu(gsMultiPatch<> sol){
-// 	// gsInfo << "f = " << *f << "\n" << std::flush;
-// 	// gsInfo << "ms = " << *ms << "\n" << std::flush;
-//
-// 	gsFunctionExpr<> gN("0.0",2);
-// 	gsFunctionExpr<> zero("0.0",2);
-//   //! [Boundary conditions]
-//
-// 	gsExprAssembler<> A(1,1);
-//   geometryMap G = A.getMap(*mp);
-//
-// 	A.setIntegrationElements(dbasis);
-//
-//
-//   space u = A.getSpace(dbasis);
-//   u.setInterfaceCont(0);
-//   u.addBc(bcInfoZero.get("Dirichlet"));
-//
-// 	variable solVar = A.getCoeff(sol);
-//
-// 	A.initSystem();
-//
-// 	A.assemble(igrad(u,G)*(jac(G).inv().tr()*fjac(solVar))*meas(G));
-//
-//   // delete f;
-// 	// delete ms;
-// 	// delete df_dx;
-// 	// delete df_dy;
-// 	gsInfo << "Return Ku \n";
-// 	return A.rhs();
-//
-// }
-//
+/* gsMatrix<> gsStateEquationAntenna::getKu(gsMultiPatch<> sol){
+ 	// gsInfo << "f = " << *f << "\n" << std::flush;
+ 	// gsInfo << "ms = " << *ms << "\n" << std::flush;
+
+ 	gsFunctionExpr<> gN("0.0",2);
+ 	gsFunctionExpr<> zero("0.0",2);
+   //! [Boundary conditions]
+
+ 	gsExprAssembler<> A(1,1);
+   geometryMap G = A.getMap(*mp);
+
+ 	A.setIntegrationElements(dbasis);
+
+
+   space u = A.getSpace(dbasis);
+   u.setInterfaceCont(0);
+   u.addBc(bcInfoZero.get("Dirichlet"));
+
+ 	variable solVar = A.getCoeff(sol);
+
+ 	A.initSystem();
+
+ 	A.assemble(igrad(u,G)*(jac(G).inv().tr()*fjac(solVar))*meas(G));
+
+   // delete f;
+ 	// delete ms;
+ 	// delete df_dx;
+ 	// delete df_dy;
+ 	gsInfo << "Return Ku \n";
+ 	return A.rhs();
+
+ }
+*/
+
 gsMatrix<> gsStateEquationAntenna::getDerivativeOfU(){
 	// gsInfo << "Get derivative of u\n";
 	// gsInfo << "Get sol\n";
@@ -338,61 +339,63 @@ gsVector<> gsStateEquationAntenna::solveAdjoint(gsVector<> &rhs){
 	return solver.solve(rhs);
 }
 //
-// void gsStateEquationAntenna::plotMesh(gsMatrix<> solVector){
-//
-//
-//   // gsMultiBasis<> dbasis(*mp);
-//   // dbasis.setDegree(degree);
-// 	//
-//   // gsExprAssembler<> A(1,1);
-//   // typedef gsExprAssembler<>::geometryMap geometryMap;
-//   // typedef gsExprAssembler<>::variable    variable;
-//   // typedef gsExprAssembler<>::space       space;
-//   // typedef gsExprAssembler<>::solution    solution;
-// 	//
-//   // A.setIntegrationElements(dbasis);
-//   // gsExprEvaluator<> ev(A);
-// 	//
-//   // geometryMap G = A.getMap(*mp);
-// 	//
-//   // space u = A.getSpace(dbasis);
-//   // u.setInterfaceCont(0);
-// 	//
-//   // A.initSystem();
-//   // solution u_sol = A.getSolution(u,solVector);
-//
-//   // mesh holds the control net of a geometry
-//   // mesh is a set of vertices and lines (connections between vertices)
-// 	for(index_t i = 0; i < mp->nBoxes(); i++){
-//   	gsMesh<> mesh;
-//   	mp->patch(i).controlNet(mesh);
-// 		auto name = "mesh" + std::to_string( i );
-//   	gsInfo << "Writing the control net to a paraview file: " <<  "\n" << "\n";
-//   	gsWriteParaview(mesh, name);
-// 	}
-//
-//   // gsInfo<<"Plotting in Paraview...\n";
-//   // ev.options().setSwitch("plot.elements", false);
-//   // ev.writeParaview( u_sol   , G, "solutionState");
-//
-// }
-//
+/* void gsStateEquationAntenna::plotMesh(gsMatrix<> solVector){
+
+
+   // gsMultiBasis<> dbasis(*mp);
+   // dbasis.setDegree(degree);
+ 	//
+   // gsExprAssembler<> A(1,1);
+   // typedef gsExprAssembler<>::geometryMap geometryMap;
+   // typedef gsExprAssembler<>::variable    variable;
+   // typedef gsExprAssembler<>::space       space;
+   // typedef gsExprAssembler<>::solution    solution;
+ 	//
+   // A.setIntegrationElements(dbasis);
+   // gsExprEvaluator<> ev(A);
+ 	//
+   // geometryMap G = A.getMap(*mp);
+ 	//
+   // space u = A.getSpace(dbasis);
+   // u.setInterfaceCont(0);
+ 	//
+   // A.initSystem();
+   // solution u_sol = A.getSolution(u,solVector);
+
+   // mesh holds the control net of a geometry
+   // mesh is a set of vertices and lines (connections between vertices)
+ 	for(index_t i = 0; i < mp->nBoxes(); i++){
+   	gsMesh<> mesh;
+   	mp->patch(i).controlNet(mesh);
+ 		auto name = "mesh" + std::to_string( i );
+   	gsInfo << "Writing the control net to a paraview file: " <<  "\n" << "\n";
+   	gsWriteParaview(mesh, name);
+ 	}
+
+   // gsInfo<<"Plotting in Paraview...\n";
+   // ev.options().setSwitch("plot.elements", false);
+   // ev.writeParaview( u_sol   , G, "solutionState");
+
+ }
+*/
+
 void gsStateEquationAntenna::printMatSize(gsMatrix<> mat, std::string name){
 	gsInfo << "Size of " << name << ":\t (" << mat.rows() << ", " << mat.cols() << ")\n";
 }
 //
-// void gsStateEquationAntenna::getFandMS(gsFunctionExpr<> *&fin, gsFunctionExpr<> *&msin, gsFunctionExpr<> *&df_dxin, gsFunctionExpr<> *&df_dyin){
-// 	fin = &f;
-// 	msin = &ms;
-// 	df_dxin = &df_dx;
-// 	df_dyin= &df_dy;
-// }
-//
-// void gsStateEquationAntenna::getMSDerivatives(gsFunctionExpr<> *&dms_dxin, gsFunctionExpr<> *&dms_dyin){
-// 	dms_dxin = &dms_dx;
-// 	dms_dyin = &dms_dy;
-// }
-//
+/* void gsStateEquationAntenna::getFandMS(gsFunctionExpr<> *&fin, gsFunctionExpr<> *&msin, gsFunctionExpr<> *&df_dxin, gsFunctionExpr<> *&df_dyin){
+ 	fin = &f;
+ 	msin = &ms;
+ 	df_dxin = &df_dx;
+ 	df_dyin= &df_dy;
+ }
+
+ void gsStateEquationAntenna::getMSDerivatives(gsFunctionExpr<> *&dms_dxin, gsFunctionExpr<> *&dms_dyin){
+ 	dms_dxin = &dms_dx;
+ 	dms_dyin = &dms_dy;
+ }
+*/
+
 void gsStateEquationAntenna::plotSolution(gsMultiPatch<> &sol, std::string name){
 	gsExprAssembler<> A(1,1);
 	gsExprEvaluator<> ev(A);
@@ -515,6 +518,7 @@ void gsStateEquationAntenna::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, 
 		// A.assemble(helmholtz_term_real);
 		A.assemble(laplace_term_real + helmholtz_term_real);
 		A.assembleLhsRhsBc(bnd_term_real,rhs_term_real, bcInfo.neumannSides());
+		//gsInfo << "A.matrix().norm()" << A.matrix() << "\n";
 		// A.assembleRhsBc(rhs_term_real, bcInfo.neumannSides());
 	} else {
 		A.assemble(laplace_term_imag) ;
@@ -536,6 +540,7 @@ void gsStateEquationAntenna::getSystem(gsSparseMatrix<> &mat, gsVector<> &rhs){
 	// std::ofstream file1("Ar.txt");
 	// file1 << matReal.toDense();
 	// file1.close();
+	// gsInfo << "norm of matReal: " << matReal.norm() << "\n" ;
 
 	// Get imaginary parts
 	getTerm(1,matImag,rhsImag);
@@ -543,6 +548,7 @@ void gsStateEquationAntenna::getSystem(gsSparseMatrix<> &mat, gsVector<> &rhs){
 	// std::ofstream file("Ai.txt");
 	// file << matImag.toDense();
 	// file.close();
+	// gsInfo << "norm of matImag: " << matImag.norm() << "\n" ;
 
 	index_t rows = matReal.rows();
 	index_t cols = matReal.cols();
@@ -585,6 +591,9 @@ void gsStateEquationAntenna::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_ima
 		gsSparseMatrix<> mat;
 		gsVector<> rhs;
 		getSystem(mat,rhs);
+
+		// gsInfo << "norm of mat: " << mat.norm() << "\n" ;
+		// gsInfo << "norm of rhs: " << rhs.norm() << "\n" ;
 
 		// gsInfo << "Save A \n" << std::flush;
 		// std::ofstream file("A.txt");
