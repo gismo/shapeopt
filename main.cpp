@@ -2194,6 +2194,8 @@ int startDes = -1;
 bool startFromFile = false;
 std::string startFile("");
 
+bool optParam = false;
+
 real_t alpha = 0; // Parameter for constraint aggregation
 real_t eps = 0; // Parameter for constraint aggregation
 
@@ -2227,6 +2229,8 @@ cmd.addReal("e", "eps", "parameter for Regularization with winslow", eps);
 
 cmd.addSwitch("startFromFile", "Start optimization with design from file as starting guess", startFromFile);
 cmd.addString("f", "startFile", "design to start from", startFile);
+
+cmd.addSwitch("optParam", "Run optParam code", optParam);
 
 cmd.getValues(argc,argv);
 
@@ -2508,42 +2512,8 @@ if (false) {
     exit(0);
 }
 
-// Test of runtime
-if (false) {
-    gsInfo << "test mb\n";
-
-    gsShapeOptLog slog1(output,true,false,false);
-    // gsInfo << optWR.evalObj();
-    // gsInfo << optWR.gradObj();
-    // optWR.solve();
-
-    if (param == 5) // Use regularization
-    {
-        gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
-        gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
-        optWR.solve();
-    } else if (param == 6) {
-        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
-        // optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
-        // gsInfo << optA.evalObj() << "\n";
-        // exit(0);
-        // optA.solve();
-        //optA.runOptimization(maxiter);
-	 convergenceTestOfJacobian(optA);
-    } else if (param == 0) {
-        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
-        optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
-        gsInfo << optA.evalObj() << "\n";
-        exit(0);
-    }
-
-    exit(0);
-
-
-}
-
 // Test of gsOptParam with reg
-if (true) {
+if (optParam) {
     // gsMultiPatch<> jigsaw = getJigSaw(startDes);
 	index_t jigtype = 2;
     gsMultiPatch<> jigsaw = getJigSaw3D(jigtype); //
@@ -2666,6 +2636,41 @@ if (true) {
     exit(0);
 
 }
+
+// Test of runtime
+if (true) {
+    gsInfo << "test mb\n";
+
+    gsShapeOptLog slog1(output,true,false,false);
+    // gsInfo << optWR.evalObj();
+    // gsInfo << optWR.gradObj();
+    // optWR.solve();
+
+    if (param == 5) // Use regularization
+    {
+        gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
+        gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
+        optWR.solve();
+    } else if (param == 6) {
+        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        // optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
+        // gsInfo << optA.evalObj() << "\n";
+        // exit(0);
+        // optA.solve();
+        optA.runOptimization(maxiter);
+		// convergenceTestOfJacobian(optA);
+    } else if (param == 0) {
+        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
+        gsInfo << optA.evalObj() << "\n";
+        exit(0);
+    }
+
+    exit(0);
+
+
+}
+
 
 // Test Regularization with winslow for antenna problem
 if (false) {
