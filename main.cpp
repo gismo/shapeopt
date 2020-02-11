@@ -2133,6 +2133,32 @@ void generateData02953Project(gsMultiPatch<> & mp, std::string folder){
     // Write initial design
 }
 
+void testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB, std::string output){
+
+    gsDetJacConstraint dJC(&mp,true);
+
+    gsWinslowWithDeriv win(&mp,false,false,true,0);
+    win.setQuad(quA,quB);
+
+    real_t minD,minDgauss;
+    index_t neededRefSteps;
+
+    gsVector<> out(4);
+    out.setZero(4);
+
+    minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 3);
+
+    out(0) = minD;
+    out(1) = neededRefSteps;
+    out(2) = minDgauss;
+    out(3) = win.minDetJInGaussPts(15);
+
+    std::stringstream stream;
+    stream << BASE_FOLDER << output << name;
+    std::string str = stream.str();
+    saveMat(out,str);
+}
+
 int main(int argc, char* argv[]){
 gsInfo <<  "Hello G+Smo.\n";
 
@@ -2283,7 +2309,7 @@ if (startFromFile) {
         gsInfo << optA.evalObj() << "\n";
     }
 
-    exit(0);
+    (0);
 
 
 }
@@ -2307,8 +2333,7 @@ if (false) {
 }
 
 // test of optAntenna derivatives
-if (true)
-{
+if (false) {
     gsWinslow winslow(&mp,false);
 	//gsInfo << winslow.getFlat() << "\n";
 	gsShapeOptLog slog1(output,true,false,false);
@@ -2344,55 +2369,6 @@ if (startDes == 11) {
     stream << BASE_FOLDER << output << "detJ";
     std::string str = stream.str();
     dJC.plotDetJ(str);
-    exit(0);
-
-
-
-}
-
-// calculate detJ constraints for different designs
-if (startDes == 10) {
-    // gsMultiPatch<> jigsaw = getJigSaw3D(3); //
-    // mp = jigsaw;
-
-    gsDetJacConstraint dJC(&mp,true);
-    gsShapeOptLog slog1(output,true,false,false);
-
-    // gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
-
-    // gsWinslowWithDeriv win(&mp,optA.mappers(),false,false,true,0);
-    gsWinslowWithDeriv win(&mp,false,false,true,0);
-    win.setQuad(quA,quB);
-
-    real_t minD,minDgauss;
-    index_t neededRefSteps;
-
-    gsMatrix<> out(maxiter,4);
-    out.setZero(maxiter,4);
-
-    for (index_t i = 0; i < maxiter; i += 10)
-    {
-        std::stringstream stream;
-        stream << BASE_FOLDER << output << "cps" << "_0_" << i << ".txt";
-        std::string str = stream.str();
-        gsMatrix<> mat = win.getFlat();
-        readFromTxt(str,mat);
-        // gsInfo << mat;
-
-        win.updateFlat(mat);
-
-        minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 3);
-
-        out(i,0) = minD;
-        out(i,1) = neededRefSteps;
-        out(i,2) = minDgauss;
-        out(i,3) = win.minDetJInGaussPts(15);
-    }
-
-    std::stringstream stream;
-    stream << BASE_FOLDER << output << "detJ.txt";
-    std::string str = stream.str();
-    saveMat(out,str);
     exit(0);
 
 
@@ -2530,7 +2506,7 @@ if (false) {
 }
 
 // Test of runtime
-if (true) {
+if (false) {
     gsInfo << "test mb\n";
 
     gsShapeOptLog slog1(output,true,false,false);
@@ -2564,35 +2540,62 @@ if (true) {
 }
 
 // Test of gsOptParam with reg
-if (false) {
+if (true) {
     // gsMultiPatch<> jigsaw = getJigSaw(startDes);
-    gsMultiPatch<> jigsaw = getJigSaw3D(3); //
+	index_t jigtype = 2;
+    gsMultiPatch<> jigsaw = getJigSaw3D(jigtype); //
 
     for( index_t r = 0; r < numRefine; r++){
         jigsaw.uniformRefine();
     }
 
-    changeSignOfDetJ(jigsaw.patch(0)); // Use for 3D small
+    //changeSignOfDetJ(jigsaw.patch(0)); // Use for 3D small
 
     // Create startguess
 
     //-------- 3D JIGSAW ------
     index_t size    = jigsaw.patch(0).coefsSize();
-    index_t n       = 5;
-
+	index_t n;
     gsVector<> vec;
-    vec.setLinSpaced(n,-2.5,2.5);
 
-    gsMatrix<> coefs_init(size,3);
-    for (index_t i = 0; i < n; i++){
-        for(index_t j = 0; j < n; j++){
-            for(index_t k = 0; k < n; k++){
-                coefs_init(k + j*n + i*n*n,0) = vec[j];
-                coefs_init(k + j*n + i*n*n,1) = vec[k];
-                coefs_init(k + j*n + i*n*n,2) = vec[i];
-            }
-        }
-    }
+	gsMatrix<> coefs_init;
+
+	if (jigtype == 3)
+	{
+    	n = 5;
+    	vec.setLinSpaced(n,-2.5,2.5);
+
+		coefs_init.setZero(size,3);
+    	for (index_t i = 0; i < n; i++){
+    	    for(index_t j = 0; j < n; j++){
+    	        for(index_t k = 0; k < n; k++){
+    	            coefs_init(k + j*n + i*n*n,0) = vec[j];
+    	            coefs_init(k + j*n + i*n*n,1) = vec[k];
+    	            coefs_init(k + j*n + i*n*n,2) = vec[i];
+    	        }
+    	    }
+    	}
+	}
+	else if (jigtype == 2)
+	{
+    	n = 6;
+    	vec.setLinSpaced(n,-2.5,2.5);
+
+		coefs_init.setZero(size,3);
+    	
+    	for (index_t i = 0; i < n; i++){
+    	    for(index_t j = 0; j < n; j++){
+    	        for(index_t k = 0; k < n; k++){
+    	            coefs_init(k + j*n + i*n*n,0) = vec[j];
+    	            coefs_init(k + j*n + i*n*n,1) = vec[k];
+    	            coefs_init(k + j*n + i*n*n,2) = vec[i];
+    	        }
+    	    }
+    	}
+	}
+	else
+		GISMO_ERROR("not implemented for jigtype != 2 or 3");
+
 
 
     //-------- 2D JIGSAW ------
@@ -2616,7 +2619,11 @@ if (false) {
 
     gsMultiPatch<> mp_init(jigsaw);
     mp_init.patch(0).setCoefs(coefs_init);
-    changeSignOfDetJ(mp_init.patch(0)); // Use for 3D small
+	if (jigtype == 3 || jigtype == 2)
+	{
+    	changeSignOfDetJ(jigsaw.patch(0)); // Use for 3D small
+    	changeSignOfDetJ(mp_init.patch(0)); // Use for 3D small
+	}
 
     // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
 
@@ -2640,9 +2647,19 @@ if (false) {
     // gsInfo << optP.currentDesign() << "\n";
     // gsInfo << optP.numDesignVars() << "\n";
     // optP.solve();
+	gsInfo << "EPS = " << eps << "\n";
     gsShapeOptWithReg optWR(&mp_init,&optP,numRefine,&slog1,quA,quB,eps);
     // optWR.gradObj();
     optWR.solve();
+
+ 	name = "jigsaw";
+    slog1.plotInParaview(jigsaw,name);
+
+ 	name = "mp_final";
+    slog1.plotInParaview(mp_init,name);
+
+	testValidity(mp_init,"detJ.txt", quA, quB, output);
+
     exit(0);
 
 }
