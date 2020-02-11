@@ -22,7 +22,7 @@ do
 		
 		mkdir -p "${FOLDER}"
 		
-		(time ./main -r $R -A $A -B $B -e $e -o "$BS${FOLDER}") |& tee "${FOLDER}$BS$OUT"; 
+		(time ./main --optParam -r $R -A $A -B $B -e $e -o "$BS${FOLDER}") |& tee "${FOLDER}$BS$OUT"; 
 	done
 
 done
