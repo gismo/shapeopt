@@ -14,7 +14,6 @@ ccmake .
 	CMAKE_CXX_COMPILER = g++
 	CMAKE_C_COMPILER = gcc
 	GISMO_WITH_IPOPT = ON
-	CMAKE_EXE_LINKER_FLAGS = -L/appl/OpenBLAS/0.3.7/XeonE5-2660v3/gcc-9.2.0/lib/ -lopenblas
 
 	"c"  # To configure
 	"e"  # To exit help
@@ -34,6 +33,12 @@ vim ../gismo/extensions/gsIpopt/CMakeLists.txt
 		CONFIGURE_COMMAND ... 
 	add
 		--with-blas=/appl/OpenBLAS/0.3.7/XeonE5-2660v3/gcc-9.2.0/lib/libopenblas-r0.3.7.so
+
+vim CMakeLists.txt
+
+	add the line 
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L$ENV{MODULE_OPENBLAS_LIB_DIR} -lopenblas")
+
 	
 ccmake . 
 
@@ -58,7 +63,6 @@ ccmake .
 	CMAKE_BUILD_TYPE = RelWithDebInfo
 	CMAKE_CXX_COMPILER = g++
 	CMAKE_C_COMPILER = gcc
-	CMAKE_EXE_LINKER_FLAGS = -L/appl/OpenBLAS/0.3.7/XeonE5-2660v3/gcc-9.2.0/lib/ -lopenblas
 	gismo_DIR = /zhome/2b/e/77581/git/build_openblas
 	
 	"c"
@@ -68,6 +72,10 @@ ccmake .
 make -j3
 
 
+vim CMakeLists.txt
+
+	add the line 
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L$ENV{MODULE_OPENBLAS_LIB_DIR} -lopenblas")
 
 
 
