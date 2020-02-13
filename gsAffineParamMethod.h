@@ -25,11 +25,11 @@ public:
     gsAffineParamMethod(){ };
 
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging bnd
-    gsAffineParamMethod(gsMultiPatch<>* mpin);
+    gsAffineParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
     // design variables for shape optimization tagged.
-    gsAffineParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers);
+    gsAffineParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers);
 
     // Update controlpoints given by this method
     // OBS, as of now, computeMap has to be called first!

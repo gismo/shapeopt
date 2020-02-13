@@ -4,7 +4,7 @@
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-gsNewDetJacConstraint::gsNewDetJacConstraint(gsMultiPatch<>* mpin):
+gsNewDetJacConstraint::gsNewDetJacConstraint(memory::shared_ptr<gsMultiPatch<>> mpin):
     gsConstraint(mpin),
     m_mappers(mpin->targetDim())
 {

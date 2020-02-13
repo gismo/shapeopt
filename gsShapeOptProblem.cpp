@@ -4,7 +4,7 @@
 #include "gsAffineOptParamMethod.h"
 
 // FIXIT: Implement functionality?
-gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, bool useDetJCons):
+gsShapeOptProblem::gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptLog> slog, bool useDetJCons):
     m_mp(mp),
     m_mappers(mp->targetDim()),
     m_log(slog),
@@ -12,11 +12,11 @@ gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, bo
 {
     gsInfo << "\n Constructor 1 \n";
     if (m_useDetJCons)
-        m_dJC = new gsDetJacConstraint(mp);
+        m_dJC = memory::make_shared(new gsDetJacConstraint(mp));
 
 };
 
-gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, gsConstraint* constraint):
+gsShapeOptProblem::gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptLog> slog, memory::shared_ptr<gsConstraint> constraint):
     m_mp(mp),
     m_mappers(mp->targetDim()),
     m_log(slog),
@@ -25,14 +25,14 @@ gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, gs
     gsInfo << "\n Constructor 1 \n";
 };
 
-gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog):
+gsShapeOptProblem::gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsShapeOptLog> slog):
     m_mp(mp), m_mappers(mappers), m_log(slog)
 {
     gsInfo << "\n Constructor 2 \n";
-    m_dJC = new gsDetJacConstraint(mp);
+    m_dJC = memory::make_shared(new gsDetJacConstraint(mp));
 };
 
-gsShapeOptProblem::gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog, gsConstraint* constraint):
+gsShapeOptProblem::gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsShapeOptLog> slog, memory::shared_ptr<gsConstraint> constraint):
     m_mp(mp), m_mappers(mappers), m_dJC(constraint), m_log(slog)
 {
     m_useOwnCons = true;
@@ -300,7 +300,7 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
 
         gsMultiBasis<> intBas(*m_mp);
         // intBas.uniformRefine();
-        (dynamic_cast< gsAffineOptParamMethod* >(m_paramMethod))->setIntegrationBasis(intBas);
+        (std::dynamic_pointer_cast< gsAffineOptParamMethod >(m_paramMethod))->setIntegrationBasis(intBas);
 
 
         bool status = m_paramMethod->updateAndReset();
@@ -312,7 +312,7 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
         *m_log << " Min d after updating: " << mind << "\n\n";
         gsInfo << " Min d after updating: " << mind << "\n\n";
 
-        gsMultiPatch<> dJ = (dynamic_cast< gsDetJacConstraint* >(m_dJC))->getDetJSurface();
+        gsMultiPatch<> dJ = (std::dynamic_pointer_cast< gsDetJacConstraint >(m_dJC))->getDetJSurface();
         std::string namedj = "detJSurf";
         m_log->plotInParaview(dJ,namedj,counter2);
 
@@ -331,7 +331,7 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
 
         m_dJC->setEps(0.25*mind);
 
-        gsMultiBasis<> bas = (dynamic_cast< gsDetJacConstraint* >(m_dJC))->m_detJacBasis;
+        gsMultiBasis<> bas = (std::dynamic_pointer_cast< gsDetJacConstraint >(m_dJC))->m_detJacBasis;
         namedj = "detJBasis";
         m_log->plotMultiBasisOnGeometry(*m_mp,bas,namedj,counter2);
 

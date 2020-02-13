@@ -3,14 +3,14 @@
 using namespace gismo;
 
 // Debug
-gsSpringMethod::gsSpringMethod(gsMultiPatch<> *mpin): gsAffineParamMethod(mpin),
+gsSpringMethod::gsSpringMethod(gsMultiPatch<>::Ptr mpin): gsAffineParamMethod(mpin),
     m_As(m_mp->targetDim()), m_bs(m_mp->targetDim()), m_solvers(m_mp->targetDim()){
 
     setupSolvers();
 }
 
 // Implement
-gsSpringMethod::gsSpringMethod(gsMultiPatch<>* mpin,std::vector< gsDofMapper > mappers):
+gsSpringMethod::gsSpringMethod(gsMultiPatch<>::Ptr mpin,std::vector< gsDofMapper > mappers):
     gsAffineParamMethod(mpin,mappers), m_As(m_mp->targetDim()), m_bs(m_mp->targetDim()),
     m_solvers(m_mp->targetDim())
 {

@@ -532,8 +532,7 @@ void convergenceTestOfParamMethodJacobian(gsParamMethod &pM){
 
 void convergenceTestOfParaHessian(gsOptParamMethod &lOP){
 
-    gsMatrix<> Hcx;
-
+	gsMatrix<> Hcx;
 	gsMatrix<> hess = lOP.hessObj(Hcx);
 
 	std::srand((unsigned int) std::time(0));
@@ -1319,6 +1318,7 @@ gsVector<> reshapeBack(gsMatrix<> mat){
     return out;
 }
 
+/*
 void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
     index_t numRefine = 1;
@@ -1758,6 +1758,7 @@ void testOfParametrizations_winslow_inf(std::string output, index_t quA, index_t
 }
 
 
+/*
 void testOfAggregatedConstraints(std::string output, index_t quA, index_t quB){
 
     index_t numRefine = 1;
@@ -2031,9 +2032,11 @@ void testOfAggregatedConstraints3rd(std::string output, index_t quA, index_t quB
 
 
 }
+*/
 
 gsMultiPatch<> get3DGeometry(){
     gsMultiPatch<> patches;
+	gsMultiPatch<>::Ptr patches_ptr(&patches);
     gsFileData<> data("geometries3D/halfCube.xml");
 
     gsInfo  <<"* There is "<< data.count< gsGeometry<> >() <<" "
@@ -2048,7 +2051,7 @@ gsMultiPatch<> get3DGeometry(){
     }
 
     // FIXIT make this part faster, it should be unecessary to construct a gsDetJacConstraint to do this
-    gsDetJacConstraint dJC(&patches);
+    gsDetJacConstraint dJC(patches_ptr);
 
     for (index_t p = 0; p < patches.nBoxes(); p++){
         index_t sign = dJC.getSignOfPatch(p);
@@ -2063,9 +2066,10 @@ gsMultiPatch<> get3DGeometry(){
 }
 
 void generateData02953Project(gsMultiPatch<> & mp, std::string folder){
+	gsMultiPatch<>::Ptr mp_ptr(&mp);
     // Setup classes
-    gsDetJacConstraint dJC(&mp);
-    gsWinslow winslow(&mp,false);         // We use the default mappers
+    gsDetJacConstraint dJC(mp_ptr);
+    gsWinslow winslow(mp_ptr,false);         // We use the default mappers
 
     // eval once to setup solver
     gsInfo << " min d : " << dJC.evalCon().minCoeff() << "\n";
@@ -2134,10 +2138,11 @@ void generateData02953Project(gsMultiPatch<> & mp, std::string folder){
 }
 
 void testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB, std::string output){
+	gsMultiPatch<>::Ptr mp_ptr(&mp);
 
-    gsDetJacConstraint dJC(&mp,true);
+    gsDetJacConstraint dJC(mp_ptr,true);
 
-    gsWinslowWithDeriv win(&mp,false,false,true,0);
+    gsWinslowWithDeriv win(mp_ptr,false,false,true,0);
     win.setQuad(quA,quB);
 
     real_t minD,minDgauss;
@@ -2243,8 +2248,9 @@ gsShapeOptLog slog(output);
 // Test 3D PML and water waves
 if (false) {
     gsMultiPatch<> mp = get3DGeometry();
+	gsMultiPatch<>::Ptr mp_ptr(&mp);
 
-    gsStateEquationPotWaves SE(&mp,3);
+    gsStateEquationPotWaves SE(mp_ptr,3);
 
     std::string name = "/../results/PML3D/mp";
     slog.plotInParaview(mp,name);
@@ -2267,6 +2273,9 @@ gsMultiPatch<> mp = getGeometry(nx,ny,degree);
 // mp = patches;
 
 gsMultiPatch<> patches = mp;
+
+gsMultiPatch<>::Ptr patches_ptr(&patches);
+gsMultiPatch<>::Ptr mp_ptr(&mp);
 
 gsMultiBasis<> bas(patches);
 
@@ -2296,19 +2305,23 @@ gsInfo << "The domain is a "<< patches <<"\n";
 
 if (startFromFile) {
     gsShapeOptLog slog1(output,true,false,false);
-	gsWinslow winslow(&mp);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
+
+	gsWinslow winslow(mp_ptr);
 	winslow.updateFlat( loadVec(winslow.n_flat,BASE_FOLDER + startFile));
 
     if (param == 5) // Use regularization
     {
-        gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
-        gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
+        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,0,quA,quB);
+		gsOptAntenna::Ptr optA_ptr(&optA);
+
+        gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
         optWR.solve();
     } else if (param == 6) {
-        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
         optA.runOptimization(maxiter);
     } else if (param == 0) {
-        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
         optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
         gsInfo << optA.evalObj() << "\n";
     }
@@ -2320,7 +2333,7 @@ if (startFromFile) {
 
 // test winslow derivatives
 if (false) {
-    gsWinslow winslow(&mp,false);
+    gsWinslow winslow(mp_ptr,false);
 
     convergenceTestOfParaJacobianAll(winslow);
 
@@ -2331,18 +2344,19 @@ if (false) {
 
 // test harmonic derivatives
 if (false) {
-    gsHarmonic harmonic(&mp,false);
+    gsHarmonic harmonic(mp_ptr,false);
     convergenceTestOfParaJacobian(harmonic);
     exit(0);
 }
 
 // test of optAntenna derivatives
 if (false) {
-    gsWinslow winslow(&mp,false);
+    gsWinslow winslow(mp_ptr,false);
 	//gsInfo << winslow.getFlat() << "\n";
 	gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
 
-	gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+	gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
 	// gsInfo << "obj : " << optA.evalObj() << "\n";
 	convergenceTestOfJacobian(optA);
 	exit(0);
@@ -2352,7 +2366,7 @@ if (startDes == 11) {
     gsMultiPatch<> jigsaw = getJigSaw3D(2); //
     mp = jigsaw;
 
-    gsWinslowWithDeriv win(&mp,false,false,true,0);
+    gsWinslowWithDeriv win(mp_ptr,false,false,true,0);
 
     std::stringstream stream_in;
     stream_in << BASE_FOLDER << output << "cps" << "_0_" << maxiter << ".txt";
@@ -2363,7 +2377,7 @@ if (startDes == 11) {
 
     win.updateFlat(mat);
 
-    gsDetJacConstraint dJC(&mp,true);
+    gsDetJacConstraint dJC(mp_ptr,true);
     dJC.evalCon();
     gsShapeOptLog slog1(output,true,false,false);
 
@@ -2384,14 +2398,16 @@ if (false ) {
     //  How about if I run without constraints on detJ and afterwards refine m_mp
     //  where the negative coefficients are..?
     gsShapeOptLog slog1(output,true,false,false);
-    gsOptAntenna optA(&patches,numRefine,&slog1,param,quA,quB,true);
-    gsWinslow winslow(&patches,optA.mappers(),false,false,true,0);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1);
+
+    gsOptAntenna optA(patches_ptr,numRefine,slog1_ptr,param,quA,quB,true);
+    gsWinslow winslow(patches_ptr,optA.mappers(),false,false,true,0);
 
     winslow.setQuad(quA,quB);
 
     winslow.updateFlat(loadVec(winslow.n_flat,BASE_FOLDER + output));
 
-    gsDetJacConstraint dJC(&patches);
+    gsDetJacConstraint dJC(patches_ptr);
     gsInfo << "mind = " << dJC.evalCon().minCoeff() << "\n";
 
     dJC.refineUntilPositive(maxiter);
@@ -2406,15 +2422,17 @@ if (false) {
     //  How about if I run without constraints on detJ and afterwards refine m_mp
     //  where the negative coefficients are..?
     gsShapeOptLog slog1(output,true,false,false);
-    gsOptAntenna optA(&patches,numRefine,&slog1,param,quA,quB,true);
-    gsWinslow winslow(&patches,optA.mappers(),false,false,true,0);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1);
+
+    gsOptAntenna optA(patches_ptr,numRefine,slog1_ptr,param,quA,quB,true);
+    gsWinslow winslow(patches_ptr,optA.mappers(),false,false,true,0);
 
     winslow.setQuad(quA,quB);
 
     winslow.updateFlat(loadVec(winslow.n_flat,BASE_FOLDER + output));
     // winslow.update();
 
-    gsDetJacConstraint dJC(&patches);
+    gsDetJacConstraint dJC(patches_ptr);
 
     gsMultiPatch<> tmp(patches);
     gsInfo << "tmp size " << tmp.patch(0).coefsSize() << "\n";
@@ -2514,6 +2532,7 @@ if (optParam) {
     // gsMultiPatch<> jigsaw = getJigSaw(startDes);
 	index_t jigtype = 2;
     gsMultiPatch<> jigsaw = getJigSaw3D(jigtype); //
+	gsMultiPatch<>::Ptr jigsaw_ptr;
 
     for( index_t r = 0; r < numRefine; r++){
         jigsaw.uniformRefine();
@@ -2588,6 +2607,8 @@ if (optParam) {
     // }
 
     gsMultiPatch<> mp_init(jigsaw);
+	gsMultiPatch<>::Ptr mp_init_ptr;
+
     mp_init.patch(0).setCoefs(coefs_init);
 	if (jigtype == 3 || jigtype == 2)
 	{
@@ -2598,19 +2619,21 @@ if (optParam) {
     // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
 
     gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
 
     std::string name = "init";
     slog1.plotInParaview(mp_init,name);
 
-    gsSpringMethod spring(&mp_init);
-    gsSpringMethod spring2(&jigsaw);
+    gsSpringMethod spring(mp_init_ptr);
+    gsSpringMethod spring2(jigsaw_ptr);
 
     // gsInfo << (spring.getFlat() - spring2.getFlat()).norm() << "\n";
     // gsInfo << (mp_init.patch(0).coefs() - jigsaw.patch(0).coefs()).norm() << "\n";
     // mat << spring.getTagged(), spring2.getTagged();
 
     // gsInfo << spring.n_tagged << "\n";
-    gsOptParam optP(&mp_init,&jigsaw,&slog1,param);
+	gsOptParam optP(mp_init_ptr,jigsaw_ptr,slog1_ptr,param);
+    gsOptParam::Ptr optP_ptr = memory::make_shared_not_owned( &optP);
     // gsMatrix<> v = optP.currentDesign()*0.99999;
     // optP.m_paramMethod->update();
     // gsInfo << optP.evalObj(v) << "\n";
@@ -2618,7 +2641,7 @@ if (optParam) {
     // gsInfo << optP.numDesignVars() << "\n";
     // optP.solve();
 	gsInfo << "EPS = " << eps << "\n";
-    gsShapeOptWithReg optWR(&mp_init,&optP,numRefine,&slog1,quA,quB,eps);
+    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps);
     // optWR.gradObj();
     optWR.solve();
 
@@ -2639,17 +2662,21 @@ if (true) {
     gsInfo << "test mb\n";
 
     gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
     // gsInfo << optWR.evalObj();
     // gsInfo << optWR.gradObj();
     // optWR.solve();
 
     if (param == 5) // Use regularization
     {
-        gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
-        gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
+	
+        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,0,quA,quB);
+		gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
+
+        gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
         optWR.solve();
     } else if (param == 6) {
-        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
         // optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
         // gsInfo << optA.evalObj() << "\n";
         // exit(0);
@@ -2657,7 +2684,7 @@ if (true) {
         optA.runOptimization(maxiter);
 		// convergenceTestOfJacobian(optA);
     } else if (param == 0) {
-        gsOptAntenna optA(&mp,numRefine,&slog1,param,quA,quB,true);
+        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
         optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
         gsInfo << optA.evalObj() << "\n";
         exit(0);
@@ -2673,7 +2700,9 @@ if (true) {
 if (false) {
     gsInfo << output << "\n";
     gsShapeOptLog slog1(output,true,false,false);
-    gsOptAntenna optA(&mp,numRefine,&slog1,0,quA,quB);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
+    gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,0,quA,quB);
+	gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
 
     // gsSpringMethod spring(&mp,optA.mappers());
     // spring.update();
@@ -2694,7 +2723,7 @@ if (false) {
     //
     // gsInfo << "min detJ in pts: " << winslow.minDetJInGaussPts(10) << "\n";
 
-    gsShapeOptWithReg optWR(&mp,&optA,numRefine,&slog1,quA,quB,eps);
+    gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
     // gsInfo << optWR.evalObj();
     // gsInfo << optWR.gradObj();
     // optWR.solve();
@@ -2705,12 +2734,15 @@ if (false) {
 
 }
 
+/*
 // calculate detJ constraints for different designs
 if (false) {
     // gsMultiPatch<> jigsaw = getJigSaw(1);
     gsMultiPatch<> jigsaw = getJigSaw3D(2); //
-    gsSpringMethod spring(&jigsaw);
-    gsDetJacConstraint dJC(&jigsaw,true);
+	gsMultiPatch<>::Ptr jigsaw_ptr(&jigsaw);
+
+    gsSpringMethod spring(jigsaw_ptr);
+    gsDetJacConstraint dJC(jigsaw_ptr,true);
 
     gsMatrix<> minDetJ(maxiter,3);
 
@@ -2759,6 +2791,7 @@ if (false) {
 if (false) {
     // gsMultiPatch<> jigsaw = getJigSaw(1);
     gsMultiPatch<> jigsaw = getJigSaw3D(1); //
+	gsMultiPatch<>::Ptr jigsaw_ptr;
 
     for( index_t r = 0; r < numRefine; r++){
         jigsaw.uniformRefine();
@@ -2806,12 +2839,15 @@ if (false) {
     // }
 
     gsMultiPatch<> mp_init(jigsaw);
+	gsMultiPatch<>::Ptr mp_init_ptr(&mp_init);
+
     mp_init.patch(0).setCoefs(coefs_init);
     changeSignOfDetJ(mp_init.patch(0));
 
     // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
 
     gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
 
     std::string name = "init";
     slog1.plotInParaview(mp_init,name);
@@ -2824,7 +2860,7 @@ if (false) {
     // mat << spring.getTagged(), spring2.getTagged();
 
     // gsInfo << spring.n_tagged << "\n";
-    gsOptParam optP(&mp_init,&jigsaw,&slog1,param);
+    gsOptParam optP(mp_init_ptr,jigsaw_ptr,slog1_ptr,param);
     // gsMatrix<> v = optP.currentDesign()*0.99999;
     // optP.m_paramMethod->update();
     // gsInfo << optP.evalObj(v) << "\n";
@@ -2839,6 +2875,7 @@ if (false) {
 
 }
 
+/*
 // Test hessian and jacobUpdate of winslow
 if (false) {
     gsShapeOptLog slog1(output,true,false,false);
@@ -3221,6 +3258,7 @@ if (false){
 
     exit(0);
 }
+*/
 
 return 0;
 }

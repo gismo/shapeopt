@@ -18,11 +18,11 @@ public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
     // Uses gsDetJacConstraint as default
-    gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool useDetJCons = false, bool use_Lagrangian = false);
+    gsOptAntenna(memory::shared_ptr<gsMultiPatch<>> mp, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, index_t param, real_t quA, index_t quB, bool useDetJCons = false, bool use_Lagrangian = false);
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
     // Uses specified constraint from \a constraint
-    gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, gsConstraint* constraint, index_t param, real_t quA, index_t quB, bool use_Lagrangian = false);
+    gsOptAntenna(memory::shared_ptr<gsMultiPatch<>> mp, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, memory::shared_ptr<gsConstraint> constraint, index_t param, real_t quA, index_t quB, bool use_Lagrangian = false);
 
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;
@@ -48,12 +48,15 @@ public:
     gsVector<> getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
 
     gsDofMapper mapper_grad() const;
+public:
+
+	typedef memory::shared_ptr<gsOptAntenna> Ptr;
 
 public:
     // function for objective function and its derivatives
-    gsFunctionExpr<> delta;
-    gsFunctionExpr<> ddeltadx;
-    gsFunctionExpr<> ddeltady;
+    gsFunctionExpr<>::Ptr delta;
+    gsFunctionExpr<>::Ptr ddeltadx;
+    gsFunctionExpr<>::Ptr ddeltady;
 
     // State equation class to hold state equation
     mutable gsStateEquationAntenna m_stateEq;

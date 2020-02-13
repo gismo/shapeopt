@@ -24,7 +24,7 @@ public:
     // Constructs from gsConstraint and gsFunction, runs the setup method.
     // \a constraint will be the constraint
     // \a map is the function the you want to compose with
-    gsAggregatedConstraint(gsMultiPatch<>* mp, gsConstraint* constraint, gsFunction<>* map);
+    gsAggregatedConstraint(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsConstraint> constraint, memory::shared_ptr<gsFunction<>> map);
 
     // Get constraints
     gsVector<> evalCon();
@@ -56,10 +56,10 @@ public:
 public:
     real_t m_eps = 0;
 
-    gsMultiPatch<>* m_mp;
+    memory::shared_ptr<gsMultiPatch<>> m_mp;
 
-    gsConstraint*   m_constraint;
-    gsFunction<>*   m_map;
+    memory::shared_ptr<gsConstraint>   m_constraint;
+    memory::shared_ptr<gsFunction<>>   m_map;
 
 };
 

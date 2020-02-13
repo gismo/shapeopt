@@ -20,6 +20,11 @@ public:
     void setLambdas(real_t l1, real_t l2){ lambda_1 = l1; lambda_2 = l2;}
 
 public:
+
+	typedef memory::shared_ptr<gsHarmonic> Ptr;
+	typedef memory::unique_ptr<gsHarmonic> uPtr;
+
+public:
     real_t lambda_1 = 1;
     real_t lambda_2 = 1;
 

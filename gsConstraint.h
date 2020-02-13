@@ -22,7 +22,7 @@ public:
     gsConstraint(){}; // Empty constructor
 
     // Constructs from gsMultiPatch
-    gsConstraint(gsMultiPatch<>* mpin);
+    gsConstraint(memory::shared_ptr<gsMultiPatch<>> mpin);
 
     // Evaluate into vector, currently calls evalCon and copy, but can be overloaded to improve efficiency.
     virtual void evalCon_into(gsAsVector<real_t> & result);
@@ -89,7 +89,7 @@ public:
     void setEps(real_t eps) { m_eps = eps; };
 
 public:
-    gsMultiPatch<>* m_mp;
+    memory::shared_ptr<gsMultiPatch<>> m_mp;
 
     // Holds the mapper used to compute the jacobian of the constraint
     // for extracting DoFs later

@@ -2,13 +2,13 @@
 #include "gsMaxDetJac.h"
 using namespace gismo;
 
-gsMaxDetJac::gsMaxDetJac(gsMultiPatch<>* mpin, bool useTPSolver):
+gsMaxDetJac::gsMaxDetJac(memory::shared_ptr<gsMultiPatch<>> mpin, bool useTPSolver):
 gsParamMethod(mpin), m_dJC(mpin, useTPSolver)
 {
     setupOptParameters();
 };
 
-gsMaxDetJac::gsMaxDetJac(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool useTPSolver):
+gsMaxDetJac::gsMaxDetJac(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool useTPSolver):
 gsParamMethod(mpin, mappers), m_dJC(mpin, useTPSolver)
 {
     setupOptParameters();

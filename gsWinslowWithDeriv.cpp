@@ -2,14 +2,14 @@
 #include "gsWinslowWithDeriv.h"
 using namespace gismo;
 
-gsWinslowWithDeriv::gsWinslowWithDeriv(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
+gsWinslowWithDeriv::gsWinslowWithDeriv(memory::shared_ptr<gsMultiPatch<>> mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
     gsWinslow(mpin,use_dJC,useTensorStructureforDJC,checkForInf,checkForInf_eps)
     //, m_aff(this,false)
 {
     // m_aff.computeMap();
 }
 
-gsWinslowWithDeriv::gsWinslowWithDeriv(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
+gsWinslowWithDeriv::gsWinslowWithDeriv(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
     gsWinslow(mpin,mappers,use_dJC,useTensorStructureforDJC,checkForInf,checkForInf_eps)
     //, m_aff(this,false)
 {

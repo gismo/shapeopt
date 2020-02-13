@@ -4,7 +4,7 @@
 #include "gsDetJacConstraint.h"
 using namespace gismo;
 
-gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin,std::vector< gsDofMapper > mappers):
+gsParamMethod::gsParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin,std::vector< gsDofMapper > mappers):
 m_mp(mpin),
 m_isBoundaryFixed(mpin->targetDim(),mpin->nBoundary()),
 m_isInterfaceFixed(mpin->targetDim(),mpin->nInterfaces()),
@@ -14,7 +14,7 @@ m_isInterfaceTagged(mpin->targetDim(),mpin->nInterfaces())
     setMappers(mappers);
 }
 
-gsParamMethod::gsParamMethod(gsMultiPatch<>* mpin):
+gsParamMethod::gsParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin):
 m_mp(mpin),
 m_mappers(m_mp->targetDim()),
 m_isBoundaryFixed(mpin->targetDim(),mpin->nBoundary()),

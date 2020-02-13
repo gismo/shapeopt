@@ -11,7 +11,7 @@ class gsShapeOptWithReg: public gsOptProblem<real_t>{
 public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
-    gsShapeOptWithReg(gsMultiPatch<>* mp, gsShapeOptProblem* sopt, index_t numRefine, gsShapeOptLog* slog, real_t quA, index_t quB, real_t eps);
+    gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps);
 
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;
@@ -47,12 +47,12 @@ public:
 public:
     real_t m_eps = 1; // Regularization parameter
 
-    gsMultiPatch<> *m_mp;
+    memory::shared_ptr<gsMultiPatch<>> m_mp;
 
-    gsShapeOptLog* m_log;
+    memory::shared_ptr<gsShapeOptLog> m_log;
 
-    gsShapeOptProblem *m_opt; // Handles shape optimization objective and sensitivities
-    gsWinslow *m_winslow; // Handles the Regularization term, and bookkeeping tasks
+    memory::shared_ptr<gsShapeOptProblem> m_opt; // Handles shape optimization objective and sensitivities
+    memory::shared_ptr<gsWinslow> m_winslow; // Handles the Regularization term, and bookkeeping tasks
 
     std::vector< gsDofMapper > m_mappers; // Mapper for each coordinate
 

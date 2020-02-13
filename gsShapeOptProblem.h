@@ -42,13 +42,13 @@ public:
     // FIXIT: NOT IMPLEMENTED YET
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
-    gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, bool useDetJCons = false);
+    gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptLog> slog, bool useDetJCons = false);
 
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
     //
     // Used constraints from the \a constraint pointer
-    gsShapeOptProblem(gsMultiPatch<>* mp, gsShapeOptLog* slog, gsConstraint* constraint);
+    gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptLog> slog, memory::shared_ptr<gsConstraint> constraint);
 
     // Constructs from list of mappers, one for each dimension
     //      The design variables for the shape optimization should be tagged in the
@@ -56,7 +56,7 @@ public:
     //      method should be free. The rest (fixed cps) should be eliminated..
     //
     // Uses gsDetJacConstraints
-    gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog);
+    gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsShapeOptLog> slog);
 
     // Constructs from list of mappers, one for each dimension
     //      The design variables for the shape optimization should be tagged in the
@@ -64,7 +64,7 @@ public:
     //      method should be free. The rest (fixed cps) should be eliminated..
     //
     // Used constraints from the \a constraint pointer
-    gsShapeOptProblem(gsMultiPatch<>* mp, std::vector< gsDofMapper > mappers, gsShapeOptLog* slog, gsConstraint* constraint);
+    gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsShapeOptLog> slog, memory::shared_ptr<gsConstraint> constraint);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     // these are automaticly generated from mappers and gsDetJacConstraint m_dJC
@@ -161,11 +161,11 @@ public:
     void print();
 
 public:
-    mutable gsMultiPatch<>* m_mp;
-    mutable gsConstraint* m_dJC;
-    mutable gsParamMethod* m_paramMethod;
+    mutable memory::shared_ptr<gsMultiPatch<>> m_mp;
+    mutable memory::shared_ptr<gsConstraint> m_dJC;
+    mutable memory::shared_ptr<gsParamMethod> m_paramMethod;
 
-    gsShapeOptLog* m_log;
+    memory::shared_ptr<gsShapeOptLog> m_log;
 
     std::vector< gsDofMapper > m_mappers; // Mapper for each coordinate
 

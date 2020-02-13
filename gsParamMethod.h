@@ -26,10 +26,10 @@ public:
 
     // Constructs from multipatch, should setup mappers and assume interfaces glued
     // and boundary fixed;
-    gsParamMethod(gsMultiPatch<>* mpin);
+    gsParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin);
 
     // Constructs from list of mappers
-    gsParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers);
+    gsParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers);
 
     // Sets the mappers and (re-)computes n_free, n_tagged, n_cps, and shifts
     void setMappers(std::vector< gsDofMapper > mappers);
@@ -96,7 +96,7 @@ public:
 
     // Accessors
     std::vector< gsDofMapper > mappers() { return m_mappers; };
-    gsMultiPatch<>* mp() { return m_mp; };
+    memory::shared_ptr<gsMultiPatch<>> mp() { return m_mp; };
     gsVector<> shift_free() const { return m_shift_free; };
 
     // Maps a vector from mapper_in indexing, to m_mappers.
@@ -125,12 +125,12 @@ public:
     // virtual int iterations() const { GISMO_NO_IMPLEMENTATION };
 
     virtual void refineBasedOnDetJ(index_t strategy){ GISMO_NO_IMPLEMENTATION; };
-    virtual void refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC){ GISMO_NO_IMPLEMENTATION; };
+    virtual void refineBasedOnDetJ(index_t strategy, memory::shared_ptr<gsDetJacConstraint> dJC){ GISMO_NO_IMPLEMENTATION; };
 
     virtual void setupOptParameters() { GISMO_NO_IMPLEMENTATION; };
 
 public:
-    mutable gsMultiPatch<>* m_mp;
+    mutable memory::shared_ptr<gsMultiPatch<>> m_mp;
 
     std::vector< gsDofMapper > m_mappers; // Mapper for each coordinate
 

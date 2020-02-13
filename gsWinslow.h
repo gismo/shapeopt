@@ -11,9 +11,9 @@ public:
 
     // Constructor with input flag that tells whether to check for infinite value of objective
     // \a checkForInf_eps will denote the value of detJ where objective will be set to 0
-    gsWinslow(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
+    gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
 
-    gsWinslow(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
+    gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
 
     // evaluation of objective
     real_t evalObj() const;
@@ -29,6 +29,10 @@ public:
 
     gsVector<> gradObj(gsVector<> &gradObjTagged) const;
 
+public:
+
+	typedef memory::unique_ptr<gsWinslow> uPtr;
+	typedef memory::shared_ptr<gsWinslow> Ptr;
 
 public:
     // Flags that determines whether objective should be set to inf if detJ is smaller that m_checkForInf_eps in a gauss point.

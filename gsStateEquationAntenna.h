@@ -10,7 +10,7 @@ using namespace gismo;
 // FIXIT: Clean up. Make more flexible wrt to topology, e.g. use Piecewise function
 class gsStateEquationAntenna{
 public:
-    gsStateEquationAntenna(gsMultiPatch<>* mpin, index_t numRefine): mp(mpin), dbasis(*mp), zero("0.0",2){
+    gsStateEquationAntenna(memory::shared_ptr<gsMultiPatch<>> mpin, index_t numRefine): mp(mpin), dbasis(*mp), zero("0.0",2){
         dbasis.setDegree(degree);
         // gsInfo << "OBS CHECK DISCRETIZATION OF PDE!!\n";
         for (index_t i = 0; i < numRefine; i++){
@@ -57,42 +57,42 @@ public:
         snprintf(tmp, 200, "cos(%s*x)", k_str.c_str());
         std::string Hiz_real_str = tmp;
         // gsInfo << "\n Hiz real: " << Hiz_real_str << "\n";
-        Hiz_real = *(new gsFunctionExpr<>(Hiz_real_str,2));
+        Hiz_real = memory::make_shared(new gsFunctionExpr<>(Hiz_real_str,2));
 
         snprintf(tmp, 200, "sin(%s*x)", k_str.c_str());
         std::string Hiz_imag_str = tmp;
         // gsInfo << "\n Hiz imag: " << Hiz_imag_str << "\n";
-        Hiz_imag = *(new gsFunctionExpr<>(Hiz_imag_str,2));
+        Hiz_imag = memory::make_shared(new gsFunctionExpr<>(Hiz_imag_str,2));
 
         snprintf(tmp, 200, "(-%s*sin(%s*x))", k_str.c_str(), k_str.c_str());
         std::string dHizdx_real_str = tmp;
         // gsInfo << "\n dHizdx real: " << dHizdx_real_str << "\n";
-        dHizdx_real = *(new gsFunctionExpr<>(dHizdx_real_str,2));
+        dHizdx_real = memory::make_shared(new gsFunctionExpr<>(dHizdx_real_str,2));
 
         snprintf(tmp, 200, "(%s*cos(%s*x))", k_str.c_str(), k_str.c_str());
         std::string dHizdx_imag_str = tmp;
         // gsInfo << "\n dHizdx imag: " << dHizdx_imag_str << "\n";
-        dHizdx_imag = *(new gsFunctionExpr<>(dHizdx_imag_str,2));
+        dHizdx_imag = memory::make_shared(new gsFunctionExpr<>(dHizdx_imag_str,2));
 
         snprintf(tmp, 200, "x/%f*%s", pde_r_t, dHizdx_real_str.c_str());
         std::string dHizdn_real_str = tmp;
         // gsInfo << "\n dHizdn real: " << dHizdn_real_str << "\n";
-        dHizdn_real = *(new gsFunctionExpr<>(dHizdn_real_str,2));
+        dHizdn_real = memory::make_shared(new gsFunctionExpr<>(dHizdn_real_str,2));
 
         snprintf(tmp, 200, "x/%f*%s", pde_r_t, dHizdx_imag_str.c_str());
         std::string dHizdn_imag_str = tmp;
         // gsInfo << "\n dHizdn imag: " << dHizdn_imag_str << "\n";
-        dHizdn_imag = *(new gsFunctionExpr<>(dHizdn_imag_str,2));
+        dHizdn_imag = memory::make_shared(new gsFunctionExpr<>(dHizdn_imag_str,2));
 
         snprintf(tmp, 200, "1/%f*%s - x/%f*%s^2*%s", pde_r_t, dHizdx_real_str.c_str(), pde_r_t, k_str.c_str(), Hiz_real_str.c_str());
         std::string d2Hizdndx_real_str = tmp;
         // gsInfo << "\n d2Hizdndx real: " << d2Hizdndx_real_str << "\n";
-        d2Hizdndx_real = *(new gsFunctionExpr<>(d2Hizdndx_real_str,2));
+        d2Hizdndx_real = memory::make_shared(new gsFunctionExpr<>(d2Hizdndx_real_str,2));
 
         snprintf(tmp, 200, "1/%f*%s - x/%f*%s^2*%s", pde_r_t, dHizdx_imag_str.c_str(), pde_r_t, k_str.c_str(), Hiz_imag_str.c_str());
         std::string d2Hizdndx_imag_str = tmp;
         // gsInfo << "\n dHizdn imag: " << d2Hizdndx_imag_str << "\n";
-        d2Hizdndx_imag = *(new gsFunctionExpr<>(d2Hizdndx_imag_str,2));
+        d2Hizdndx_imag = memory::make_shared(new gsFunctionExpr<>(d2Hizdndx_imag_str,2));
 
         bcInfo.addCondition(4, boundary::south, condition_type::neumann, &zero);
         // bcInfoZero.addCondition(4, boundary::east, condition_type::neumann, &zero); //zero bcs
@@ -156,7 +156,7 @@ public:
 
 
 public:
-    gsMultiPatch<>* mp;
+    memory::shared_ptr<gsMultiPatch<>> mp;
     index_t degree = 2;
     bool isRefined = false;
     index_t numRef = 1;
@@ -164,16 +164,16 @@ public:
     // Boundary conditions
     gsFunctionExpr<> zero;
 
-    gsFunctionExpr<> Hiz_real;
-    gsFunctionExpr<> Hiz_imag;
+    gsFunctionExpr<>::Ptr Hiz_real;
+    gsFunctionExpr<>::Ptr Hiz_imag;
 
-    gsFunctionExpr<> dHizdx_real;
-    gsFunctionExpr<> dHizdx_imag;
+    gsFunctionExpr<>::Ptr dHizdx_real;
+    gsFunctionExpr<>::Ptr dHizdx_imag;
 
-    gsFunctionExpr<> dHizdn_real;
-    gsFunctionExpr<> dHizdn_imag;
-    gsFunctionExpr<> d2Hizdndx_real;
-    gsFunctionExpr<> d2Hizdndx_imag;
+    gsFunctionExpr<>::Ptr dHizdn_real;
+    gsFunctionExpr<>::Ptr dHizdn_imag;
+    gsFunctionExpr<>::Ptr d2Hizdndx_real;
+    gsFunctionExpr<>::Ptr d2Hizdndx_imag;
 
     gsBoundaryConditions<> bcInfo;
     gsBoundaryConditions<> bcInfoZero;

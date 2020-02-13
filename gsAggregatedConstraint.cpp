@@ -4,7 +4,7 @@
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-gsAggregatedConstraint::gsAggregatedConstraint(gsMultiPatch<>* mp, gsConstraint* constraint, gsFunction<>* map):
+gsAggregatedConstraint::gsAggregatedConstraint(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsConstraint> constraint, memory::shared_ptr<gsFunction<>> map):
     gsConstraint(mp),
     m_mp(mp),
     m_constraint(constraint),

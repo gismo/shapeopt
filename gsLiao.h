@@ -15,6 +15,13 @@ public:
 
     gsMatrix<> hessAll(gsDofMapper &space_mapper) const;
 
+public:
+
+	typedef memory::shared_ptr<gsLiao> Ptr;
+	typedef memory::unique_ptr<gsLiao> uPtr;
+
+	
+
 };
 
 #endif //GSLIAO_H

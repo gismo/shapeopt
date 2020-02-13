@@ -10,12 +10,12 @@ using namespace gismo;
 // FIXIT: Clean up. Make more flexible wrt to topology, e.g. use Piecewise function
 class gsStateEquationPotWaves{
 public:
-    gsStateEquationPotWaves(gsMultiPatch<>* mpin, index_t numRefine);
+    gsStateEquationPotWaves(memory::shared_ptr<gsMultiPatch<>> mpin, index_t numRefine);
 
     gsMultiPatch<> solve();
 
 public:
-    gsMultiPatch<>* mp;
+    memory::shared_ptr<gsMultiPatch<>> mp;
     index_t degree = 2;
     bool isRefined = false;
     index_t numRef = 1;

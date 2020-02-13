@@ -28,15 +28,15 @@ gsMatrix<> gsStateEquationAntenna::getDerivativeOfRhsZeroBC(index_t realOrImag){
   space v = A.getTestSpace(u,geom_basis);
 	// Setup terms
 	// Rhs
-	variable Hiz_re = A.getCoeff(Hiz_real,G);
-	variable Hiz_im = A.getCoeff(Hiz_imag,G);
-	variable dHizdn_re = A.getCoeff(dHizdn_real,G);
-	variable dHizdn_im = A.getCoeff(dHizdn_imag,G);
+	variable Hiz_re = A.getCoeff(*Hiz_real,G);
+	variable Hiz_im = A.getCoeff(*Hiz_imag,G);
+	variable dHizdn_re = A.getCoeff(*dHizdn_real,G);
+	variable dHizdn_im = A.getCoeff(*dHizdn_imag,G);
 
-	variable dHizdx_re = A.getCoeff(dHizdx_real,G);
-	variable dHizdx_im = A.getCoeff(dHizdx_imag,G);
-	variable d2Hizdndx_re = A.getCoeff(d2Hizdndx_real,G);
-	variable d2Hizdndx_im = A.getCoeff(d2Hizdndx_imag,G);
+	variable dHizdx_re = A.getCoeff(*dHizdx_real,G);
+	variable dHizdx_im = A.getCoeff(*dHizdx_imag,G);
+	variable d2Hizdndx_re = A.getCoeff(*d2Hizdndx_real,G);
+	variable d2Hizdndx_im = A.getCoeff(*d2Hizdndx_imag,G);
 	// variable dHizdx_re = A.getCoeff();
 
 	auto bnd_f_real = pde_eps_cr_inv*dHizdn_re + pde_bnd_const.real()*Hiz_re - pde_bnd_const.imag()*Hiz_im;
@@ -184,10 +184,10 @@ gsMatrix<> gsStateEquationAntenna::getDerivativeOfAuPart2(index_t realOrImag, gs
     auto bnd_term_imag = pde_bnd_const.imag()*u*u.tr()*nv(G).norm();
 
     // Rhs
-    variable Hiz_re = A.getCoeff(Hiz_real,G);
-    variable Hiz_im = A.getCoeff(Hiz_imag,G);
-    variable dHizdn_re = A.getCoeff(dHizdn_real,G);
-    variable dHizdn_im = A.getCoeff(dHizdn_imag,G);
+    variable Hiz_re = A.getCoeff(*Hiz_real,G);
+    variable Hiz_im = A.getCoeff(*Hiz_imag,G);
+    variable dHizdn_re = A.getCoeff(*dHizdn_real,G);
+    variable dHizdn_im = A.getCoeff(*dHizdn_imag,G);
 
     auto rhs_term_real = u*(pde_eps_cr_inv*dHizdn_re + pde_bnd_const.real()*Hiz_re - pde_bnd_const.imag()*Hiz_im)*nv(G).norm();
     auto rhs_term_imag = u*(pde_eps_cr_inv*dHizdn_im + pde_bnd_const.imag()*Hiz_re + pde_bnd_const.real()*Hiz_im)*nv(G).norm();
@@ -503,10 +503,10 @@ void gsStateEquationAntenna::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, 
 	auto bnd_term_imag = pde_bnd_const.imag()*u*u.tr()*nv(G).norm();
 
 	// Rhs
-	variable Hiz_re = A.getCoeff(Hiz_real,G);
-	variable Hiz_im = A.getCoeff(Hiz_imag,G);
-	variable dHizdn_re = A.getCoeff(dHizdn_real,G);
-	variable dHizdn_im = A.getCoeff(dHizdn_imag,G);
+	variable Hiz_re = A.getCoeff(*Hiz_real,G);
+	variable Hiz_im = A.getCoeff(*Hiz_imag,G);
+	variable dHizdn_re = A.getCoeff(*dHizdn_real,G);
+	variable dHizdn_im = A.getCoeff(*dHizdn_imag,G);
 
 	auto rhs_term_real = u*(pde_eps_cr_inv*dHizdn_re + pde_bnd_const.real()*Hiz_re - pde_bnd_const.imag()*Hiz_im)*nv(G).norm();
 	auto rhs_term_imag = u*(pde_eps_cr_inv*dHizdn_im + pde_bnd_const.imag()*Hiz_re + pde_bnd_const.real()*Hiz_im)*nv(G).norm();
@@ -840,10 +840,10 @@ gsMatrix<> gsStateEquationAntenna::getDerivativeOfAuPart1(index_t realOrImag, gs
     auto bnd_term_imag = pde_bnd_const.imag()*u*u.tr()*nv(G).norm();
 
     // Rhs
-    variable Hiz_re = A.getCoeff(Hiz_real,G);
-    variable Hiz_im = A.getCoeff(Hiz_imag,G);
-    variable dHizdn_re = A.getCoeff(dHizdn_real,G);
-    variable dHizdn_im = A.getCoeff(dHizdn_imag,G);
+    variable Hiz_re = A.getCoeff(*Hiz_real,G);
+    variable Hiz_im = A.getCoeff(*Hiz_imag,G);
+    variable dHizdn_re = A.getCoeff(*dHizdn_real,G);
+    variable dHizdn_im = A.getCoeff(*dHizdn_imag,G);
 
     auto rhs_term_real = u*(pde_eps_cr_inv*dHizdn_re + pde_bnd_const.real()*Hiz_re - pde_bnd_const.imag()*Hiz_im)*nv(G).norm();
     auto rhs_term_imag = u*(pde_eps_cr_inv*dHizdn_im + pde_bnd_const.imag()*Hiz_re + pde_bnd_const.real()*Hiz_im)*nv(G).norm();

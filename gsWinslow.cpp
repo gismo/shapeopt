@@ -2,7 +2,7 @@
 #include "gsWinslow.h"
 using namespace gismo;
 
-gsWinslow::gsWinslow(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
+gsWinslow::gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
     gsOptParamMethod(mpin,use_dJC,useTensorStructureforDJC),
     m_checkForInf(checkForInf),
     m_checkForInf_eps(checkForInf_eps)
@@ -10,7 +10,7 @@ gsWinslow::gsWinslow(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructure
     gsInfo << "Check for inf in Winslow: " << checkForInf << " with eps " << checkForInf_eps << "\n";
 }
 
-gsWinslow::gsWinslow(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
+gsWinslow::gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
     gsOptParamMethod(mpin,mappers,use_dJC,useTensorStructureforDJC),
     m_checkForInf(checkForInf),
     m_checkForInf_eps(checkForInf_eps)
