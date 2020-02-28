@@ -15,6 +15,7 @@
 
 #include "gsParamMethod.h"
 #include "gsSpringMethod.h"
+#include "gsSpringMethod2nd.h"
 #include "gsModLiao.h"
 #include "gsWinslow.h"
 // #include "gsKnupp.h"
@@ -28,6 +29,9 @@
 #include "gsShapeOptWithReg.h"
 #include "gsOptAntenna.h"
 #include "gsOptParam.h"
+#include "gsOptInit.h"
+#include "gsOptInit2nd.h"
+#include "gsOptInit3rd.h"
 #include "gsShapeOptLog.h"
 
 #include "gsStateEquationPotWaves.h"
@@ -980,7 +984,7 @@ void convergenceTestOfParaGradAll(gsWinslow &lOP){
 }
 
 gsVector<> loadVec(index_t n,std::string name){
-        gsInfo << "load from " << name << "\n";
+        //gsInfo << "load from " << name << "\n";
 		gsVector<> vec;
 		vec.setZero(n);
 		std::ifstream file (name);
@@ -1072,8 +1076,7 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 	// 2. construction of a basis
 	gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
 	// 3. construction of a coefficients
-	gsMatrix<> greville = basis.anchors();
-	gsMatrix<> coefs (greville.cols(), 2);
+	gsMatrix<> coefs (basis.size(), 2);
 
 	readFromTxt(BASE_FOLDER + folder + "l.txt", coefs);
 
@@ -1101,8 +1104,7 @@ gsMultiPatch<> getGeometry(index_t n, index_t m, index_t degree){
 
 	gsTensorBSplineBasis<2, real_t> basisMid(kv1, kv1);
 	// 3. construction of a coefficients
-	gsMatrix<> grevilleMid = basisMid.anchors();
-	gsMatrix<> coefsMid (grevilleMid.cols(), 2);
+	gsMatrix<> coefsMid (basisMid.size(), 2);
 
 	readFromTxt(BASE_FOLDER + folder + "m.txt", coefsMid);
 	gsTensorBSpline<2, real_t>  middle(basisMid, coefsMid);
@@ -1147,8 +1149,7 @@ gsMultiPatch<> getJigSaw(index_t i){
 	// 2. construction of a basis
 	gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
 	// 3. construction of a coefficients
-	gsMatrix<> greville = basis.anchors();
-	gsMatrix<> coefs (greville.cols(), 2);
+	gsMatrix<> coefs (basis.size(), 2);
 
     gsInfo << BASE_FOLDER + folder + "Jigsaw1.txt \n";
     if (i == 1){
@@ -1193,6 +1194,20 @@ gsMultiPatch<> getJigSaw3D(index_t i){
         n = 6;
     if (i == 3)
         n = 5;
+	if (i == 4)
+	{
+        std::ostringstream strs;
+		strs << BASE_FOLDER << "/parametrizations/water_passage_3p.xml";
+		
+		std::string fn(strs.str());
+
+		gsFileData<> fd(fn);
+
+		gsMultiPatch<> mp;
+		fd.getId(0,mp);
+
+		return mp;
+	}
     index_t degree = 2;
 
     std::string folder = "/parametrizations/JigSaw/";
@@ -1204,12 +1219,10 @@ gsMultiPatch<> getJigSaw3D(index_t i){
 	// 2. construction of a basis
 	gsTensorBSplineBasis<3, real_t> basis(kv1, kv2, kv3);
 	// 3. construction of a coefficients
-	gsMatrix<> greville = basis.anchors();
-	gsMatrix<> coefs (greville.cols(), 3);
+	gsMatrix<> coefs (n*n*n, 3);
 
-    gsInfo << BASE_FOLDER + folder + "jigsaw3d.txt \n";
     if (i == 1)
-	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d.txt", coefs);
+	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_1.txt", coefs);
     if (i == 2)
 	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_small.txt", coefs);
     if (i == 3)
@@ -1256,8 +1269,7 @@ gsMultiPatch<> getSeastar(){
 	// 2. construction of a basis
 	gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
 	// 3. construction of a coefficients
-	gsMatrix<> greville = basis.anchors();
-	gsMatrix<> coefs (greville.cols(), 2);
+	gsMatrix<> coefs (basis.size(), 2);
 
     gsInfo << BASE_FOLDER + folder + "seastar.txt \n";
 	readFromTxt(BASE_FOLDER + folder + "seastar.txt", coefs);
@@ -1318,6 +1330,7 @@ gsVector<> reshapeBack(gsMatrix<> mat){
     return out;
 }
 
+
 /*
 void testOfParametrizations(std::string output, index_t quA, index_t quB){
 
@@ -1338,7 +1351,7 @@ void testOfParametrizations(std::string output, index_t quA, index_t quB){
     // Rotated rectangle
     P[1] = gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
     P[1].patch(0).scale(2,1);
-    P[1].patch(0).rotate(M_PI_4);
+    P[1].patch(0).krotate(M_PI_4);
     gsVector<> v(2);
     v << 1,2;
     P[1].patch(0).translate(v);
@@ -2137,8 +2150,8 @@ void generateData02953Project(gsMultiPatch<> & mp, std::string folder){
     // Write initial design
 }
 
-void testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB, std::string output){
-	gsMultiPatch<>::Ptr mp_ptr(&mp);
+bool testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB, std::string output){
+	gsMultiPatch<>::Ptr mp_ptr = memory::make_shared_not_owned(&mp);
 
     gsDetJacConstraint dJC(mp_ptr,true);
 
@@ -2162,6 +2175,119 @@ void testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB,
     stream << BASE_FOLDER << output << name;
     std::string str = stream.str();
     saveMat(out,str);
+	
+	return minD > 0;
+}
+
+gsMultiPatch<> getInitGuess3d(gsMultiPatch<> &goal)
+{
+	index_t n = 2;
+	index_t degree = 1;
+
+	index_t dim = goal.targetDim();
+
+	gsMultiPatch<> out;
+	for( index_t p = 0; p < goal.nBoxes(); p++)
+	{	
+		gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
+		gsKnotVector<> kv2(0, 1, n - degree - 1, degree + 1);
+		gsKnotVector<> kv3(0, 1, n - degree - 1, degree + 1);
+		// 2. construction of a basis
+		gsTensorBSplineBasis<3, real_t> basis(kv1, kv2, kv3);
+		// 3. construction of a coefficients
+		gsMatrix<> coefs (n*n*n, 3);
+		gsTensorBSpline<3, real_t>  tbsout(basis, coefs);
+
+		gsTensorBSpline<3, real_t> tbs = static_cast< gsTensorBSpline<3, real_t>& > (goal.patch(p));
+
+		for( boxCorner bc = boxCorner::getFirst(dim); bc < boxCorner::getEnd(dim); ++bc)
+		{
+			gsMatrix<>::RowXpr coef = tbs.coefAtCorner(bc);
+
+			// Plug it back into the new one
+			unsigned i = tbsout.basis().functionAtCorner(bc);
+
+			for (index_t d = 0; d < dim; d++)
+			{
+				tbsout.coef(i,d) = coef[d];
+			}
+			
+		}
+
+		for (index_t d = 0; d < dim; d++)	
+		{
+			tbsout.degreeElevate(tbs.degree(d)-degree,d);
+
+			gsKnotVector<> kv = tbs.knots(d);
+			for(gsKnotVector<>::iterator it = kv.begin() + tbs.degree(d) + 1; it != kv.end() - tbs.degree(d) - 1; it++)
+			{
+				tbsout.insertKnot(*it,d);
+			}
+
+
+		}
+		
+		out.addPatch(tbsout);
+	}
+	out.computeTopology();
+	out.closeGaps();
+	return out;
+
+}
+
+gsMultiPatch<> getInitGuess2d(gsMultiPatch<> &goal)
+{
+	index_t n = 2;
+	index_t degree = 1;
+
+	index_t dim = goal.targetDim();
+
+	gsMultiPatch<> out;
+	for( index_t p = 0; p < goal.nBoxes(); p++)
+	{	
+		gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
+		gsKnotVector<> kv2(0, 1, n - degree - 1, degree + 1);
+		// 2. construction of a basis
+		gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
+		// 3. construction of a coefficients
+		gsMatrix<> coefs (n*n, 2);
+		gsTensorBSpline<2, real_t>  tbsout(basis, coefs);
+
+		gsTensorBSpline<2, real_t> tbs = static_cast< gsTensorBSpline<2, real_t>& > (goal.patch(p));
+
+		for( boxCorner bc = boxCorner::getFirst(dim); bc < boxCorner::getEnd(dim); ++bc)
+		{
+			gsMatrix<>::RowXpr coef = tbs.coefAtCorner(bc);
+
+			// Plug it back into the new one
+			unsigned i = tbsout.basis().functionAtCorner(bc);
+
+			for (index_t d = 0; d < dim; d++)
+			{
+				tbsout.coef(i,d) = coef[d];
+			}
+			
+		}
+
+		for (index_t d = 0; d < dim; d++)	
+		{
+			tbsout.degreeElevate(tbs.degree(d)-degree,d);
+
+			gsKnotVector<> kv = tbs.knots(d);
+			for(gsKnotVector<>::iterator it = kv.begin() + tbs.degree(d) + 1; it != kv.end() - tbs.degree(d) - 1; it++)
+			{
+				tbsout.insertKnot(*it,d);
+			}
+
+
+		}
+		
+		out.addPatch(tbsout);
+	}
+	out.computeTopology();
+	out.closeGaps();
+	return out;
+
 }
 
 int main(int argc, char* argv[]){
@@ -2177,6 +2303,9 @@ int numRefine = 1;
 int maxiter = 10;
 
 int param = 0; // 0: spring, 1: modLiao, 2: winslow
+int jig = 1; 
+int dim = 2;
+int patch = -1;
 
 bool plotDesign = false;
 bool plotMagnitude = false;
@@ -2208,6 +2337,10 @@ cmd.addInt("r", "numberRefine", "Number of refinements", numRefine);
 cmd.addInt("n", "nx", "Number of splines in first direction", nx);
 cmd.addInt("m", "ny", "Number of splines in second direction", ny);
 cmd.addInt("i", "maxIter", "Maximal number of reparametrizations", maxiter);
+
+cmd.addInt("j","jig","Which domain to try to parametrize",jig);
+cmd.addInt("d","dim","2d or 3d",dim);
+cmd.addInt("t","patch","patch",patch);
 
 cmd.addInt("A", "quA", "quA", quA);
 cmd.addInt("B", "quB", "quB", quB);
@@ -2254,7 +2387,7 @@ if (false) {
 
     std::string name = "/../results/PML3D/mp";
     slog.plotInParaview(mp,name);
-    exit(0);
+    return 0;
 
 }
 
@@ -2274,8 +2407,8 @@ gsMultiPatch<> mp = getGeometry(nx,ny,degree);
 
 gsMultiPatch<> patches = mp;
 
-gsMultiPatch<>::Ptr patches_ptr(&patches);
-gsMultiPatch<>::Ptr mp_ptr(&mp);
+gsMultiPatch<>::Ptr patches_ptr = memory::make_shared_not_owned(&patches); 
+gsMultiPatch<>::Ptr mp_ptr = memory::make_shared_not_owned(&mp);
 
 gsMultiBasis<> bas(patches);
 
@@ -2303,9 +2436,211 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // // gsHBSpline<2> bb(gg->basis(),mm);
 // exit(0);
 
+// Test of opParam3D
+if (false) { 
+
+	gsMultiPatch<> jigsaw = getJigSaw3D(2);
+	gsMultiPatch<>::Ptr jigsaw_ptr = memory::make_shared_not_owned(&jigsaw);
+
+	for(int i = 0; i < numRefine; i++){
+		jigsaw.uniformRefine();
+	}
+
+    changeSignOfDetJ(jigsaw.patch(0)); // Use for 3D small
+	
+	gsMultiPatch<> mp_des(jigsaw);
+	gsMultiPatch<>::Ptr mp_des_ptr = memory::make_shared_not_owned(&mp_des);
+	    
+	gsSpringMethod spring_jig(jigsaw_ptr);
+	gsVector<> tagged_jig = spring_jig.getTagged();
+	
+	gsWinslow win(mp_des_ptr,false,false,true,0); 
+
+	std::ofstream file (output + "stats.txt");
+	file << std::setprecision(12);
+	
+	for (index_t i = 0; i < 3000; i++) {
+	
+	    std::stringstream stream_in;
+	    stream_in <<  output << "cps" << "_0_" << i << ".txt";
+	    std::string str_in = stream_in.str();
+	
+		if (!exists(str_in)) break;
+		
+		win.updateFlat(loadVec(win.n_flat,str_in));
+	
+		gsVector<> tagged = win.getTagged();
+		gsVector<> diff = tagged - tagged_jig;
+	
+		file << i << " ";
+		file << diff.norm() << " ";
+		file << diff.maxCoeff() << " ";
+		file << "\n";
+	}
+	file.close();
+
+	// Snap bnd control points
+//	win.updateTagged(tagged_jig);
+//
+//	std::stringstream stream_out;
+//	stream_out <<  output << "cps_snapped.txt";
+//	std::string str_out = stream_out.str();
+//	gsVector<> flat = win.getFlat();
+//	saveVec(flat,str_out);
+//
+//	testValidity(mp_des,"detJ_snap.txt", quA, quB, output);
+
+	// Snap bnd control points
+	gsWinslow::Ptr win_ptr = memory::make_shared_not_owned(&win);
+	gsAffineOptParamMethod lin(win_ptr,false);
+
+	gsVector<> free = lin.getUpdate(tagged_jig);
+	win.updateFreeAndTagged(free,tagged_jig);
+
+	std::stringstream stream_out;
+	stream_out <<  output << "cps_SnapLin.txt";
+	std::string str_out = stream_out.str();
+	gsVector<> flat = win.getFlat();
+	saveVec(flat,str_out);
+
+	testValidity(mp_des,"detJ_SnapLin.txt", quA, quB, output);
+
+	return 0;
+}
+
+if (optParam) {
+	index_t jigtype = jig;
+
+	gsMultiPatch<> jigsaw, mp_init;
+	if (dim == 2) {
+		jigsaw = getJigSaw(jigtype);
+    	mp_init = getInitGuess2d(jigsaw);
+	} else if (dim == 3) {
+		jigsaw = getJigSaw3D(jigtype); 
+    	mp_init = getInitGuess3d(jigsaw);
+	} else {
+		GISMO_ERROR("dim should be 2 or 3!");
+	}
+	
+	if (patch >= 0)
+	{
+		jigsaw = jigsaw.patch(patch);
+		mp_init = mp_init.patch(patch);
+	}
+
+	for (index_t r = 0; r < numRefine; r++)
+	{
+		jigsaw.uniformRefine();
+		mp_init.uniformRefine();
+	}
+
+	gsMultiPatch<>::Ptr jigsaw_ptr = memory::make_shared_not_owned(&jigsaw);
+	gsMultiPatch<>::Ptr mp_init_ptr = memory::make_shared_not_owned(&mp_init);
+
+	if (jigtype == 3 || jigtype == 2 || jigtype == 4 || (jigtype == 1 && dim == 3))
+	{
+		if( mp_init.targetDim() == 3)
+		{
+			for(index_t p = 0; p < jigsaw.nBoxes(); p++)
+			{
+    			changeSignOfDetJ(jigsaw.patch(p)); // Use for 3D small
+	    		changeSignOfDetJ(mp_init.patch(p)); // Use for 3D small
+			}
+		}
+	}
+
+	real_t scale = 1;
+	if (jigtype == 4 && dim == 3) scale = 0.01;
+	if (jigtype == 1 || (jigtype == 2 && dim == 2)) scale = 0.1;
+	if ((jigtype == 2 || jigtype == 3) && dim == 3) scale = 1.0/2.5;
+
+
+	for(index_t p = 0; p < jigsaw.nBoxes(); p++)
+	{
+		jigsaw.patch(p).scale(scale);
+		mp_init.patch(p).scale(scale);
+	}
+
+	testValidity(jigsaw,"detJ_goal.txt", quA, quB, output);
+
+	std::string nm = "jig";
+	gsWriteParaview(jigsaw,nm,1000,true,true);
+
+	nm = "init";
+	gsWriteParaview(mp_init,nm,1000,true,true);
+
+	testValidity(mp_init,"detJ_init.txt", quA, quB, output);
+
+    // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+
+    gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
+
+    std::string name = "init";
+    slog1.plotInParaview(mp_init,name);
+
+
+    // gsInfo << (spring.getFlat() - spring2.getFlat()).norm() << "\n";
+    // gsInfo << (mp_init.patch(0).coefs() - jigsaw.patch(0).coefs()).norm() << "\n";
+    // mat << spring.getTagged(), spring2.getTagged();
+
+    // gsInfo << spring.n_tagged << "\n";
+	gsOptParam optP(mp_init_ptr,jigsaw_ptr,slog1_ptr,param);
+    gsOptParam::Ptr optP_ptr = memory::make_shared_not_owned( &optP);
+    // gsMatrix<> v = optP.currentDesign()*0.99999;
+    // optP.m_paramMethod->update();
+    // gsInfo << optP.evalObj(v) << "\n";
+    // gsInfo << optP.currentDesign() << "\n";
+    // gsInfo << optP.numDesignVars() << "\n";
+    // optP.solve();
+	gsInfo << "EPS = " << eps << "\n";
+    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps);
+    // optWR.gradObj();
+    optWR.solve();
+
+ 	name = "jigsaw";
+    slog1.plotInParaview(jigsaw,name);
+
+ 	name = "mp_final";
+    slog1.plotInParaview(mp_init,name);
+
+	testValidity(mp_init,"detJ.txt", quA, quB, output);
+	
+ 	// Test snaps
+	gsWinslow win(mp_init_ptr,false,false,true,0); 
+	gsWinslow win_jig(jigsaw_ptr,false,false,true,0); 
+	gsVector<> tagged_jig = win_jig.getTagged();
+	win.updateTagged(tagged_jig);
+
+	std::stringstream stream_out;
+	stream_out <<  output << "cps_snapped.txt";
+	std::string str_out = stream_out.str();
+	gsVector<> flat = win.getFlat();
+	saveVec(flat,str_out);
+
+	testValidity(mp_init,"detJ_snap.txt", quA, quB, output);
+	
+	// Snap bnd control points
+	gsWinslow::Ptr win_ptr = memory::make_shared_not_owned(&win);
+	gsAffineOptParamMethod lin(win_ptr,false);
+
+	gsVector<> free = lin.getUpdate(tagged_jig);
+	win.updateFreeAndTagged(free,tagged_jig);
+
+	std::stringstream stream_out2;
+	stream_out2 <<  output << "cps_SnapLin.txt";
+	str_out = stream_out2.str();
+	flat = win.getFlat();
+	saveVec(flat,str_out);
+
+	testValidity(mp_init,"detJ_SnapLin.txt", quA, quB, output);
+
+	return 0;
+}
+
 if (startFromFile) {
     gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
 	gsWinslow winslow(mp_ptr);
 	winslow.updateFlat( loadVec(winslow.n_flat,BASE_FOLDER + startFile));
@@ -2313,7 +2648,7 @@ if (startFromFile) {
     if (param == 5) // Use regularization
     {
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,0,quA,quB);
-		gsOptAntenna::Ptr optA_ptr(&optA);
+		gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
 
         gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
         optWR.solve();
@@ -2326,7 +2661,7 @@ if (startFromFile) {
         gsInfo << optA.evalObj() << "\n";
     }
 
-    (0);
+	return 0;
 
 
 }
@@ -2346,7 +2681,7 @@ if (false) {
 if (false) {
     gsHarmonic harmonic(mp_ptr,false);
     convergenceTestOfParaJacobian(harmonic);
-    exit(0);
+	return 0;
 }
 
 // test of optAntenna derivatives
@@ -2354,12 +2689,12 @@ if (false) {
     gsWinslow winslow(mp_ptr,false);
 	//gsInfo << winslow.getFlat() << "\n";
 	gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
 	gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
 	// gsInfo << "obj : " << optA.evalObj() << "\n";
 	convergenceTestOfJacobian(optA);
-	exit(0);
+    return 0;
 }
 
 if (startDes == 11) {
@@ -2387,7 +2722,7 @@ if (startDes == 11) {
     stream << BASE_FOLDER << output << "detJ";
     std::string str = stream.str();
     dJC.plotDetJ(str);
-    exit(0);
+    return 0;
 
 
 
@@ -2398,7 +2733,7 @@ if (false ) {
     //  How about if I run without constraints on detJ and afterwards refine m_mp
     //  where the negative coefficients are..?
     gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr(&slog1);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
     gsOptAntenna optA(patches_ptr,numRefine,slog1_ptr,param,quA,quB,true);
     gsWinslow winslow(patches_ptr,optA.mappers(),false,false,true,0);
@@ -2413,7 +2748,7 @@ if (false ) {
     dJC.refineUntilPositive(maxiter);
 
     gsInfo << "mind = " << dJC.evalCon().minCoeff() << "\n";
-    exit(0);
+    return 0;
 }
 
 // Test of refine and plotting det J surfaces
@@ -2422,7 +2757,7 @@ if (false) {
     //  How about if I run without constraints on detJ and afterwards refine m_mp
     //  where the negative coefficients are..?
     gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr(&slog1);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
     gsOptAntenna optA(patches_ptr,numRefine,slog1_ptr,param,quA,quB,true);
     gsWinslow winslow(patches_ptr,optA.mappers(),false,false,true,0);
@@ -2524,7 +2859,7 @@ if (false) {
     name = "/../results/testOfDetJ/test2_detJSurface_adapt3";
     gsWriteParaview(djsurf,BASE_FOLDER + name,10000,true,true);
 
-    exit(0);
+    return 0;
 }
 
 // Test of gsOptParam with reg
@@ -2532,7 +2867,7 @@ if (optParam) {
     // gsMultiPatch<> jigsaw = getJigSaw(startDes);
 	index_t jigtype = 2;
     gsMultiPatch<> jigsaw = getJigSaw3D(jigtype); //
-	gsMultiPatch<>::Ptr jigsaw_ptr;
+	gsMultiPatch<>::Ptr jigsaw_ptr = memory::make_shared_not_owned(&jigsaw);
 
     for( index_t r = 0; r < numRefine; r++){
         jigsaw.uniformRefine();
@@ -2607,7 +2942,7 @@ if (optParam) {
     // }
 
     gsMultiPatch<> mp_init(jigsaw);
-	gsMultiPatch<>::Ptr mp_init_ptr;
+	gsMultiPatch<>::Ptr mp_init_ptr = memory::make_shared_not_owned(&mp_init);
 
     mp_init.patch(0).setCoefs(coefs_init);
 	if (jigtype == 3 || jigtype == 2)
@@ -2619,7 +2954,7 @@ if (optParam) {
     // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
 
     gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
     std::string name = "init";
     slog1.plotInParaview(mp_init,name);
@@ -2653,7 +2988,7 @@ if (optParam) {
 
 	testValidity(mp_init,"detJ.txt", quA, quB, output);
 
-    exit(0);
+    return 0;
 
 }
 
@@ -2662,7 +2997,7 @@ if (true) {
     gsInfo << "test mb\n";
 
     gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
     // gsInfo << optWR.evalObj();
     // gsInfo << optWR.gradObj();
     // optWR.solve();
@@ -2685,12 +3020,11 @@ if (true) {
 		// convergenceTestOfJacobian(optA);
     } else if (param == 0) {
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
-        optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
+        //optA.m_paramMethod->updateFlat(loadVec(optA.n_flat,BASE_FOLDER + output));
         gsInfo << optA.evalObj() << "\n";
-        exit(0);
     }
 
-    exit(0);
+    return 0;
 
 
 }
@@ -2700,7 +3034,7 @@ if (true) {
 if (false) {
     gsInfo << output << "\n";
     gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr(&slog1); 
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
     gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,0,quA,quB);
 	gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
 
@@ -2719,7 +3053,7 @@ if (false) {
     // gsDetJacConstraint dJC(&mp,true);
     //
     // index_t nrs;
-    // gsInfo << "PROVE DETJ>0 : " << dJC.provePositivityOfDetJ_TP(nrs,5) << "\n";
+    //// gsInfo << "PROVE DETJ>0 : " << dJC.provePositivityOfDetJ_TP(nrs,5) << "\n";
     //
     // gsInfo << "min detJ in pts: " << winslow.minDetJInGaussPts(10) << "\n";
 
@@ -2730,7 +3064,7 @@ if (false) {
     optWR.runOptimization(maxiter);
 
     // convergenceTestOfJacobian(optA);
-    exit(0);
+    return 0;
 
 }
 

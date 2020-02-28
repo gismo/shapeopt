@@ -30,8 +30,15 @@ void gsParamMethod::setMappers(std::vector< gsDofMapper > mappers)
 {
     m_mappers = mappers;
 
+	computeMapInfo();
+
+}
+
+void gsParamMethod::computeMapInfo(){
+
     m_shift_free.setZero(m_mp->targetDim());
     m_shift_all.setZero(m_mp->targetDim());
+    m_shift_tagged.setZero(m_mp->targetDim());
 
     n_free = 0;
     n_cps = 0;
@@ -50,6 +57,7 @@ void gsParamMethod::setMappers(std::vector< gsDofMapper > mappers)
         if (i > 0){
             m_shift_free[i] = m_shift_free[i-1] + m_mappers[i-1].freeSize();
             m_shift_all[i] = m_shift_all[i-1] + m_mappers[i-1].size();
+            m_shift_tagged[i] = m_shift_tagged[i-1] + m_mappers[i-1].taggedSize();
         }
     }
 
@@ -117,6 +125,7 @@ void gsParamMethod::setMappers(std::vector< gsDofMapper > mappers)
             }
         }
     }
+
 }
 
 gsVector<> gsParamMethod::getTagged() const
@@ -222,7 +231,7 @@ void gsParamMethod::setupDefaultMappers()
 
 
     // Call setMappers to calculate n_free, n_tagged etc.
-    setMappers(m_mappers);
+    computeMapInfo();
 
 }
 
@@ -246,6 +255,51 @@ gsVector<> gsParamMethod::getFree() const
     }
 
     return out;
+}
+
+gsVector<> gsParamMethod::getFixed() const
+{
+    // Extract the global design variables
+    gsVector<> out(n_flat - n_free);
+
+	index_t k = 0;
+    // For all patches
+    for (index_t p = 0; p < m_mp->nBoxes(); p++)
+    {
+        for (index_t i = 0; i < m_mp->patch(p).coefsSize(); i++){
+            for (index_t d = 0; d < m_mp->targetDim(); d++){
+                index_t ii = m_mappers[d].index(i,p); // Global index
+                if (!m_mappers[d].is_free_index(ii))
+                {
+                    out[k] = m_mp->patch(p).coef(i,d);
+					k++;
+                }
+            }
+        }
+    }
+
+    return out;
+}
+
+void gsParamMethod::updateFixed(gsVector<> des) const
+{
+	index_t k = 0;
+    // For all patches
+    for (index_t p = 0; p < m_mp->nBoxes(); p++){
+        gsMatrix<> coefs = m_mp->patch(p).coefs(); // Get control points
+
+        for (index_t i = 0; i < coefs.rows(); i++){
+            for (index_t d = 0; d < m_mp->targetDim(); d++){
+                index_t ii = m_mappers[d].index(i,p); // Global index
+                if (!m_mappers[d].is_free_index(ii))
+                {
+                    coefs(i,d) = des[k];
+					k++;
+                }
+            }
+        }
+        m_mp->patch(p).setCoefs(coefs);
+    }
 }
 
 void gsParamMethod::updateFree(gsVector<> des) const
@@ -280,7 +334,7 @@ void gsParamMethod::updateFreeAndTagged(gsVector<> des, gsVector<> x) const
 gsVector<> gsParamMethod::getControlPoints() const
 {
 
-    gsVector<> out(n_cps);
+    gsVector<> out(n_flat);
     for(index_t p = 0; p < m_mp->nBoxes(); p++){
         for(index_t i = 0; i < m_mp->patch(p).coefsSize(); i++){
             for(index_t d = 0; d < m_mp->targetDim(); d++){
@@ -630,6 +684,85 @@ void gsParamMethod::recreateMappers()
 
 
     // Call setMappers to calculate n_free, n_tagged etc.
-    setMappers(m_mappers);
+    computeMapInfo();
+
+}
+
+gsDofMapper gsParamMethod::getMappersOfCorners(){
+
+	gsVector<> count;
+	count.setZero(n_flat);
+
+	gsDofMapper mapper;
+	gsMultiBasis<> bas(*m_mp);
+
+	bas.getMapper(iFace::glue,mapper,false); // False means that we do not finalize the mapper
+
+	gsVector<> flat_shift;
+	flat_shift.setZero(m_mp->nBoxes());
+    for (index_t p = 1; p < m_mp->nBoxes(); p++)
+    {
+		flat_shift[p] = flat_shift[p-1] + m_mp->patch(p-1).coefsSize();
+	}
+	gsDebugVar(flat_shift);
+	
+	for (index_t i = 0; i < m_mp->nBoundary(); i++)
+	{
+        // Get boundary local indices
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+        for (index_t j = 0; j < boundaryDofs.size(); j ++){
+			index_t ii = flat_shift[ps.patch] + boundaryDofs[j];
+        	count[ii]++;
+        }
+	}	
+
+
+    for (index_t p = 0; p < m_mp->nBoxes(); p++)
+    {
+        for (index_t i = 0; i < m_mp->patch(p).coefsSize(); i++){
+			index_t ii = flat_shift[p] + i;
+			//gsInfo << "count[" << ii << "] = " << count[ii] << "\n";
+			if (count[ii] == m_mp->domainDim()){
+				//gsInfo << "p " << p << "i " << i << "eliminated\n";
+				mapper.eliminateDof(i,p);
+			}
+        }
+	}
+
+
+	mapper.finalize();
+
+    // Tag coordinates of boundaries
+    for (index_t i = 0; i < m_mp->nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+        // Tag the controlpoint
+        for (index_t j = 0; j < boundaryDofs.size(); j ++){
+            mapper.markTagged(boundaryDofs[j],ps.patch);
+			return mapper;
+        }
+    }
+
+	return mapper;
+}
+
+void gsParamMethod::setMappers(gsDofMapper &map){
+
+	for( index_t d = 0; d < m_mp->targetDim(); d++)
+	{
+		m_mappers[d] = map;	
+	}
+
+	computeMapInfo();
+
+}
+
+void gsParamMethod::setMappersToCorners() {
+
+	gsDofMapper map = getMappersOfCorners();
+	setMappers(map);
 
 }

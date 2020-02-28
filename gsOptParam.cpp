@@ -16,7 +16,7 @@ gsOptParam::gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr
     // Allocate parametrization method
     if (param == 0){
         m_paramMethod = memory::make_shared(new gsSpringMethod(m_mp,m_mappers));
-        m_paramMethod->computeMap();
+        //m_paramMethod->computeMap();
     } else if (param == 1) {
         gsModLiao::Ptr opt_param = memory::make_shared(new gsModLiao(m_mp,m_mappers,true));
         opt_param->setQuad(m_quA,m_quB);

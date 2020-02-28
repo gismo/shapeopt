@@ -157,7 +157,7 @@ gsIpOptSparseMatrix gsDetJacConstraint::getJacobian()
         {
             gsMatrix<> mat = jac.block(0,d*c,r,c); // FIXIT: allow gsIpOptSparseMatrix to load this matrix directly by using const matrix as input
             if (i == 0){
-                vMat[d].reset(new gsIpOptSparseMatrix(mat,-1));    // -1 indicates that IpOptSparseMatrix should generate dense matrix
+                vMat[d] = memory::make_unique(new gsIpOptSparseMatrix(mat,-1));    // -1 indicates that IpOptSparseMatrix should generate dense matrix
             } else {
                 vMat[d]->concatenate(gsIpOptSparseMatrix(mat,-1),"diag");
             }

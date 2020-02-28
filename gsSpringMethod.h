@@ -30,7 +30,7 @@ public:
   gsVector<> getUpdate(gsVector<> x);
 
   // setup up system from one mapper
-  void setupSystem(gsDofMapper &mapper, gsSparseMatrix<> &A, gsVector<> &b, index_t coord);
+  virtual void setupSystem(gsDofMapper &mapper, gsSparseMatrix<> &A, gsVector<> &b, index_t coord);
 
   // Setup up all d systems using setupSystem for each of them
   void setupSolvers();
@@ -39,8 +39,8 @@ public:
   // FIXIT: very expensive, find better method
   bool is_boundary(index_t i, index_t p) const;
 
-  // temporary method ...
-  void reset(){};
+  // calls setup solvers
+  void reset();
 
 protected:
   // FIXIT: make dimension independent

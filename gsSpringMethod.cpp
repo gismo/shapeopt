@@ -6,7 +6,7 @@ using namespace gismo;
 gsSpringMethod::gsSpringMethod(gsMultiPatch<>::Ptr mpin): gsAffineParamMethod(mpin),
     m_As(m_mp->targetDim()), m_bs(m_mp->targetDim()), m_solvers(m_mp->targetDim()){
 
-    setupSolvers();
+    //setupSolvers();
 }
 
 // Implement
@@ -14,7 +14,7 @@ gsSpringMethod::gsSpringMethod(gsMultiPatch<>::Ptr mpin,std::vector< gsDofMapper
     gsAffineParamMethod(mpin,mappers), m_As(m_mp->targetDim()), m_bs(m_mp->targetDim()),
     m_solvers(m_mp->targetDim())
 {
-    setupSolvers();
+    //setupSolvers();
 }
 
 void gsSpringMethod::setupSolvers()
@@ -23,6 +23,10 @@ void gsSpringMethod::setupSolvers()
         setupSystem(m_mappers[d],m_As[d],m_bs[d],d);
         m_solvers[d].compute(m_As[d]);
     }
+}
+
+void gsSpringMethod::reset(){ 
+	setupSolvers();
 }
 
 // Implement,
@@ -134,6 +138,7 @@ gsVector<> gsSpringMethod::getUpdate(gsVector<> x)
     for (index_t d = 0; d < m_mp->targetDim(); d++){
         gsSparseMatrix<> tmp;
         setupSystem(m_mappers[d], tmp, m_bs[d],d);
+
         out.segment(m_shift_free[d],m_mappers[d].freeSize()) = m_solvers[d].solve(m_bs[d]);
     }
 

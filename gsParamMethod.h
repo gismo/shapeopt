@@ -34,6 +34,16 @@ public:
     // Sets the mappers and (re-)computes n_free, n_tagged, n_cps, and shifts
     void setMappers(std::vector< gsDofMapper > mappers);
 
+    // Sets the mappers using the same mapper for all dimensions
+    void setMappers(gsDofMapper &map);
+
+	// Computes map info 
+	void computeMapInfo();
+
+	gsDofMapper getMappersOfCorners();
+
+	void setMappersToCorners();
+
     // Methods to reset the parametrization method
     // Currently only used for the gsAffineOptParamMethod, but it might be needed in other classes as well.
     // The default behaviour is to do nothing.
@@ -68,6 +78,10 @@ public:
 
     // Update the gsMultiPatch* m_mp, based on a vector of free variables
     void updateFree(gsVector<> des) const;
+
+    gsVector<> getFixed() const;
+
+    void updateFixed(gsVector<> des) const;
 
     // Update the gsMultiPatch* m_mp, based on a vector of free variables, and vector of tagged cps
     void updateFreeAndTagged(gsVector<> des, gsVector<> x) const;
@@ -137,6 +151,7 @@ public:
     // FIXIT: use a vector of index_t instead
     gsVector<> m_shift_free; // Contains the shifts used when mapping free DoFs
     gsVector<> m_shift_all; // Contains the shifts used when mapping all DoFs
+    gsVector<> m_shift_tagged; // Contains the shifts used when mapping all DoFs
 
     // Save information on fixed and tagged cps.
     //   To be used to redo mappers after refinement
