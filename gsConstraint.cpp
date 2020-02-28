@@ -3,7 +3,7 @@
 #include "gsIpOptSparseMatrix.h"
 using namespace gismo;
 
-gsConstraint::gsConstraint(gsMultiPatch<>* mpin): m_mp(mpin){} // Only loads m_mp
+gsConstraint::gsConstraint(memory::shared_ptr<gsMultiPatch<>> mpin): m_mp(mpin){} // Only loads m_mp
 
 void gsConstraint::evalCon_into(gsAsVector<real_t> & result)
 {

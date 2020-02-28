@@ -2,7 +2,7 @@
 #include "gsOptAntenna.h"
 
 // Implement
-gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, index_t param, real_t quA, index_t quB, bool useDetJCons, bool use_Lagrangian):
+gsOptAntenna::gsOptAntenna(memory::shared_ptr<gsMultiPatch<>> mp, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, index_t param, real_t quA, index_t quB, bool useDetJCons, bool use_Lagrangian):
     gsShapeOptProblem(mp,slog,useDetJCons), m_stateEq(mp,numRefine)
 {
     setupMappers();
@@ -12,37 +12,37 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
 
     // Allocate parametrization method
     if (param == 0){
-        m_paramMethod = new gsSpringMethod(m_mp,m_mappers);
+        m_paramMethod = memory::make_shared(new gsSpringMethod(m_mp,m_mappers));
         m_paramMethod->computeMap();
     } else if (param == 1) {
-        gsModLiao *opt_param = new gsModLiao(m_mp,m_mappers,true);
+        gsModLiao::Ptr opt_param = memory::make_shared(new gsModLiao(m_mp,m_mappers,true));
         opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else if (param == 2) {
-        gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,true);
+        gsWinslow::Ptr opt_param = memory::make_shared(new gsWinslow(m_mp,m_mappers,true));
         opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else if (param == 3) {
-        gsLiao *opt_param = new gsLiao(m_mp,m_mappers,true);
+        gsLiao::Ptr opt_param = memory::make_shared(new gsLiao(m_mp,m_mappers,true));
         opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else if (param == 4) {
-        gsHarmonic *opt_param = new gsHarmonic(m_mp,m_mappers,true);
+        gsHarmonic::Ptr opt_param = memory::make_shared(new gsHarmonic(m_mp,m_mappers,true));
         opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else if (param == 5) {
-        m_paramMethod = new gsWinslowWithDeriv(m_mp,m_mappers,false,false,true,0);
+        m_paramMethod = memory::make_shared(new gsWinslowWithDeriv(m_mp,m_mappers,false,false,true,0));
         // m_paramMethod->setQuad(quA,quB); FIXIT: implement, maybe with dynamic cast
     } else if (param == 6) {
-        gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,false,false,true,0);
+        gsWinslow::Ptr opt_param = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
         // opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
         opt_param->setQuad(4,4);
         *m_log << "quA, quB = " << opt_param->m_quA << ", " << opt_param->m_quB << "\n";
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else {
         GISMO_ERROR("Param value is not 0 to 6... wrong input..\n");
@@ -59,13 +59,13 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
     setupOptParameters();
 
     // Set the weight used in the objective function
-    delta = *(new gsFunctionExpr<>("exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
-    ddeltadx = *(new gsFunctionExpr<>("-x/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
-    ddeltady = *(new gsFunctionExpr<>("-y/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    delta = memory::make_shared(new gsFunctionExpr<>("exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    ddeltadx = memory::make_shared(new gsFunctionExpr<>("-x/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    ddeltady = memory::make_shared(new gsFunctionExpr<>("-y/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
 
 }
 
-gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog* slog, gsConstraint* constraint, index_t param, real_t quA, index_t quB, bool use_Lagrangian):
+gsOptAntenna::gsOptAntenna(memory::shared_ptr<gsMultiPatch<>> mp, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, memory::shared_ptr<gsConstraint> constraint, index_t param, real_t quA, index_t quB, bool use_Lagrangian):
     gsShapeOptProblem(mp,slog,constraint), m_stateEq(mp,numRefine)
 {
 
@@ -79,14 +79,12 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
 
     // Allocate parametrization method
     if (param == 0){
-        m_paramMethod = new gsSpringMethod(m_mp,m_mappers);
+        m_paramMethod = memory::make_shared(new gsSpringMethod(m_mp,m_mappers));
         m_paramMethod->computeMap();
     } else if (param == 1) {
-    // Setup optimization setupOptParameters
-    // Calls the setupDesignBounds method
-        gsModLiao *opt_param = new gsModLiao(m_mp,m_mappers,constraint);
+        gsModLiao::Ptr opt_param = memory::make_shared(new gsModLiao(m_mp,m_mappers,true));
         opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else {
     // Setup optimization setupOptParameters
@@ -99,9 +97,9 @@ gsOptAntenna::gsOptAntenna(gsMultiPatch<>* mp, index_t numRefine, gsShapeOptLog*
     setupOptParameters();
 
     // Set the weight used in the objective function
-    delta = *(new gsFunctionExpr<>("exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
-    ddeltadx = *(new gsFunctionExpr<>("-x/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
-    ddeltady = *(new gsFunctionExpr<>("-y/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    delta = memory::make_shared(new gsFunctionExpr<>("exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    ddeltadx = memory::make_shared(new gsFunctionExpr<>("-x/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
+    ddeltady = memory::make_shared(new gsFunctionExpr<>("-y/(0.1^2)*exp(-x^2/(2*0.1^2) -y^2/(2*0.1^2))",2));
 
 }
 
@@ -132,7 +130,7 @@ real_t gsOptAntenna::evalObj() const {
     A.setIntegrationElements(dbasis);
 
     // variable deltaf = A.getCoeff(delta,G);
-    variable df = A.getCoeff(delta,G);
+    variable df = A.getCoeff(*delta,G);
 
     // gsInfo<<"Plotting in Paraview...\n";
     // ev.options().setSwitch("plot.elements", true);
@@ -211,9 +209,9 @@ gsVector<> gsOptAntenna::evaluateDerivativeTerm1(gsMultiPatch<> &u_real, gsMulti
     variable u_r = A.getCoeff(u_real);
     variable u_i = A.getCoeff(u_imag);
 
-    variable df = A.getCoeff(delta,G);
-    variable ddfdx = A.getCoeff(ddeltadx,G);
-    variable ddfdy = A.getCoeff(ddeltady,G);
+    variable df = A.getCoeff(*delta,G);
+    variable ddfdx = A.getCoeff(*ddeltadx,G);
+    variable ddfdy = A.getCoeff(*ddeltady,G);
 
     A.initSystem();
 
@@ -316,7 +314,7 @@ gsVector<> gsOptAntenna::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch
     variable u_r = A.getCoeff(u_real);
     variable u_i = A.getCoeff(u_imag);
 
-    variable df = A.getCoeff(delta,G);
+    variable df = A.getCoeff(*delta,G);
 
     A.initSystem();
     // A.assemble(df.val()*du*meas(G));

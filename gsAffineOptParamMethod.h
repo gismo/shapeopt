@@ -29,7 +29,7 @@ public:
     };
 
     // Construct from gsOptParamMethod
-    gsAffineOptParamMethod(gsOptParamMethod* optParamMethod, bool use_Lagrangian = false);
+    gsAffineOptParamMethod(memory::shared_ptr<gsOptParamMethod> optParamMethod, bool use_Lagrangian = false);
 
     // Method to get update as a vector, to be used to calculate A and b
     //      from gsAffineParamMethod
@@ -49,7 +49,7 @@ public:
     void reset();
 
     void refineBasedOnDetJ(index_t strategy){ m_optParamMethod->refineBasedOnDetJ(strategy); };
-    void refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC){ m_optParamMethod->refineBasedOnDetJ(strategy, dJC);; };
+    void refineBasedOnDetJ(index_t strategy, memory::shared_ptr<gsDetJacConstraint> dJC){ m_optParamMethod->refineBasedOnDetJ(strategy, dJC);; };
 
     // Accesors
     index_t numDesignVars(){ return n_free; }
@@ -60,8 +60,13 @@ public:
     void setIntegrationBasis( gsMultiBasis<> &mesh ) { m_optParamMethod->setIntegrationBasis(mesh);};
 
 public:
+	
+	typedef memory::unique_ptr<gsAffineOptParamMethod> uPtr;
+	typedef memory::shared_ptr<gsAffineOptParamMethod> Ptr;
+
+public:
     // Pointer to gsOptParamMethod
-    gsOptParamMethod* m_optParamMethod;
+    memory::shared_ptr<gsOptParamMethod> m_optParamMethod;
 
     // Control points from reference parametrization
     gsVector<> m_refFree;

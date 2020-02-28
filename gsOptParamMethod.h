@@ -27,21 +27,21 @@ public:
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging boundary.
     // Uses gsDetJacConstraint or no constraints depending on \a use_dJC.
     // The gsDetJacConstraint exploinds tensor product structure depending on \a useTensorStructureforDJC.
-    gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC = true, bool useTensorStructureforDJC = false);
+    gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, bool use_dJC = true, bool useTensorStructureforDJC = false);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
     // design variables for shape optimization tagged.
     // Uses gsDetJacConstraint or no constraints depending on \a use_dJC.
     // The gsDetJacConstraint exploinds tensor product structure depending on \a useTensorStructureforDJC.
-    gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC = true, bool useTensorStructureforDJC = false);
+    gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC = true, bool useTensorStructureforDJC = false);
 
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging boundary.
     // Uses the constraint given as input \a constraint
-    gsOptParamMethod(gsMultiPatch<>* mpin, gsConstraint* constraint);
+    gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, memory::shared_ptr<gsConstraint> constraint);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
     // design variables for shape optimization tagged.
-    gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, gsConstraint* constraint);
+    gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsConstraint> constraint);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     void setupOptParameters();
@@ -120,23 +120,23 @@ public:
     //      1 - refine where detJ constraints are active
     // Remember that you have to update mappers afterwards
     void refineBasedOnDetJ(index_t strategy);
-    void refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC);
+    void refineBasedOnDetJ(index_t strategy, memory::shared_ptr<gsDetJacConstraint> dJC);
 
-    void setLog(gsShapeOptLog* inLog, gsDetJacConstraint* d){ m_d = d; m_log = inLog; use_log = true; };
+    void setLog(memory::shared_ptr<gsShapeOptLog> inLog, memory::shared_ptr<gsDetJacConstraint> d){ m_d = d; m_log = inLog; use_log = true; };
 
     // Method that is called between each optimization iteration.. Can be used to log
     //      or check stuff. If it returns false the optimization will be interrupted.
     bool intermediateCallback();
 
-    void setIntegrationBasis(gsMultiBasis<> &mesh) { m_integrationBasis = &mesh; };
+    void setIntegrationBasis(gsMultiBasis<> &mesh) { m_integrationBasis = memory::make_shared(&mesh); };
 
 public:
     bool use_detJacConstraint = false;
-    mutable gsConstraint* m_dJC;
+    memory::shared_ptr<gsConstraint> m_dJC;
 
-    gsShapeOptLog* m_log;
+    memory::shared_ptr<gsShapeOptLog> m_log;
     bool use_log = false;
-    gsDetJacConstraint* m_d; //tmp
+    memory::shared_ptr<gsDetJacConstraint> m_d; //tmp
 
     index_t m_iter = 0; // Iteration count
 
@@ -147,7 +147,7 @@ public:
     // pointer to basis on which to perform integration
     // It is derived from *m_mp as default, but can be set to some other basis
     // This could be a locally refined mesh
-    gsMultiBasis<> *m_integrationBasis;
+    memory::shared_ptr<gsMultiBasis<>> m_integrationBasis;
 };
 
 #endif //GSOPTPARAMMETHOD_H

@@ -2,7 +2,7 @@
 #include "gsAffineOptParamMethod.h"
 using namespace gismo;
 
-gsAffineOptParamMethod::gsAffineOptParamMethod(gsOptParamMethod* optParamMethod, bool use_Lagrangian):
+gsAffineOptParamMethod::gsAffineOptParamMethod(memory::shared_ptr<gsOptParamMethod> optParamMethod, bool use_Lagrangian):
     gsAffineParamMethod(optParamMethod->mp(),
     optParamMethod->mappers()),
     m_optParamMethod(optParamMethod),

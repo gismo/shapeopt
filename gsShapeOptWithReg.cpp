@@ -3,7 +3,7 @@
 #include "gsShapeOptWithReg.h"
 
 // Implement
-gsShapeOptWithReg::gsShapeOptWithReg(gsMultiPatch<>* mp, gsShapeOptProblem* sopt, index_t numRefine, gsShapeOptLog* slog, real_t quA, index_t quB,real_t eps):
+gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB,real_t eps):
     m_eps(eps),
     m_mp(mp),
     m_log(slog),
@@ -13,7 +13,7 @@ gsShapeOptWithReg::gsShapeOptWithReg(gsMultiPatch<>* mp, gsShapeOptProblem* sopt
 {
     setupMappers();
 
-    m_winslow = new gsWinslow(m_mp,m_mappers,false,false,true,0);
+    m_winslow = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
     m_winslow->setQuad(quA,quB);
 
     setupOptParameters();

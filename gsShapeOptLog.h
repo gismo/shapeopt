@@ -100,6 +100,10 @@ public:
     std::string output() { return m_output; };
 
 public:
+
+	typedef memory::shared_ptr<gsShapeOptLog> Ptr;
+
+public:
     bool m_saveCps = true; // Whether to save the controlPoints each
     bool m_plotDesign = true; // Whether to plot the design
     bool m_plotState = true; // Whether to plot the state

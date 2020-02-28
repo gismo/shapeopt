@@ -21,7 +21,7 @@ class gsNewDetJacConstraint: public gsConstraint{
 public:
 
     // Constructs from gsMultiPatch, runs the setup method.
-    gsNewDetJacConstraint(gsMultiPatch<>* mpin);
+    gsNewDetJacConstraint(memory::shared_ptr<gsMultiPatch<>> mpin);
 
     // Get constraints
     gsVector<> evalCon(); // Implementation is in here..

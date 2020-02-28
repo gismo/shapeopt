@@ -2,36 +2,36 @@
 #include "gsOptParamMethod.h"
 using namespace gismo;
 
-gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructureforDJC):
+gsOptParamMethod::gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, bool use_dJC, bool useTensorStructureforDJC):
     gsParamMethod(mpin), use_detJacConstraint(use_dJC)
 {
-    m_dJC = new gsDetJacConstraint(mpin, useTensorStructureforDJC);
-    m_integrationBasis = new gsMultiBasis<>(*m_mp);
+    m_dJC = memory::make_shared(new gsDetJacConstraint(mpin, useTensorStructureforDJC));
+    m_integrationBasis = memory::make_shared(new gsMultiBasis<>(*m_mp));
     setupOptParameters();
 };
 
-gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC):
+gsOptParamMethod::gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC):
         gsParamMethod(mpin, mappers), use_detJacConstraint(use_dJC)
 {
     // if (use_detJacConstraint)
-    m_dJC = new gsDetJacConstraint(mpin, useTensorStructureforDJC);
-    m_integrationBasis = new gsMultiBasis<>(*m_mp);
+    m_dJC = memory::make_shared(new gsDetJacConstraint(mpin, useTensorStructureforDJC));
+    m_integrationBasis = memory::make_shared(new gsMultiBasis<>(*m_mp));
 
     setupOptParameters();
 };
 
-gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, gsConstraint* constraint):
+gsOptParamMethod::gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, memory::shared_ptr<gsConstraint> constraint):
         gsParamMethod(mpin), m_dJC(constraint)
 {
-    m_integrationBasis = new gsMultiBasis<>(*m_mp);
+    m_integrationBasis = memory::make_shared(new gsMultiBasis<>(*m_mp));
     use_detJacConstraint = true;
     setupOptParameters();
 };
 
-gsOptParamMethod::gsOptParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, gsConstraint* constraint):
+gsOptParamMethod::gsOptParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsConstraint> constraint):
         gsParamMethod(mpin, mappers), m_dJC(constraint)
 {
-    m_integrationBasis = new gsMultiBasis<>(*m_mp);
+    m_integrationBasis = memory::make_shared(new gsMultiBasis<>(*m_mp));
     use_detJacConstraint = true;
     setupOptParameters();
 };
@@ -223,7 +223,7 @@ void gsOptParamMethod::refineBasedOnDetJ(index_t strategy)
     setupOptParameters();   // Reset optimization parameters
 }
 
-void gsOptParamMethod::refineBasedOnDetJ(index_t strategy, gsDetJacConstraint* dJC)
+void gsOptParamMethod::refineBasedOnDetJ(index_t strategy, memory::shared_ptr<gsDetJacConstraint> dJC)
 {
     std::vector<bool> elMarked;
 

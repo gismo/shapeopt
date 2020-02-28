@@ -12,11 +12,11 @@ class gsMaxDetJac:  public gsParamMethod, public gsOptProblem<real_t>
 public:
 
     // Constructs from multipatch, by eliminating boundary, gluing interfaces and tagging bnd
-    gsMaxDetJac(gsMultiPatch<>* mpin, bool useTPSolver = false);
+    gsMaxDetJac(memory::shared_ptr<gsMultiPatch<>> mpin, bool useTPSolver = false);
 
     // Constructs from mappers, one for each coordinate, should be finalized with
     // design variables for shape optimization tagged.
-    gsMaxDetJac(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool useTPSolver = false);
+    gsMaxDetJac(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool useTPSolver = false);
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     void setupOptParameters();

@@ -2,7 +2,7 @@
 #include "gsOptParam.h"
 
 // Implement
-gsOptParam::gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLog* slog, index_t param, bool use_Lagrangian):
+gsOptParam::gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsMultiPatch<>> mp_goal, memory::shared_ptr<gsShapeOptLog> slog, index_t param, bool use_Lagrangian):
     gsShapeOptProblem(mp,slog),
     m_mp_goal(mp_goal),
     m_pM_goal(mp_goal)
@@ -15,33 +15,40 @@ gsOptParam::gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLo
     setupMappers();
     // Allocate parametrization method
     if (param == 0){
-        m_paramMethod = new gsSpringMethod(m_mp,m_mappers);
-        m_paramMethod->computeMap();
+        m_paramMethod = memory::make_shared(new gsSpringMethod(m_mp,m_mappers));
+        //m_paramMethod->computeMap();
     } else if (param == 1) {
-        gsModLiao *opt_param = new gsModLiao(m_mp,m_mappers,true);
-        // opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        gsModLiao::Ptr opt_param = memory::make_shared(new gsModLiao(m_mp,m_mappers,true));
+        opt_param->setQuad(m_quA,m_quB);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else if (param == 2) {
-        gsWinslow *opt_param = new gsWinslow(m_mp,m_mappers,true);
-        // opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        gsWinslow::Ptr opt_param = memory::make_shared(new gsWinslow(m_mp,m_mappers,true));
+        opt_param->setQuad(m_quA,m_quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else if (param == 3) {
-        gsLiao *opt_param = new gsLiao(m_mp,m_mappers,true);
-        // opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        gsLiao::Ptr opt_param = memory::make_shared(new gsLiao(m_mp,m_mappers,true));
+        opt_param->setQuad(m_quA,m_quB);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
     } else if (param == 4) {
-        gsHarmonic *opt_param = new gsHarmonic(m_mp,m_mappers,true);
-        // opt_param->setQuad(quA,quB);
-        m_paramMethod = new gsAffineOptParamMethod(opt_param, use_Lagrangian);
+        gsHarmonic::Ptr opt_param = memory::make_shared(new gsHarmonic(m_mp,m_mappers,true));
+        opt_param->setQuad(m_quA,m_quB);
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
-    } else if (param ==5) {
-        m_paramMethod = new gsWinslowWithDeriv(m_mp,m_mappers,false,false,true,0);
-        // m_paramMethod->setQuad(quA,quB); FIXIT: implement, maybe with dynamic cast
+    } else if (param == 5) {
+        m_paramMethod = memory::make_shared(new gsWinslowWithDeriv(m_mp,m_mappers,false,false,true,0));
+        // m_paramMethod->setQuad(m_quA,m_quB); FIXIT: implement, maybe with dynamic cast
+    } else if (param == 6) {
+        gsWinslow::Ptr opt_param = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
+        // opt_param->setQuad(m_quA,m_quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
+        opt_param->setQuad(m_quA,m_quB);
+        *m_log << "quA, quB = " << opt_param->m_quA << ", " << opt_param->m_quB << "\n";
+        m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
+        m_paramMethod->computeMap();
     } else {
-        GISMO_ERROR("Param value is not 0 to 5... wrong input..\n");
+        GISMO_ERROR("Param value is not 0 to 6... wrong input..\n");
     }
 
     // Copy some data from m_paramMethod for ease of use

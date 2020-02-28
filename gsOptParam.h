@@ -17,7 +17,7 @@ public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
     // Uses gsDetJacConstraint as default
-    gsOptParam(gsMultiPatch<>* mp, gsMultiPatch<>* mp_goal, gsShapeOptLog* slog, index_t param, bool use_Lagrangian = false);
+    gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsMultiPatch<>> mp_goal, memory::shared_ptr<gsShapeOptLog> slog, index_t param, bool use_Lagrangian = false);
 
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;
@@ -35,10 +35,19 @@ public:
     // Method to set the bounds on the design variables,
     void setupDesignBounds();
 
+	void setQuad(real_t quA, index_t quB){ m_quA = quA; m_quB = quB; };
+
 public:
-    gsMultiPatch<> *m_mp_goal;
+
+	typedef memory::shared_ptr<gsOptParam> Ptr;
+
+public:
+    gsMultiPatch<>::Ptr m_mp_goal;
     gsSpringMethod m_pM_goal;
     gsVector<> m_tagged_goal;
+
+	real_t m_quA = 4;
+	real_t m_quB = 4;
 };
 
 

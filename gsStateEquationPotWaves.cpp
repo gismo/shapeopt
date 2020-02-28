@@ -2,7 +2,7 @@
 #include "gsStateEquationPotWaves.h"
 using namespace gismo;
 
-gsStateEquationPotWaves::gsStateEquationPotWaves(gsMultiPatch<>* mpin, index_t numRefine):
+gsStateEquationPotWaves::gsStateEquationPotWaves(memory::shared_ptr<gsMultiPatch<>> mpin, index_t numRefine):
     mp(mpin), dbasis(*mp)
 {
     dbasis.setDegree(degree);

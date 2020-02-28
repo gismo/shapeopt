@@ -8,9 +8,9 @@ using namespace gismo;
 class gsWinslowWithDeriv: public gsWinslow {
 public:
     // Constructor, we only include the most general one here as of now
-    gsWinslowWithDeriv(gsMultiPatch<>* mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
+    gsWinslowWithDeriv(memory::shared_ptr<gsMultiPatch<>> mpin, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
 
-    gsWinslowWithDeriv(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
+    gsWinslowWithDeriv(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
 
     using gsOptParamMethod::update;
 
@@ -25,6 +25,11 @@ public:
 
     // Method to get the jacobian of the update (free Dofs) with respect to x (the tagged Dofs)
     gsMatrix<> jacobUpdate(gsVector<> x);
+
+public:
+
+	typedef memory::shared_ptr<gsWinslowWithDeriv> Ptr;
+	typedef memory::unique_ptr<gsWinslowWithDeriv> uPtr;
 
 public:
     gsAffineOptParamMethod m_aff;

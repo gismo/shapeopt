@@ -3,11 +3,11 @@
 #include "gsAffineParamMethod.h"
 using namespace gismo;
 
-gsAffineParamMethod::gsAffineParamMethod(gsMultiPatch<>* mpin): gsParamMethod(mpin)
+gsAffineParamMethod::gsAffineParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin): gsParamMethod(mpin)
 {
 };
 
-gsAffineParamMethod::gsAffineParamMethod(gsMultiPatch<>* mpin, std::vector< gsDofMapper > mappers):
+gsAffineParamMethod::gsAffineParamMethod(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers):
         gsParamMethod(mpin, mappers)
 {
     // computeMap();

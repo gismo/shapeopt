@@ -22,7 +22,7 @@ class gsDetJacConstraint: public gsConstraint{
 public:
 
     // Constructs from gsMultiPatch, runs the setup method.
-    gsDetJacConstraint(gsMultiPatch<>* mpin, bool useTPSolver = false);
+    gsDetJacConstraint(memory::shared_ptr<gsMultiPatch<>> mpin, bool useTPSolver = false);
 
     // Get constraints (spline coefficients of detJ) by projection
     // FIXIT: Change the sign if the coefs is negative?

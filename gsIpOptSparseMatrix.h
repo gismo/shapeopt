@@ -106,6 +106,10 @@ private:
     std::vector<index_t> m_rows;
     std::vector<index_t> m_cols;
 
+public:
+	typedef memory::shared_ptr<gsIpOptSparseMatrix> Ptr;
+	typedef memory::unique_ptr<gsIpOptSparseMatrix> uPtr;
+
 };
 
 
