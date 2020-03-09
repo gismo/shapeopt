@@ -39,7 +39,6 @@ gsOptParam::gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr
         m_paramMethod->computeMap();
     } else if (param == 5) {
         m_paramMethod = memory::make_shared(new gsWinslowWithDeriv(m_mp,m_mappers,false,false,true,0));
-        // m_paramMethod->setQuad(m_quA,m_quB); FIXIT: implement, maybe with dynamic cast
     } else if (param == 6) {
         gsWinslow::Ptr opt_param = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
         // opt_param->setQuad(m_quA,m_quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...

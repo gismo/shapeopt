@@ -105,6 +105,7 @@ real_t gsWinslowWithDeriv::minDetJInGaussPts(index_t incPts){
     typedef gsExprAssembler<>::geometryMap geometryMap;
 
     geometryMap G = A.getMap(*m_mp);
+	gsDebugVar(ev.max((jac(G).det())));
 
     return ev.min(jac(G).det());
 }

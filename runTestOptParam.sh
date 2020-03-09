@@ -2,7 +2,7 @@
 
 OUT="output.txt";
 BS="/";
-BASE_FOLDER="../results/OptParamTests/jig3d/"
+BASE_FOLDER="../results/OptParamTests/jig3d_deg4/"
 
 A=3; # quA
 B=1; # quB
@@ -16,7 +16,7 @@ dim=3;
 mkdir -p "${BASE_FOLDER}"
 cp ../gismo/filedata/options/ipopt.opt $BASE_FOLDER/ipopt.opt
 
-for R in 0 1 2 
+for R in 1 
 do
 	FOLDER="$BASE_FOLDER/refine${R}_reg${e}_2nd/";
 	

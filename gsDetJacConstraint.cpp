@@ -245,6 +245,8 @@ void gsDetJacConstraint::plotDetJ(std::string name)
 {
     gsMultiPatch<> dJ = getDetJ();
 
+	//gsWriteParaview(dJ,name,3000,true);
+
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
     typedef gsExprAssembler<>::space       space;

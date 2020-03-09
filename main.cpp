@@ -1191,7 +1191,7 @@ gsMultiPatch<> getJigSaw(index_t i){
 gsMultiPatch<> getJigSaw3D(index_t i){
 
     index_t n;
-    if (i == 1)
+    if (i == 1 || i == 5 || i == 6)
         n = 10;
     if (i == 2)
         n = 6;
@@ -1230,6 +1230,10 @@ gsMultiPatch<> getJigSaw3D(index_t i){
 	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_small.txt", coefs);
     if (i == 3)
 	   readFromTxt(BASE_FOLDER + folder + "example.txt", coefs);
+    if (i == 5)
+	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_2.txt", coefs);
+    if (i == 6)
+	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_3.txt", coefs);
     // gsDebugVar(coefs.rows());
     // gsDebugVar(coefs.cols());
     // gsDebugVar(coefs);
@@ -2511,6 +2515,94 @@ if (false) {
 	return 0;
 }
 
+if (false) {
+	gsMultiPatch<> jigsaw = getJigSaw3D(4); 
+	for(index_t p = 0; p < jigsaw.nBoxes(); p++)
+	{
+   		//changeSignOfDetJ(jigsaw.patch(p)); // Use for 3D small
+		//jigsaw.patch(p).scale(0.01);
+	}
+	
+ // Evaluate detJ in the corners
+ 
+	gsMatrix<> mat(8,3);
+	mat << 1,0,0,
+		   0,1,0,
+		   0,0,1,
+		   1,1,0,
+		   1,0,1,
+		   0,1,1,
+		   0,0,0,
+		   1,1,1;
+ 
+	gsMatrix<> out(4,3);
+	for(index_t p = 0; p < jigsaw.nBoxes(); p++)
+	{
+	    gsExprAssembler<> A(1,1);
+        gsMultiBasis<> dbasis(jigsaw);
+	    A.setIntegrationElements(dbasis);
+	
+	    gsExprEvaluator<> ev(A);
+	
+	    typedef gsExprAssembler<>::geometryMap geometryMap;
+
+	    geometryMap G = A.getMap(jigsaw);
+		
+	
+		for (index_t i = 0; i < 8; i++)
+		{
+			gsVector<> pt = mat.row(i);
+			gsAsConstMatrix<> tmp = ev.eval(jac(G).det(),pt,p);
+			gsInfo << "On patch " << p << " Corner (" << pt[0] << "," << pt[1] << "," << pt[2];
+			gsInfo << ") with value " << tmp(0,0) << "\n";
+
+			if (tmp(0,0) > 0)
+			{
+				gsAsConstMatrix<> tmp2 = ev.eval(G,pt,p);
+				gsDebugVar(tmp2);
+				out.row(0) = tmp2.transpose();
+
+				// Find the coefficient
+
+				index_t ind = 1;
+
+				for( index_t i = 0; i < jigsaw.patch(p).coefsSize(); i++)
+				{
+					gsMatrix<>::RowXpr cf = jigsaw.patch(p).coef(i);
+					real_t norm = (cf-tmp2.transpose()).norm();
+
+					if (norm == 0)
+					{
+						gsInfo << "FOUND COEF " << i << " of " << jigsaw.patch(p).coefsSize() << "\n";
+						
+						gsVector<index_t,3> stride; // Tensor strides
+						gsVector<index_t,3> size; // Tensor strides
+
+						// Prepare stride and size
+						static_cast<gsTensorBSplineBasis<3>&> (jigsaw.patch(p).basis()).stride_cwise(stride);
+						static_cast<gsTensorBSplineBasis<3>&> (jigsaw.patch(p).basis()).size_cwise(size);
+						
+						for (index_t s = 0; s < 3; s++)
+						{
+							gsInfo << "FOUND COEF " << i << " , stride = " << stride(s) << "\n";
+							gsMatrix<> coefs = jigsaw.patch(p).coefs();
+							if (s == 1)
+								out.row(ind++) = (coefs.row(i - stride(s))).transpose();
+							else
+								out.row(ind++) = (coefs.row(i + stride(s))).transpose();
+						}
+					}
+				}
+			}
+
+		}
+		
+	}
+	gsDebugVar(out);
+	return 0;
+
+}
+
 if (optParam) {
 	index_t jigtype = jig;
 
@@ -2540,7 +2632,7 @@ if (optParam) {
 	gsMultiPatch<>::Ptr jigsaw_ptr = memory::make_shared_not_owned(&jigsaw);
 	gsMultiPatch<>::Ptr mp_init_ptr = memory::make_shared_not_owned(&mp_init);
 
-	if (jigtype == 3 || jigtype == 2 || jigtype == 4 || (jigtype == 1 && dim == 3))
+	if (jigtype == 3 || jigtype == 2 || jigtype == 4 || ((jigtype == 1 || jigtype == 5 || jigtype == 6) && dim == 3))
 	{
 		if( mp_init.targetDim() == 3)
 		{
@@ -2554,7 +2646,7 @@ if (optParam) {
 
 	real_t scale = 1;
 	if (jigtype == 4 && dim == 3) scale = 0.01;
-	if (jigtype == 1 || (jigtype == 2 && dim == 2)) scale = 0.1;
+	if (jigtype == 1 || jigtype == 5 || jigtype == 6 || (jigtype == 2 && dim == 2)) scale = 0.1;
 	if ((jigtype == 2 || jigtype == 3) && dim == 3) scale = 1.0/2.5;
 
 
@@ -2564,13 +2656,21 @@ if (optParam) {
 		mp_init.patch(p).scale(scale);
 	}
 
-	testValidity(jigsaw,"detJ_goal.txt", quA, quB, output);
+	//testValidity(jigsaw,"detJ_goal.txt", quA, quB, output);
+
+//	gsDetJacConstraint dJC(jigsaw_ptr, true);
+//	dJC.evalCon();
+//
+//	std::string st = BASE_FOLDER + output + "detJ_wp";
+//	dJC.plotDetJ(st);
+//
+//	return 0;
 
 	std::string nm = "jig";
-	gsWriteParaview(jigsaw,nm,1000,true,true);
+	gsWriteParaview(jigsaw,nm,10000,true,true);
 
 	nm = "init";
-	gsWriteParaview(mp_init,nm,1000,true,true);
+	gsWriteParaview(mp_init,nm,10000,true,true);
 
 	testValidity(mp_init,"detJ_init.txt", quA, quB, output);
 
