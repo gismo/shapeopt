@@ -1191,7 +1191,7 @@ gsMultiPatch<> getJigSaw(index_t i){
 gsMultiPatch<> getJigSaw3D(index_t i){
 
     index_t n;
-    if (i == 1 || i == 5 || i == 6)
+    if (i == 1 || i == 5 || i == 6 || i == 7)
         n = 10;
     if (i == 2)
         n = 6;
@@ -1234,6 +1234,8 @@ gsMultiPatch<> getJigSaw3D(index_t i){
 	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_2.txt", coefs);
     if (i == 6)
 	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_3.txt", coefs);
+    if (i == 7)
+	   readFromTxt(BASE_FOLDER + folder + "jigsaw3d_4.txt", coefs);
     // gsDebugVar(coefs.rows());
     // gsDebugVar(coefs.cols());
     // gsDebugVar(coefs);
@@ -1337,6 +1339,147 @@ gsVector<> reshapeBack(gsMatrix<> mat){
     return out;
 }
 
+void extractCornersAndSaveXML(index_t jigtype, index_t dim)
+{
+
+	gsMultiPatch<> jigsaw;
+	if (dim == 2) {
+		jigsaw = getJigSaw(jigtype);
+	} else if (dim == 3) {
+		jigsaw = getJigSaw3D(jigtype); 
+	} else {
+		GISMO_ERROR("dim should be 2 or 3!");
+	}
+	
+	gsMultiPatch<> corner = jigsaw.uniformSplit();
+
+	gsWriteParaview(corner,"corner",10000,true,true);
+
+	gsFileData<> fd;
+	fd << corner; 
+
+	index_t num = 1;
+	if (dim == 3)
+	{
+		if (jigtype == 5)
+			num = 3;
+		if (jigtype == 6)
+			num = 2;
+		if (jigtype == 7)
+			num = 4;
+
+	} else if (dim == 2)
+	{
+		if (jigtype == 1)
+			num = 1;
+		if (jigtype == 2)
+			num = 2;
+	}
+	
+    std::ostringstream strs;
+    strs << BASE_FOLDER << "/parametrizations/JigsawXML/jig" << dim << "d_" << num;
+    std::string str = strs.str();
+
+	fd.save(str);
+}
+
+gsMultiPatch<> loadCorner(index_t jigtype, index_t dim, std::vector< gsDofMapper > &mappers )
+{
+    std::ostringstream strs;
+	strs << BASE_FOLDER << "/parametrizations/JigsawXML/jig" << dim << "d_" << jigtype << ".xml";
+	
+	std::string fn(strs.str());
+
+	gsFileData<> fd(fn);
+
+	gsMultiPatch<>::uPtr mp_ptr;
+	mp_ptr = fd.getFirst< gsMultiPatch<> > ();
+
+	gsMultiPatch<> mp(*mp_ptr);
+
+	index_t p = 0;
+	gsMultiPatch<> out(mp.patch(p));
+
+    // Get mappers from multibasis with interfaces glued
+    gsMultiBasis<> geoBasis(out);
+    for (index_t d = 0; d < out.targetDim(); d++)
+    {
+        geoBasis.getMapper(iFace::glue,mappers[d],false); // False means that we do not finalize
+    }
+
+    // Fix coordinates of boundaries
+    for (index_t i = 0; i < mp.nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = mp.boundaries()[i];
+
+		if (ps.patch != p) continue; // Skip other patches
+
+        gsVector<unsigned> boundaryDofs = mp.basis(ps.patch).boundary(ps);
+
+        for (index_t d = 0; d < out.targetDim(); d++)
+        {
+            mappers[d].markBoundary(ps.patch,boundaryDofs);
+        }
+    }
+
+    for (index_t i = 0; i < mp.nInterfaces(); i++){
+        // Get boundary local indices
+		boundaryInterface interface = mp.bInterface(i);
+		patchSide ps = interface.first();
+
+		if (ps.patch != p)
+		{
+			ps = interface.second();
+			if (ps.patch != p) 
+				continue;
+		}
+
+        gsVector<unsigned> boundaryDofs = mp.basis(ps.patch).boundary(ps);
+
+		index_t fixDir = 0;
+        for (index_t d = 0; d < out.targetDim(); d++)
+		{
+			real_t diff = out.patch(0).coef(boundaryDofs[0],d) - out.patch(0).coef(boundaryDofs[1],d);
+			if (diff == 0)
+			{
+				gsInfo << "Fix direction " << d << "\n";
+				fixDir = d;
+				break;
+			}
+
+		}
+
+        mappers[fixDir].markBoundary(ps.patch,boundaryDofs);
+    }
+
+    // Finalize mappers
+    for (index_t d = 0; d < mp.targetDim(); d++)
+    {
+        mappers[d].finalize();
+    }
+
+    // Tag coordinates of boundaries
+    for (index_t i = 0; i < mp.nBoundary(); i++){
+        // Get boundary local indices
+        patchSide ps = mp.boundaries()[i];
+        gsVector<unsigned> boundaryDofs = mp.basis(ps.patch).boundary(ps);
+
+		if (ps.patch != p) continue;
+
+        for (index_t d = 0; d < mp.targetDim(); d++)
+        {
+            // Tag the controlpoint
+            for (index_t j = 0; j < boundaryDofs.size(); j ++){
+                mappers[d].markTagged(boundaryDofs[j],ps.patch);
+            }
+        }
+    }
+
+	return out;
+
+	
+
+}
 
 /*
 void testOfParametrizations(std::string output, index_t quA, index_t quB){
@@ -2442,6 +2585,114 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // gsHBSpline<2> bb(hb,mm);
 // // gsHBSpline<2> bb(gg->basis(),mm);
 // exit(0);
+
+if(false)
+{
+	extractCornersAndSaveXML(jig,dim);
+	return 0;
+}
+
+if(true)
+{
+	std::vector< gsDofMapper > mappers(dim);
+	gsMultiPatch<> corner = loadCorner(jig,dim,mappers);
+	gsMultiPatch<>::Ptr corner_ptr = memory::make_shared_not_owned(&corner);
+
+	gsMultiPatch<> mp_init;
+	if (dim == 2) {
+    	mp_init = getInitGuess2d(corner);
+	} else if (dim == 3) {
+    	mp_init = getInitGuess3d(corner);
+	}
+
+	gsMultiPatch<>::Ptr mp_init_ptr = memory::make_shared_not_owned(&mp_init);
+
+	real_t scale = 0.2;
+	for(index_t p = 0; p < corner.nBoxes(); p++)
+	{
+		corner.patch(p).scale(scale);
+		mp_init.patch(p).scale(scale);
+ 		changeSignOfDetJ(corner.patch(p)); // Use for 3D small
+   		changeSignOfDetJ(mp_init.patch(p)); // Use for 3D small
+	}
+
+	for (index_t r = 0; r < numRefine; r++)
+	{
+		corner.uniformRefine();
+		mp_init.uniformRefine();
+	}
+
+    gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
+
+    std::string name = "init";
+    slog1.plotInParaview(mp_init,name);
+
+
+	gsOptParam optP(mp_init_ptr,corner_ptr,slog1_ptr,param);
+    gsOptParam::Ptr optP_ptr = memory::make_shared_not_owned( &optP);
+    // gsMatrix<> v = optP.currentDesign()*0.99999;
+    // optP.m_paramMethod->update();
+    // gsInfo << optP.evalObj(v) << "\n";
+    // gsInfo << optP.currentDesign() << "\n";
+    // gsInfo << optP.numDesignVars() << "\n";
+    // optP.solve();
+	gsInfo << "EPS = " << eps << "\n";
+    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps);
+    // optWR.gradObj();
+    optWR.solve();
+
+	std::string nm = "jig";
+	gsWriteParaview(corner,nm,10000,true,true);
+
+	nm = "init";
+	gsWriteParaview(mp_init,nm,10000,true,true);
+
+	testValidity(mp_init,"detJ_init.txt", quA, quB, output);
+
+    // gsMultiPatch<>(*gsNurbsCreator<>::BSplineSquare(2));
+
+ 	name = "jigsaw";
+    slog1.plotInParaview(corner,name);
+
+ 	name = "mp_final";
+    slog1.plotInParaview(mp_init,name);
+
+	testValidity(mp_init,"detJ.txt", quA, quB, output);
+	
+ 	// Test snaps
+	gsWinslow win(mp_init_ptr,false,false,true,0); 
+	gsWinslow win_jig(corner_ptr,false,false,true,0); 
+	gsVector<> tagged_jig = win_jig.getTagged();
+	win.updateTagged(tagged_jig);
+
+	std::stringstream stream_out;
+	stream_out <<  output << "cps_snapped.txt";
+	std::string str_out = stream_out.str();
+	gsVector<> flat = win.getFlat();
+	saveVec(flat,str_out);
+
+	testValidity(mp_init,"detJ_snap.txt", quA, quB, output);
+	
+	// Snap bnd control points
+	gsWinslow::Ptr win_ptr = memory::make_shared_not_owned(&win);
+	gsAffineOptParamMethod lin(win_ptr,false);
+
+	gsVector<> free = lin.getUpdate(tagged_jig);
+	win.updateFreeAndTagged(free,tagged_jig);
+
+	std::stringstream stream_out2;
+	stream_out2 <<  output << "cps_SnapLin.txt";
+	str_out = stream_out2.str();
+	flat = win.getFlat();
+	saveVec(flat,str_out);
+
+	testValidity(mp_init,"detJ_SnapLin.txt", quA, quB, output);
+
+	return 0;
+	return 0;
+}
+
 
 // Test of opParam3D
 if (false) { 
