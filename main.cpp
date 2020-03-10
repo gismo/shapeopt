@@ -1383,7 +1383,7 @@ void extractCornersAndSaveXML(index_t jigtype, index_t dim)
 	fd.save(str);
 }
 
-gsMultiPatch<> loadCorner(index_t jigtype, index_t dim, std::vector< gsDofMapper > &mappers )
+gsMultiPatch<> loadCorner(index_t jigtype, index_t dim, std::vector< gsDofMapper > &mappers, index_t numRefine )
 {
     std::ostringstream strs;
 	strs << BASE_FOLDER << "/parametrizations/JigsawXML/jig" << dim << "d_" << jigtype << ".xml";
@@ -1396,6 +1396,9 @@ gsMultiPatch<> loadCorner(index_t jigtype, index_t dim, std::vector< gsDofMapper
 	mp_ptr = fd.getFirst< gsMultiPatch<> > ();
 
 	gsMultiPatch<> mp(*mp_ptr);
+
+	for (index_t r = 0; r < numRefine; r++)
+		mp.uniformRefine();
 
 	index_t p = 0;
 	gsMultiPatch<> out(mp.patch(p));
@@ -2595,7 +2598,7 @@ if(false)
 if(true)
 {
 	std::vector< gsDofMapper > mappers(dim);
-	gsMultiPatch<> corner = loadCorner(jig,dim,mappers);
+	gsMultiPatch<> corner = loadCorner(jig,dim,mappers,numRefine);
 	gsMultiPatch<>::Ptr corner_ptr = memory::make_shared_not_owned(&corner);
 
 	gsMultiPatch<> mp_init;
@@ -2616,12 +2619,6 @@ if(true)
    		changeSignOfDetJ(mp_init.patch(p)); // Use for 3D small
 	}
 
-	for (index_t r = 0; r < numRefine; r++)
-	{
-		corner.uniformRefine();
-		mp_init.uniformRefine();
-	}
-
     gsShapeOptLog slog1(output,true,false,false);
 	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
@@ -2629,7 +2626,7 @@ if(true)
     slog1.plotInParaview(mp_init,name);
 
 
-	gsOptParam optP(mp_init_ptr,corner_ptr,slog1_ptr,param);
+	gsOptParam optP(mp_init_ptr,corner_ptr,mappers,slog1_ptr,param);
     gsOptParam::Ptr optP_ptr = memory::make_shared_not_owned( &optP);
     // gsMatrix<> v = optP.currentDesign()*0.99999;
     // optP.m_paramMethod->update();

@@ -19,6 +19,10 @@ public:
     // Uses gsDetJacConstraint as default
     gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsMultiPatch<>> mp_goal, memory::shared_ptr<gsShapeOptLog> slog, index_t param, bool use_Lagrangian = false);
 
+    gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsMultiPatch<>> mp_goal, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsShapeOptLog> slog, index_t param, bool use_Lagrangian = false);
+
+	void setup(index_t param, bool use_Lagrangian);
+
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;
 
