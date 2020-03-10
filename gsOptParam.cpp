@@ -7,6 +7,19 @@ gsOptParam::gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr
     m_mp_goal(mp_goal),
     m_pM_goal(mp_goal)
 {
+		setup(param,use_Lagrangian);
+}
+
+gsOptParam::gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsMultiPatch<>> mp_goal, std::vector< gsDofMapper > mappers, memory::shared_ptr<gsShapeOptLog> slog, index_t param, bool use_Lagrangian):
+    gsShapeOptProblem(mp,slog),
+    m_mp_goal(mp_goal),
+    m_pM_goal(mp_goal,mappers)
+{
+	setup(param,use_Lagrangian);
+}
+
+void gsOptParam::setup(index_t param, bool use_Lagrangian)
+{
     m_tagged_goal = m_pM_goal.getTagged();
 
     std::string name = "goal";
@@ -55,6 +68,8 @@ gsOptParam::gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr
     n_flat = m_paramMethod->n_flat;
     n_tagged = m_paramMethod->n_tagged;
     n_cps = m_paramMethod->n_cps;
+
+	gsInfo << "\n-------- n_tagged : " << n_tagged << " ----------- \n";
 
     name = "init";
     m_log->saveVec(m_paramMethod->getTagged(),name);
