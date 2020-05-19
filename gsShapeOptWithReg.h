@@ -11,7 +11,7 @@ class gsShapeOptWithReg: public gsOptProblem<real_t>{
 public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
-    gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps);
+    gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true);
 
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;
@@ -56,6 +56,10 @@ public:
 
     std::vector< gsDofMapper > m_mappers; // Mapper for each coordinate
 
+    gsVector<index_t> m_shift_free;
+    gsVector<index_t> m_shift_all;
+    gsVector<index_t> m_shift_tagged;
+
     index_t n_free;
     index_t n_flat;
     index_t n_tagged;
@@ -63,6 +67,8 @@ public:
 
     index_t counter1 = 0; // Counts the number of iterations?
     index_t counter2 = 0; // Counts the number of iterations?
+
+    bool m_glueInterfaces = true;
 
 };
 

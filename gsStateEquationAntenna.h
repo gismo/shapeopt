@@ -5,18 +5,14 @@
 #include <complex>
 #include <sstream>
 #include <string>
+#include "gsStateEquation.h"
 using namespace gismo;
 
-// FIXIT: Clean up. Make more flexible wrt to topology, e.g. use Piecewise function
-class gsStateEquationAntenna{
+class gsStateEquationAntenna : public gsStateEquation{
 public:
-    gsStateEquationAntenna(memory::shared_ptr<gsMultiPatch<>> mpin, index_t numRefine): mp(mpin), dbasis(*mp), zero("0.0",2){
-        dbasis.setDegree(degree);
-        // gsInfo << "OBS CHECK DISCRETIZATION OF PDE!!\n";
-        for (index_t i = 0; i < numRefine; i++){
-            dbasis.uniformRefine();
-        }
-
+    gsStateEquationAntenna(memory::shared_ptr<gsMultiPatch<>> mpin, index_t numRefine): 
+        gsStateEquation(mpin, numRefine), zero("0.0",2)
+    {
         pde_f       = pde_f/pde_L_f;
         pde_omega   = 2*M_PI*pde_f;
         pde_eps_rs_real  = -20.198689873114;
@@ -34,20 +30,20 @@ public:
         pde_eps_cr_inv = 1.0/pde_eps_cr;
 
         //FIXIT Antenna patch is hardcoded to 3.!!!
-        pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.real(), pde_eps_cr_inv);
-        pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_crs_inv.imag(), 0.0);
-        // pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_eps_cr_inv, pde_eps_cr_inv);
-        // pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,0.0, 0.0);
-        pde_mu_r_fun_real = getPieceWiseFunctionOnPatch(mp->nBoxes(),3,pde_mu_rs, pde_mu_r);
+        pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(m_mp->nBoxes(),3,pde_eps_crs_inv.real(), pde_eps_cr_inv);
+        pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(m_mp->nBoxes(),3,pde_eps_crs_inv.imag(), 0.0);
+        // pde_eps_cr_fun_real = getPieceWiseFunctionOnPatch(m_mp->nBoxes(),3,pde_eps_cr_inv, pde_eps_cr_inv);
+        // pde_eps_cr_fun_imag = getPieceWiseFunctionOnPatch(m_mp->nBoxes(),3,0.0, 0.0);
+        pde_mu_r_fun_real = getPieceWiseFunctionOnPatch(m_mp->nBoxes(),3,pde_mu_rs, pde_mu_r);
         // plotSolution(pde_eps_cr_fun_real,"pde_eps_cr_fun_real");
         // plotSolution(pde_eps_cr_fun_imag,"pde_eps_cr_fun_imag");
 
         // printConstants();
 
         // Change domain size
-        // for (index_t i = 0; i < mp->nPatches(); i++){
-        //    gsMatrix<> cc = mp->patch(i).coefs();
-        //    mp->patch(i).setCoefs(pde_r_t/8.0*cc);
+        // for (index_t i = 0; i < m_mp->nPatches(); i++){
+        //    gsMatrix<> cc = m_mp->patch(i).coefs();
+        //    m_mp->patch(i).setCoefs(pde_r_t/8.0*cc);
         // }
 
         char tmp[200];
@@ -102,65 +98,34 @@ public:
         // bcInfo.addCondition(4, boundary::east, condition_type::dirichlet, &Hiz_real);
     };
 
-    gsMatrix<> getU(index_t realOrImag);
-    gsMatrix<> getAu(index_t realOrImag, gsMatrix<> U);
-
+// Overloaded methods
     gsMatrix<> getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol){
         return getDerivativeOfAuPart1(realOrImag,sol) + getDerivativeOfAuPart2(realOrImag,sol);
     };
-    gsMatrix<> getDerivativeOfAuPart1(index_t realOrImag, gsMultiPatch<> sol); // For implenting new gradients
-    gsMatrix<> getDerivativeOfAuPart2(index_t realOrImag, gsMultiPatch<> sol);
 
-
-    gsMatrix<> getDerivativeWithoutSolving(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag);
-    gsVector<> solveAdjoint(gsVector<> &rhs);
-
-    gsMatrix<> solve(real_t &err, index_t &numDofs, index_t &numElems, index_t numRefine);
     gsMatrix<> getDerivativeOfRhsZeroBC(index_t realOrImag);
-    gsMatrix<> getRhsZeroBC(index_t realOrImag);
-    gsMatrix<> getDerivativeOfKu(gsMultiPatch<> sol);
-    gsMatrix<> getKu(gsMultiPatch<> sol);
-    gsMatrix<> getDerivativeOfU();
-    gsMultiPatch<> solve();
-    gsMatrix<> getU();
-    real_t getResidual();
-    void plotMesh(gsMatrix<> solVector);
-    void printMatSize(gsMatrix<> mat, std::string name);
-    void getFandMS(gsFunctionExpr<> *&f, gsFunctionExpr<> *&ms, gsFunctionExpr<> *&df_dx, gsFunctionExpr<> *&df_dy);
-    void getMSDerivatives(gsFunctionExpr<> *&dms_dx, gsFunctionExpr<> *&dms_dy);
-    gsMultiPatch<> getPieceWiseFunctionOnPatch(index_t nBoxes, index_t patch, real_t val_on_patch, real_t val_elsewhere);
 
     void getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gsVector<> &rhs);
-    void getSystem(gsSparseMatrix<> &A, gsVector<> &rhs);
-    void assembleAndSolve();
-    void solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag);
-    void plotSolution(gsMultiPatch<> &sol, std::string name);
-    void plotSolution(std::string name);
-    void plotMagnitude(std::string name);
 
     void printConstants();
 
-    void writeToFile(gsMatrix<> mat, std::string name) const{
-        gsInfo << "WRITING to " << name << "\n";
-        std::ofstream f(name);
-        for(index_t i = 0; i < mat.rows(); i++){
-            for(index_t j = 0; j < mat.cols(); j++){
-                f << std::setprecision(20) << mat(i,j) << " ";
-            }
-            f << "\n";
-        }
-    }
+// Local methods
+    
+    // For implenting new gradients
+    gsMatrix<> getDerivativeOfAuPart1(index_t realOrImag, gsMultiPatch<> sol); 
 
-    real_t quA() { return m_quA; };
-    index_t quB() { return m_quB; };
+    gsMatrix<> getDerivativeOfAuPart2(index_t realOrImag, gsMultiPatch<> sol);
 
+    void assembleAndSolve();
+
+// Old methods
+
+    // gsMatrix<> getKu(gsMultiPatch<> sol);
+    // void plotMesh(gsMatrix<> solVector);
+    // void getFandMS(gsFunctionExpr<> *&f, gsFunctionExpr<> *&ms, gsFunctionExpr<> *&df_dx, gsFunctionExpr<> *&df_dy);
+    // void getMSDerivatives(gsFunctionExpr<> *&dms_dx, gsFunctionExpr<> *&dms_dy);
 
 public:
-    memory::shared_ptr<gsMultiPatch<>> mp;
-    index_t degree = 2;
-    bool isRefined = false;
-    index_t numRef = 1;
-
     // Boundary conditions
     gsFunctionExpr<> zero;
 
@@ -177,16 +142,6 @@ public:
 
     gsBoundaryConditions<> bcInfo;
     gsBoundaryConditions<> bcInfoZero;
-
-    // Assembler variables
-    gsMultiBasis<> dbasis;
-    typedef gsExprAssembler<>::geometryMap geometryMap;
-    typedef gsExprAssembler<>::variable    variable;
-    typedef gsExprAssembler<>::space       space;
-    typedef gsExprAssembler<>::solution    solution;
-
-    gsSparseSolver<>::LU solver;
-    gsMatrix<> solVector;
 
     // Physical parameters
     real_t pde_r_t     = 4.0;                               // ok
@@ -221,9 +176,6 @@ public:
     gsMultiPatch<> pde_eps_cr_fun_imag;
 
     gsMultiPatch<> pde_mu_r_fun_real;
-
-    real_t m_quA = 2;   // Quadrature option
-    index_t m_quB = 2;   // Quadrature option
 };
 
 

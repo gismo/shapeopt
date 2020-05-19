@@ -3,7 +3,8 @@
 #include "gsShapeOptWithReg.h"
 
 // Implement
-gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB,real_t eps):
+gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB,real_t eps, bool glueInterfaces):
+    m_glueInterfaces(glueInterfaces),
     m_eps(eps),
     m_mp(mp),
     m_log(slog),
@@ -40,8 +41,22 @@ void gsShapeOptWithReg::setupMappers()
     // We remake the mapper from gsShapeOptProblem m_opt but we don't fixed the tagged cps
 
     gsMultiBasis<> geoBasis(*m_mp);
-    for (index_t d = 0; d < m_mp->targetDim(); d++)
-        geoBasis.getMapper(iFace::glue,m_mappers[d],false); // False means that we do not finalize
+
+    if (m_glueInterfaces)
+    {
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+            geoBasis.getMapper(iFace::glue,m_mappers[d],false); // False means that we do not finalize
+    } 
+    else 
+    {
+        for (index_t d = 0; d < m_mp->targetDim(); d++)
+        {
+            gsDofMapper tmp(geoBasis);
+            m_mappers[d] = tmp;
+            m_mappers[d].finalize();
+        }
+        return;
+    }
 
     for (index_t d = 0; d < m_mp->targetDim(); d++) // For each dimension
     {
