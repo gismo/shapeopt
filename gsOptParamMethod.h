@@ -112,7 +112,11 @@ public:
     void print();
 
     // set quadrature parameters
-    void setQuad(real_t quA, index_t quB){ m_quA = quA, m_quB = quB; };
+    void setQuad(real_t quA, index_t quB)
+    { 
+        gsInfo << "quad: " << quA << ", " << quB << "\n"; 
+        m_quA = quA; 
+        m_quB = quB; };
 
     // Refine elements OBS: requires mp to have gsHTensorBasis
     // Strategy can be:

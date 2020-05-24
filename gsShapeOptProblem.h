@@ -160,6 +160,9 @@ public:
     // Method to print optimization parameters
     void print();
 
+    // Method to set number of quadrature points for parametrization method
+    void setOptParamQuad(real_t quA, index_t quB);
+
 public:
     mutable memory::shared_ptr<gsMultiPatch<>> m_mp;
     mutable memory::shared_ptr<gsConstraint> m_dJC;

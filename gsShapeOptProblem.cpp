@@ -298,7 +298,7 @@ void gsShapeOptProblem::runOptimization(index_t maxiter, bool uniRef)
 
         gsVector<> flat = m_paramMethod->getFlat();
 
-        gsMultiBasis<> intBas(*m_mp);
+        //gsMultiBasis<> intBas(*m_mp);
         // intBas.uniformRefine();
         //(std::dynamic_pointer_cast< gsAffineOptParamMethod >(m_paramMethod))->setIntegrationBasis(intBas);
 
@@ -522,4 +522,9 @@ void gsShapeOptProblem::print()
   // gsInfo << ".. constraint upper and lower bounds\n";
   // gsInfo << disp2 << "\n";
 
+}
+
+void gsShapeOptProblem::setOptParamQuad(real_t quA, index_t quB)
+{
+    (dynamic_cast< gsAffineOptParamMethod *>(m_paramMethod.get()))->m_optParamMethod->setQuad(quA,quB);
 }

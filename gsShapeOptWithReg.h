@@ -43,6 +43,8 @@ public:
     // Method to run optimization again and again while decreasing the regularization parameter
     void runOptimization(index_t maxiter);
 
+    void setWinslowQuad(real_t quA, index_t quB);
+
 
 public:
     real_t m_eps = 1; // Regularization parameter

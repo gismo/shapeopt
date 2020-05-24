@@ -2643,6 +2643,9 @@ bool useLag = false;
 int quA = 2;
 int quB = 2;
 
+int quA_optParam = 2;
+int quB_optParam = 2;
+
 real_t lambda_1 = 0;
 real_t lambda_2 = 1;
 
@@ -2672,6 +2675,9 @@ cmd.addInt("t","patch","patch",patch);
 
 cmd.addInt("A", "quA", "quA", quA);
 cmd.addInt("B", "quB", "quB", quB);
+
+cmd.addInt("3", "quA_optParam", "quA for winslow parametrization", quA_optParam);
+cmd.addInt("4", "quB_optParam", "quB for winslow parametrization", quB_optParam);
 
 cmd.addReal("1", "lambda1", "lambda1", lambda_1);
 cmd.addReal("2", "lambda2", "lambda2", lambda_2);
@@ -2723,7 +2729,8 @@ if (potWave) {
     //SE.plotVelocityField(ur,ui,0.05,BASE_FOLDER + output + "velocity/veloc");
     //SE.convergenceTest( maxiter, BASE_FOLDER + output );
     //SE.convergenceTestNoPML_NoCenter( maxiter, BASE_FOLDER + output );
-    SE.convergenceTestOnlyPMLAllDir( maxiter, BASE_FOLDER + output, lambda_1 );
+    //SE.convergenceTestOnlyPMLAllDir( maxiter, BASE_FOLDER + output, lambda_1 );
+    SE.pointSourceTest(BASE_FOLDER + output);
     //SE.convergenceTestOnlyPML( maxiter , BASE_FOLDER + output );
     //SE.testSplineSpace(maxiter);
     //SE.convergenceTestNoPML( maxiter , BASE_FOLDER + output );
@@ -3434,9 +3441,14 @@ if (startFromFile)
 		gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
 
         gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
+        optWR.setWinslowQuad(quA_optParam, quB_optParam);
+
         optWR.solve();
     } else if (param == 6) {
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
+
+        optA.setOptParamQuad(quA_optParam, quB_optParam);
+
         optA.runOptimization(maxiter);
     } else if (param == 0) {
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);

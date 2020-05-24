@@ -261,3 +261,8 @@ void gsShapeOptWithReg::runOptimization(index_t maxiter)
         m_eps *= k;
     }
 };
+
+void gsShapeOptWithReg::setWinslowQuad(real_t quA, index_t quB)
+{
+    m_winslow->setQuad(quA, quB);
+}
