@@ -87,6 +87,8 @@ public:
     // FIXIT: DEBUG
     real_t refineUntilPositive(index_t maxRefSteps = 10, real_t tol = 0);
 
+    real_t refineUntilPositiveUniformly(index_t maxRefSteps = 10, real_t tol = 0);
+
     real_t refineDetJSurfaceUntilPositive(index_t nRefSteps, gsMultiPatch<> & dJ);
 
     real_t provePositivityOfDetJ(index_t maxRefSteps = 10);

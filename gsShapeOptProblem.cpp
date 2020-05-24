@@ -271,7 +271,7 @@ gsIpOptSparseMatrix gsShapeOptProblem::jacobDetJac() const
     return out;
 }
 
-void gsShapeOptProblem::runOptimization(index_t maxiter)
+void gsShapeOptProblem::runOptimization(index_t maxiter, bool uniRef)
 {
 
     *m_log << "N.o. cps: " << n_cps << "\n";
@@ -300,7 +300,7 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
 
         gsMultiBasis<> intBas(*m_mp);
         // intBas.uniformRefine();
-        (std::dynamic_pointer_cast< gsAffineOptParamMethod >(m_paramMethod))->setIntegrationBasis(intBas);
+        //(std::dynamic_pointer_cast< gsAffineOptParamMethod >(m_paramMethod))->setIntegrationBasis(intBas);
 
 
         bool status = m_paramMethod->updateAndReset();
@@ -316,7 +316,11 @@ void gsShapeOptProblem::runOptimization(index_t maxiter)
         std::string namedj = "detJSurf";
         m_log->plotInParaview(dJ,namedj,counter2);
 
-        m_dJC->refineUntilPositive(7,0);
+		if (uniRef)
+        	m_dJC->refineUntilPositiveUniformly(7,0);
+		else 
+        	m_dJC->refineUntilPositive(7,0);
+				
         // m_paramMethod->updateAndReset();
         // gsMultiPatch<> dJ = (dynamic_cast< gsDetJacConstraint* >(m_dJC))->getDetJ();
         // std::string namedj = "detJ";

@@ -320,7 +320,7 @@ gsMultiPatch<> gsDetJacConstraint::getDetJSurface(bool zero)
     gsVector<> d = evalCon();
     index_t start = 0;
 
-    real_t max = 1;
+    real_t max = 10000;
     for (index_t i = 0; i < d.size(); i++)
     {
         if (d[i] > max)
@@ -328,6 +328,8 @@ gsMultiPatch<> gsDetJacConstraint::getDetJSurface(bool zero)
 
         if (zero)
             d[i] = 0;
+
+        d[i] *= 0.25;
     }
 
     for (index_t p = 0; p < m_mp->nBoxes(); p++)
@@ -733,6 +735,32 @@ real_t gsDetJacConstraint::refineUntilPositive(index_t maxRefSteps, real_t tol)
         std::vector<bool> elMarked;
         markElements(elMarked,tol);
         refineElements(elMarked,m_detJacBasis);
+
+    }
+
+    reset();
+    minD = evalCon().minCoeff();
+    gsInfo << "DetJ could not be proven positive in " << maxRefSteps << "iterations. Smallest coef was still " << minD << "\n";
+    return minD;
+}
+
+real_t gsDetJacConstraint::refineUntilPositiveUniformly(index_t maxRefSteps, real_t tol)
+{
+
+    real_t minD;
+
+    for (index_t i = 0; i < maxRefSteps; i++)
+    {
+        // Reset the class with the new basis
+        reset();
+
+        minD = evalCon().minCoeff();
+
+        // If all coefficients, i.e. the minimal one, is positive stop the loop
+        if (minD > tol)
+            return minD;
+
+		m_detJacBasis.uniformRefine();
 
     }
 

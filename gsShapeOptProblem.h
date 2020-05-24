@@ -136,7 +136,7 @@ public:
     gsMatrix<> mapGradient(gsDofMapper mapper_in, gsMatrix<> mat_in) const;
 
     // Method to run consecutive solves, resetting the parametrization method each time.
-    void runOptimization(index_t maxiter);
+    void runOptimization(index_t maxiter, bool uniRef = false);
 
     void runOptimization_aggregatedConstraints(index_t maxiter);
 

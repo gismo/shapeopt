@@ -16,16 +16,16 @@ public:
     gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps);
 
     // evaluation of objective
-    real_t evalObj() const;
+    virtual real_t evalObj() const;
 
     gsVector<> gradObj() const;
 
     // Returns hessian wrt. all variables
     gsMatrix<> hessAll() const;
-    gsMatrix<> hessAll(gsDofMapper &space_mapper) const;
+    virtual gsMatrix<> hessAll(gsDofMapper &space_mapper) const;
 
     gsVector<> gradAll() const;
-    gsVector<> gradAll(gsDofMapper &space_mapper) const;
+    virtual gsVector<> gradAll(gsDofMapper &space_mapper) const;
 
     gsVector<> gradObj(gsVector<> &gradObjTagged) const;
 

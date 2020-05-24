@@ -7,6 +7,10 @@ gsOptParam::gsOptParam(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr
     m_mp_goal(mp_goal),
     m_pM_goal(mp_goal)
 {
+        setupMappers();
+
+        m_pM_goal.setMappers(m_mappers);
+        
 		setup(param,use_Lagrangian);
 }
 

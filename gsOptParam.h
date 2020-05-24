@@ -24,20 +24,20 @@ public:
 	void setup(index_t param, bool use_Lagrangian);
 
     // Evaluation of the objective, using the design contained in m_mp
-    real_t evalObj() const ;
+    virtual real_t evalObj() const ;
 
     // Evaluation of the gradient wrt design variables (tagged cps)
-    gsVector<> gradObj() const ;
+    virtual gsVector<> gradObj() const ;
 
     // Evaluation of the gradient wrt all cps, needed for gsShapeOptWithReg
-    gsVector<> gradAll() const ;
+    virtual gsVector<> gradAll() const ;
 
-    void setupMappers();
+    virtual void setupMappers();
 
     gsDofMapper mapper_grad() const;
 
     // Method to set the bounds on the design variables,
-    void setupDesignBounds();
+    virtual void setupDesignBounds();
 
 	void setQuad(real_t quA, index_t quB){ m_quA = quA; m_quB = quB; };
 

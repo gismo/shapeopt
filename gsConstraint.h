@@ -86,6 +86,11 @@ public:
         GISMO_NO_IMPLEMENTATION;
     };
 
+    virtual real_t refineUntilPositiveUniformly(index_t maxRefSteps = 10, real_t tol = 0)
+    {
+        GISMO_NO_IMPLEMENTATION;
+    };
+
     void setEps(real_t eps) { m_eps = eps; };
 
 public:
