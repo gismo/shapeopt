@@ -62,6 +62,7 @@ public:
 
     void convTestHelper(bool useDirichlet, bool useNeumann, index_t max_refine, std::string outfolder);
 
+    void pointSourceTest(std::string outfolder);
 
 
     void setup();
@@ -142,6 +143,12 @@ public:
     // F = grad(u_sol), with u_sol = cos(Ky)exp(Kz)
     gsFunctionExpr<>::uPtr pde_F_re;
     gsFunctionExpr<>::uPtr pde_F_im;
+
+    // Gaussian bell curve for testing with point source
+    bool                   useNeuBell = false;
+    real_t                 bell_sigma       = 0.01;
+    real_t                 bell_amplitude   = 1;
+    gsFunctionExpr<>::uPtr bell_curve;
                                       
     // Boundary conditions
     gsBoundaryConditions<> bcInfo_Gamma_f; // Marks free surface, Gamma_f, as neumann

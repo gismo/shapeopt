@@ -474,6 +474,11 @@ void gsStateEquationPotWaves::constructor()
     strech_detJ_Jm1_Jm1_asVec_re = getVectorFunRe(const_map, xcomp, ycomp, zcomp);
     strech_detJ_Jm1_Jm1_asVec_im = getVectorFunIm(const_map, xcomp, ycomp, zcomp);
 
+    // Bell curve
+    const_map["bell_s2"] = bell_sigma*bell_sigma;
+    const_map["bell_A"] = bell_amplitude;
+    complexExpr bell_cE( "- bell_A * exp(- (x + y)/(2*bell_s2) )", "0");
+    bell_curve = bell_cE.getFunRe(const_map);
 
 
 }
@@ -844,6 +849,11 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
     auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
     auto zero_vec = zer.val()*u*nv(G).norm();     // Perhaps I need to multiply with u;
 
+	// Rhs Bell
+	variable B_real = A.getCoeff(*bell_curve,G);
+
+	auto rhs_bell_real = B_real.val()*u*nv(G).norm();
+
 	if (realOrImag == 0){
 
         if (useDir) u.addBc( bcInfo_Dirichlet_re.get("Dirichlet"));
@@ -857,6 +867,11 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
         if (useNeu)
         {
 		    A.assembleLhsRhsBc(zero_matrix, rhs_term_real , bcInfo_Gamma_s.neumannSides());
+        }
+
+        if (useNeuBell)
+        {
+		    A.assembleLhsRhsBc(zero_matrix, rhs_bell_real , bcInfo_Gamma_f.neumannSides());
         }
 	} else {
         // It is not a bug that we use bcInfo_Dirichlet_re and not ..._im here!
@@ -1124,6 +1139,57 @@ void gsStateEquationPotWaves::convergenceTestOnlyPMLAllDir(index_t max_refine, s
     markBoundariesDirichlet();
 
     convTestHelper(true, false, max_refine, outfolder);
+
+}
+
+void gsStateEquationPotWaves::pointSourceTest(std::string outfolder)
+{
+
+    useNeuBell = true;
+
+    m_mp = getInitialDomain(true); // true : fills center with water
+
+    gsExprAssembler<> A(1,1);
+    gsExprEvaluator<> ev(A);
+
+    ev.options().setInt("quB",m_quB); // FIXIT lower no points
+    ev.options().setReal("quA", m_quA); // FIXIT lower no points
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    geometryMap G = A.getMap(*m_mp);
+
+    gsMultiPatch<> ur, ui;
+    solve(ur,ui);
+
+    A.setIntegrationElements(dbasis);
+
+    variable u_r = A.getCoeff(ur);
+    variable u_i = A.getCoeff(ui);
+
+    ev.options().setInt("quB",m_quB+2); // FIXIT lower no points
+    ev.options().setReal("quA", m_quA+2); // FIXIT lower no points
+
+    if (true) // If plot
+    {
+
+        ev.options().setInt("plot.npts", 8000);
+    
+        std::string name = "ur";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview( u_r , G, outfolder + name);
+    
+        name = "ui";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview( u_i , G, outfolder + name);
+    }
+
+
+    // Return to default settings
+    useNeuBell = true;
 
 }
 
