@@ -1,5 +1,6 @@
 #include <gismo.h>
 #include "gsStateEquationPotWaves.h"
+#include "gsMyExpressions.h"
 #include <algorithm>
 #include <regex>
 using namespace gismo;
@@ -99,6 +100,16 @@ public:
 
         // real*rhs.imag + imag*rhs.real
         res.imag = pad(real) + mult + pad(rhs.imag) + plus + pad(imag) + mult + pad(rhs.real);
+
+        return res;
+    }
+
+    complexExpr operator * (std::string factor)
+    {
+        complexExpr res;
+        res.real = pad(real) + mult + factor;
+
+        res.imag = pad(imag) + mult + factor;
 
         return res;
     }
@@ -207,6 +218,17 @@ public:
 
         return res;
     }
+
+    complexExpr exp()
+    {
+        complexExpr res;
+        
+        res.real = "exp" + pad(real)  + " * cos " + pad(imag) ;
+
+        res.imag = "exp" + pad(real)  + " * sin " + pad(imag) ;
+
+        return res;
+    }
     
 
 public: 
@@ -226,6 +248,50 @@ public:
 
 std::ostream &operator<<(std::ostream &os, complexExpr x)
 { os << x.real << " + i " << x.pad(x.imag) ; return os;}
+
+gsFunctionExpr<>::uPtr getSymmVectorFunRe(std::map< std::string, real_t> & map, 
+        const complexExpr & xx, 
+        const complexExpr & yx, 
+        const complexExpr & zx,
+        const complexExpr & yy,
+        const complexExpr & zy,
+        const complexExpr & zz)
+{
+    std::string xxs = xx.ReWithVals(map);
+    std::string yxs = yx.ReWithVals(map);
+    std::string zxs = zx.ReWithVals(map);
+
+    std::string yys = yy.ReWithVals(map);
+    std::string zys = zy.ReWithVals(map);
+
+    std::string zzs = zz.ReWithVals(map);
+
+    gsFunctionExpr<>::uPtr ptr = memory::make_unique( new gsFunctionExpr<>(xxs,yxs,zxs,yxs,yys,zys,zxs,zys,zzs,3) ); 
+
+    return ptr;
+}
+
+gsFunctionExpr<>::uPtr getSymmVectorFunIm(std::map< std::string, real_t> & map, 
+        const complexExpr & xx, 
+        const complexExpr & yx, 
+        const complexExpr & zx,
+        const complexExpr & yy,
+        const complexExpr & zy,
+        const complexExpr & zz)
+{
+    std::string xxs = xx.ImWithVals(map);
+    std::string yxs = yx.ImWithVals(map);
+    std::string zxs = zx.ImWithVals(map);
+
+    std::string yys = yy.ImWithVals(map);
+    std::string zys = zy.ImWithVals(map);
+
+    std::string zzs = zz.ImWithVals(map);
+
+    gsFunctionExpr<>::uPtr ptr = memory::make_unique( new gsFunctionExpr<>(xxs,yxs,zxs,yxs,yys,zys,zxs,zys,zzs,3) ); 
+
+    return ptr;
+}
 
 gsFunctionExpr<>::uPtr getVectorFunRe(std::map< std::string, real_t> & map, const complexExpr & x, const complexExpr & y, const complexExpr & z)
 {
@@ -261,6 +327,7 @@ bool checkForZero(gsVector<unsigned> boundaryDofs, gsMatrix<> coefs, index_t coo
     return true; // Only gets to this point if cps_z = 0 for all bnd points
 
 }
+
 
 bool checkForPML(gsVector<unsigned> boundaryDofs, gsMatrix<> coefs, real_t lbx, real_t lby, real_t lbz)
 {
@@ -357,6 +424,28 @@ gsMatrix<> getBoxHelper(real_t xmin,real_t xmax, real_t ymin,real_t ymax, real_t
     return out;
 }
 
+index_t getSignOfDetJ(gsMultiPatch<> mp)
+{
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::solution    solution;
+
+    gsExprAssembler<> A(1,1);
+    gsExprEvaluator<> ev(A);
+
+    // Elements used for numerical integration
+    gsMultiBasis<> dbasis(mp);
+    A.setIntegrationElements(dbasis);
+
+    geometryMap G = A.getMap(mp);
+
+    real_t a = ev.integral(jac(G).det()); 
+
+    return (0 < a) - (a < 0);
+
+}
+
 // ============================ //
 //       Member functions       //
 // ============================ //
@@ -365,12 +454,30 @@ gsStateEquationPotWaves::gsStateEquationPotWaves(index_t numRefine, real_t Lx, r
     zero("0.0",3), 
     m_numRefine(numRefine)
 {
+    // Set PML sizes
     pml_Lx = Lx;
     pml_Ly = Ly;
     pml_Lz = Lz;
     pml_lx = lx;
     pml_ly = ly;
     pml_lz = lz;
+     
+    // Get initial domain
+    m_mp = getInitialDomain();
+
+    // Setup dbasis 
+    setup();
+
+    // Setup the rest
+    constructor();
+
+}
+
+gsStateEquationPotWaves::gsStateEquationPotWaves(gsMultiPatch<>::Ptr mp_ptr, index_t numRefine): 
+    zero("0.0",3), 
+    m_numRefine(numRefine),
+    gsStateEquation(mp_ptr,numRefine)
+{
     constructor();
 }
 
@@ -378,18 +485,27 @@ gsStateEquationPotWaves::gsStateEquationPotWaves(index_t numRefine):
     zero("0.0",3), 
     m_numRefine(numRefine)
 {
+    // Get initial domain
+    m_mp = getInitialDomain();
+
+    // Setup dbasis 
+    setup();
+
+    // Setup the rest
     constructor();
 }
 
 void gsStateEquationPotWaves::constructor()
 {
-    m_mp = getInitialDomain();
+
+    m_isBndGamma_s_vec.setZero(m_mp->nBoundary());
 
     complexExpr u_expr("0.0","0.0");
     pde_u_dir_re = u_expr.getFunRe(const_map);
     pde_u_dir_im = u_expr.getFunIm(const_map);
 
-    setup();
+    lapl_uEx = u_expr.getFunRe(const_map);
+
 
     // Mark boundaries Gamma_f and Gamma_s
     markBoundaries();
@@ -406,6 +522,7 @@ void gsStateEquationPotWaves::constructor()
     const_map["lz"] = pml_lz;
 
     const_map["K"] = wave_K;
+    const_map["K2"] = wave_K*wave_K;
     const_map["g"] = wave_g;
     const_map["omega"] = wave_omega;
 
@@ -426,13 +543,26 @@ void gsStateEquationPotWaves::constructor()
     pde_F_re = getVectorFunRe(const_map, -wave_du_I_dx, -wave_du_I_dy, -wave_du_I_dz);
     pde_F_im = getVectorFunIm(const_map, -wave_du_I_dx, -wave_du_I_dy, -wave_du_I_dz);
 
+    // Second derivatives of u_I
+    complexExpr xx("- g / omega * K2 * exp(K*z) * cos(K*x)","g / omega * K2 * exp(K*z) * sin(K*x)");
+    complexExpr yx("0","0");
+    complexExpr zx("- g / omega * K2 * exp(K*z) * sin(K*x)", "- g / omega * K2 * exp(K*z) * cos(K*x)");
+
+    complexExpr yy("0","0");
+    complexExpr zy("0","0");
+
+    complexExpr zz("  g / omega * K2 * exp(K*z) * cos(K*x)", "- g / omega * K2 * exp(K*z) * sin(K*x)");
+
+    pde_dF_re = getSymmVectorFunRe(const_map, -xx, -yx, -zx, -yy, -zy, -zz);
+    pde_dF_im = getSymmVectorFunIm(const_map, -xx, -yx, -zx, -yy, -zy, -zz);
+
     // Streching functions for PML
     gsInfo << "\n Pml : \n";
 
     std::string dsx_expr_im = 
         "switch                                                             "
         "{                                                                  "
-        "   case (x < - lx)  : - n*C/(omega * (Lx - lx)^n)*(- x - lx)^(n - 1);   "
+        "   case (x < - lx)  : n*C/(omega * (Lx - lx)^n)*(- x - lx)^(n - 1);   "
         "   case (x >   lx)  : n*C/(omega * (Lx - lx)^n)*(x - lx)^(n - 1);     "
         "   default          : 0;                                           "
         "}                                                                  ";
@@ -440,7 +570,7 @@ void gsStateEquationPotWaves::constructor()
     std::string dsy_expr_im = 
         "switch                                                             "
         "{                                                                  "
-        "   case (y < - ly)  : - n*C/(omega * (Ly - ly)^n)*(- y - ly)^(n - 1);   "
+        "   case (y < - ly)  : n*C/(omega * (Ly - ly)^n)*(- y - ly)^(n - 1);   "
         "   case (y >   ly)  : n*C/(omega * (Ly - ly)^n)*(y - ly)^(n - 1);     "
         "   default          : 0;                                           "
         "}                                                                  ";
@@ -448,7 +578,7 @@ void gsStateEquationPotWaves::constructor()
     std::string dsz_expr_im = 
         "switch                                                             "
         "{                                                                  "
-        "   case (z < - lz)  : - n*C/(omega * (Lz - lz)^n)*(- z - lz)^(n - 1);   "
+        "   case (z < - lz)  : n*C/(omega * (Lz - lz)^n)*(- z - lz)^(n - 1);   "
         "   default          : 0;                                           "
         "}                                                                  ";
     
@@ -459,45 +589,108 @@ void gsStateEquationPotWaves::constructor()
     complexExpr detJ = dstrech_x*dstrech_y*dstrech_z;
     complexExpr detJlen = detJ.norm();
 
-    strech_detJ_len_re = detJlen.getFunRe(const_map);
-    strech_detJ_len_im = detJlen.getFunIm(const_map);
+    strech_detJ_re = detJ.getFunRe(const_map);
+    strech_detJ_im = detJ.getFunIm(const_map);
+
+    strech_detJ_len_re = detJ.getFunRe(const_map);
+    strech_detJ_len_im = detJ.getFunIm(const_map);
 
     complexExpr dstrech_x_inv = dstrech_x.inv();
     complexExpr dstrech_y_inv = dstrech_y.inv();
     complexExpr dstrech_z_inv = dstrech_z.inv();
 
     // detJ * Jm1 * Jm1
-    complexExpr xcomp = detJ*dstrech_x_inv.sqNorm();//*dstrech_x_inv.adj();
-    complexExpr ycomp = detJ*dstrech_y_inv.sqNorm();//*dstrech_y_inv.adj();
-    complexExpr zcomp = detJ*dstrech_z_inv.sqNorm();//*dstrech_z_inv.adj();
+    //complexExpr xcomp = detJ*dstrech_x_inv.sqNorm();//*dstrech_x_inv.adj();
+    //complexExpr ycomp = detJ*dstrech_y_inv.sqNorm();//*dstrech_y_inv.adj();
+    //complexExpr zcomp = detJ*dstrech_z_inv.sqNorm();//*dstrech_z_inv.adj();
+
+    complexExpr xcomp = detJ*dstrech_x_inv*dstrech_x_inv;//*dstrech_x_inv.adj();
+    complexExpr ycomp = detJ*dstrech_y_inv*dstrech_y_inv;//*dstrech_y_inv.adj();
+    complexExpr zcomp = detJ*dstrech_z_inv*dstrech_z_inv;//*dstrech_z_inv.adj();
 
     strech_detJ_Jm1_Jm1_asVec_re = getVectorFunRe(const_map, xcomp, ycomp, zcomp);
     strech_detJ_Jm1_Jm1_asVec_im = getVectorFunIm(const_map, xcomp, ycomp, zcomp);
 
+    std::string f_x_expr =  
+        "switch                                                             "
+        "{                                                                  "
+        "   case (x < - lx)  : - C/(omega * (Lx - lx)^n)*(- x - lx)^ ( n );   "
+        "   case (x >   lx)  : C/(omega * (Lx - lx)^n)*(x - lx)^ ( n );     "
+        "   default          : 0;                                           "
+        "}                                                                  ";
+
+    std::string f_y_expr =  
+        "switch                                                             "
+        "{                                                                  "
+        "   case (y < - ly)  : - C/(omega * (Ly - ly)^n)*(- y - ly)^ ( n );   "
+        "   case (y >   ly)  : C/(omega * (Ly - ly)^n)*(y - ly)^ ( n );     "
+        "   default          : 0;                                           "
+        "}                                                                  ";
+
+    complexExpr strech_x("x",f_x_expr);
+    complexExpr strech_y("y",f_y_expr);
+    //complexExpr strech_x("x1","y1");
+    //complexExpr strech_y("x1","y2");
+
+    std::string factor = "( - 1 / (2 * bell_s2) )";
+
+    complexExpr expon = strech_x*strech_x*factor + strech_y*strech_y*factor;
+
     // Bell curve
     const_map["bell_s2"] = bell_sigma*bell_sigma;
     const_map["bell_A"] = bell_amplitude;
-    complexExpr bell_cE( "- bell_A * exp(- (x + y)/(2*bell_s2) )", "0");
-    bell_curve = bell_cE.getFunRe(const_map);
+    //complexExpr bell_cE( "- bell_A * exp(- (x*x + y*y)/(2*bell_s2) )", "0");
+
+    complexExpr bell_cE = expon.exp();
+    gsDebugVar(bell_cE.real);
+    gsDebugVar(bell_cE.imag);
+
+    complexExpr bellTerm = detJ*bell_cE;
+   
+    bell_term_re = bell_cE.getFunRe(const_map);
+    bell_term_im = bell_cE.getFunIm(const_map);
 
 
 }
 
 void gsStateEquationPotWaves::setup()
 {
-    gsMultiBasis<> bas(*m_mp);
+    for (index_t p = 0; p < m_mp->nBoxes(); p++)
+    {
+        if (isPatchInDomain(p))
+        {
+            gsInfo << "Added patch " << p << " to domain\n";
+            m_mp_domain.addPatch( m_mp->patch(p) );
+        }
+    }
+    m_mp_domain.computeTopology();
+    gsDebugVar(m_mp_domain);
+    gsDebugVar(m_mp_domain.domainDim());
+    gsDebugVar(m_mp_domain.targetDim());
 
+    gsMultiBasis<> bas(*m_mp);
     dbasis = bas;
+
+    gsMultiBasis<> basD(m_mp_domain);
+    dbasis_domain = basD;
 
     while(dbasis.maxCwiseDegree() < degree)
     {
         dbasis.degreeIncrease();
+        dbasis_domain.degreeIncrease();
     }
 
     // gsInfo << "OBS CHECK DISCRETIZATION OF PDE!!\n";
     for (index_t i = 0; i < m_numRefine; i++){
         dbasis.uniformRefine();
+        dbasis_domain.uniformRefine();
     }
+
+    gsDebugVar(dbasis.domainDim());
+    gsDebugVar(dbasis.targetDim());
+    gsDebugVar(dbasis_domain.domainDim());
+    gsDebugVar(dbasis_domain.targetDim());
+    
 
 }
 
@@ -527,16 +720,20 @@ void gsStateEquationPotWaves::markBoundaries()
 
         if (checkForZero(boundaryDofs, coefsTranslated))
         {
-            gsInfo << "GAMMA_B: Add condition at patch " << ps.patch << " bnd " << ps.index() <<"\n";
+            //gsInfo << "GAMMA_B: Add condition at patch " << ps.patch << " bnd " << ps.index() <<"\n";
             bcInfo_Gamma_b.addCondition(ps.patch, ps.index(), condition_type::neumann, zero);
         }
 
         // Find Gamma_s
         // Goal is to find the boundaries inside the PML domain (ie. not on the PML layers)
-        if (checkForPML(boundaryDofs,m_mp->patch(ps.patch).coefs(),init_lbx,init_lby,init_lbz))
+        bool cond1 = !checkIfInPML(boundaryDofs,m_mp->patch(ps.patch).coefs(),pml_lx,pml_ly,pml_lz);
+        bool cond2 = !checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs(),2);
+        bool cond3 = !checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs(),1);
+        if (cond1 and cond2 and cond3)
         {
-            gsInfo << "GAMMA_S: Add condition at patch " << ps.patch << " bnd " << ps.index() << "\n";
+            //gsInfo << "GAMMA_S: Add condition at patch " << ps.patch << " bnd " << ps.index() << "\n";
             bcInfo_Gamma_s.addCondition(ps.patch, ps.index(), condition_type::neumann, zero);
+            m_isBndGamma_s_vec[i] = 1;
         }
     }
 
@@ -560,7 +757,7 @@ void gsStateEquationPotWaves::markBoundariesDirichlet()
         if (cond1 and cond2)
         {
             
-            gsInfo << "GAMMA_D: Add condition at patch TRE" << ps.patch << " bnd " << ps.index() << "\n";
+            //gsInfo << "GAMMA_D: Add condition at patch TRE" << ps.patch << " bnd " << ps.index() << "\n";
             bcInfo_Dirichlet_re.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_u_dir_re);
             bcInfo_Dirichlet_im.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_u_dir_im);
         }
@@ -583,7 +780,7 @@ void gsStateEquationPotWaves::markBoundariesDirichletNoPML()
 
         if (!checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs(),2))
         {
-            gsInfo << "GAMMA_D: Add condition at patch " << ps.patch << " bnd " << ps.index() << "\n";
+            //gsInfo << "GAMMA_D: Add condition at patch " << ps.patch << " bnd " << ps.index() << "\n";
             bcInfo_Dirichlet_re.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_u_dir_re);
             bcInfo_Dirichlet_im.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_u_dir_im);
         }
@@ -605,10 +802,10 @@ void gsStateEquationPotWaves::markBoundariesDirichletNoPML_NoCenter()
         gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
 
         bool cond1 = !checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs(),2);
-        bool cond2 = !(checkForPML(boundaryDofs,m_mp->patch(ps.patch).coefs(),init_lbx,init_lby,init_lbz));
+        bool cond2 = !(checkIfInPML(boundaryDofs,m_mp->patch(ps.patch).coefs(),pml_lx,pml_ly,pml_lz));
         if (cond1 and cond2)
         {
-            gsInfo << "GAMMA_D: Add condition at patch " << ps.patch << " bnd " << ps.index() << "\n";
+            //gsInfo << "GAMMA_D: Add condition at patch " << ps.patch << " bnd " << ps.index() << "\n";
             bcInfo_Dirichlet_re.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_u_dir_re);
             bcInfo_Dirichlet_im.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_u_dir_im);
         }
@@ -619,6 +816,11 @@ void gsStateEquationPotWaves::markBoundariesDirichletNoPML_NoCenter()
     gsInfo << "bcInfo_Gamma_d : \n" << bcInfo_Dirichlet_re << "\n";
     gsInfo << "bcInfo_Gamma_d : \n" << bcInfo_Dirichlet_im << "\n";
 
+}
+
+bool gsStateEquationPotWaves::isBndGamma_s(index_t b)
+{
+    return m_isBndGamma_s_vec[b];
 }
 
 gsMatrix<> gsStateEquationPotWaves::getCoefs(index_t p)
@@ -642,9 +844,15 @@ gsMatrix<> gsStateEquationPotWaves::getCoefs(index_t p)
                         -lbx        ,lby          ,0;
                 break;
 
-        case  1: 
-                out = getCoefs(0); 
-                out.col(0) = -out.col(0);
+        case  1: out <<  
+                        pml_lx     ,0          ,0,
+                        lbx        ,0          ,0,
+                        pml_lx     ,pml_ly     ,0,
+                        lbx        ,lby          ,0,
+                        pml_lx     ,0          ,-pml_lz,
+                        lbx        ,0          ,-lbz,
+                        pml_lx     ,pml_ly     ,-pml_lz,
+                        lbx        ,lby        ,-lbz;
                 break;
 
         case  2: out << -lbx    ,lby        ,-lbz,
@@ -705,8 +913,10 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomain(bool includeCenter
 {
     index_t nPatches = 15;
 
-    if (includeCenter)\
+    if (includeCenter)
         nPatches = 16;
+
+    gsInfo << "NPATCHES : " << nPatches << "\n";
 
 	gsMultiPatch<>::Ptr out = memory::make_shared( new gsMultiPatch<> );
     for (index_t p = 0; p < nPatches; p++)
@@ -714,9 +924,14 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomain(bool includeCenter
         gsMatrix<> coefs = getCoefs(p);
         gsTensorBSpline<3, real_t> tbs = getBox(coefs);
         out->addPatch( tbs );
+
+        //gsInfo << "Sign of detJ on patch " << p << " is " << getSignOfDetJ(tbs) << "\n";
     }
 
     out->computeTopology();
+
+    out->uniformRefine();
+
 
     return out;
 
@@ -797,107 +1012,6 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainNoPMLInZDir(bool in
 
 }
 
-void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gsVector<> &rhs)
-{
-	// Method to generate system matrices and rhs
-	// Input 0 for real part of matrix, and 1 for imaginary part of matrix
-
-	gsExprAssembler<> A(1,1);
-	gsExprEvaluator<> ev(A);
-
-    A.options().setReal("quA",m_quA);
-    A.options().setInt("quB",m_quB);
-    
-    geometryMap G = A.getMap(*m_mp);
-
-    A.setIntegrationElements(dbasis);
-
-    space u = A.getSpace(dbasis);
-    u.setInterfaceCont(0);
-
-    // Setup terms
-
-    // Laplace Term
-
-    variable detJJm1Jm1_asVec_re = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_re,G);
-    variable detJJm1Jm1_asVec_im = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_im,G);
-
-    auto dJJJ_re = detJJm1Jm1_asVec_re.asDiag();
-    auto dJJJ_im = detJJm1Jm1_asVec_im.asDiag();
-
-    auto laplace_term_real = igrad(u,G)*(dJJJ_re*igrad(u,G).tr())*meas(G);
-    auto laplace_term_imag = igrad(u,G)*(dJJJ_im*igrad(u,G).tr())*meas(G);
-
-    variable dJ_le_re = A.getCoeff(*strech_detJ_len_re,G);
-    variable dJ_le_im = A.getCoeff(*strech_detJ_len_im,G);
-
-	// Helmholtz Term
-	auto helmholtz_term_real = - wave_K*u*u.tr()*dJ_le_re.val()*nv(G).norm();
-	auto helmholtz_term_imag = - wave_K*u*u.tr()*dJ_le_im.val()*nv(G).norm();
-
-	// Rhs
-	variable F_real = A.getCoeff(*pde_F_re,G);
-	variable F_imag = A.getCoeff(*pde_F_im,G);
-
-	auto rhs_term_real = (F_real.tr()*(nv(G)/nv(G).norm())).val()*u*nv(G).norm();
-	auto rhs_term_imag = (F_imag.tr()*(nv(G)/nv(G).norm())).val()*u*nv(G).norm();
-
-    // Zero
-    gsFunctionExpr<> zerfun("0.0",3);
-    variable zer = ev.getVariable(zerfun);
-
-    auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
-    auto zero_vec = zer.val()*u*nv(G).norm();     // Perhaps I need to multiply with u;
-
-	// Rhs Bell
-	variable B_real = A.getCoeff(*bell_curve,G);
-
-	auto rhs_bell_real = B_real.val()*u*nv(G).norm();
-
-	if (realOrImag == 0){
-
-        if (useDir) u.addBc( bcInfo_Dirichlet_re.get("Dirichlet"));
-
-	    A.initSystem();
-
-		A.assemble(laplace_term_real);
-		A.assembleLhsRhsBc(helmholtz_term_real, zero_vec , bcInfo_Gamma_f.neumannSides());
-		//A.assembleLhsRhsBc(-helmholtz_term_real, zero_vec , bcInfo_Gamma_b.neumannSides());
-
-        if (useNeu)
-        {
-		    A.assembleLhsRhsBc(zero_matrix, rhs_term_real , bcInfo_Gamma_s.neumannSides());
-        }
-
-        if (useNeuBell)
-        {
-		    A.assembleLhsRhsBc(zero_matrix, rhs_bell_real , bcInfo_Gamma_f.neumannSides());
-        }
-	} else {
-        // It is not a bug that we use bcInfo_Dirichlet_re and not ..._im here!
-        // The reason is that when we construct the full real system the rhs gets contributions from both combinations of A_real, A_imag and bcInfo..._re and bcInfo..._im
-        // But if we assume that u_imag = 0 then this reduces to
-        // | Ar  -Ai | | ur | = | fr - Ar_bnd ur_bnd |
-        // | -Ai -Ar | | ui | = | -fi + Ai_bnd ur_bnd |
-        //
-        // Both rhs we have ur_bnd on the right!
-        if (useDir) u.addBc( bcInfo_Dirichlet_re.get("Dirichlet")); 
-
-	    A.initSystem();
-		A.assemble(laplace_term_imag);
-		A.assembleLhsRhsBc(helmholtz_term_imag, zero_vec , bcInfo_Gamma_f.neumannSides());
-
-        if (useNeu)
-        {
-		    A.assembleLhsRhsBc(zero_matrix, rhs_term_imag , bcInfo_Gamma_s.neumannSides());
-        }
-	}
-
-	mat = A.matrix();
-	rhs = A.rhs();
-
-}
-
 void gsStateEquationPotWaves::getUI(gsMultiPatch<> &uI_re, gsMultiPatch<> &uI_im) 
 {
     
@@ -946,7 +1060,7 @@ void gsStateEquationPotWaves::getUI(gsMultiPatch<> &uI_re, gsMultiPatch<> &uI_im
 
 }
 
-void gsStateEquationPotWaves::plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch<> &ui, real_t timestep, std::string outfile)
+void gsStateEquationPotWaves::plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch<> &ui, real_t timestep, std::string outfile, bool includeIncident)
 {
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -970,7 +1084,7 @@ void gsStateEquationPotWaves::plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch
     variable uIRe = A.getCoeff(*wave_u_I_re,G);
     variable uIIm = A.getCoeff(*wave_u_I_im,G);
 
-    index_t i = 0;
+    index_t i = 20;
     real_t t = 0;
 
     //ev.options().setSwitch("plot.elements", true);
@@ -978,7 +1092,7 @@ void gsStateEquationPotWaves::plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch
 
     index_t maxIter = 1000;
 
-    while( t < 2*M_PI)
+    while( t < 2*M_PI/wave_omega)
     {
         // Generate name of file
         std::string name = outfile + "_" + std::to_string( i );
@@ -992,7 +1106,13 @@ void gsStateEquationPotWaves::plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch
 
         // Plot
         gsInfo<< "Plotting " << name << " in Paraview...\n";
-        ev.writeParaview( velocity_field_I + velocity_field_S    , G, name);
+        if (includeIncident)
+        {
+            ev.writeParaview( velocity_field_I + velocity_field_S    , G, name);
+        } else {
+            ev.writeParaview( velocity_field_S    , G, name);
+        }
+
 
         // Update time
         t += timestep;
@@ -1146,8 +1266,150 @@ void gsStateEquationPotWaves::pointSourceTest(std::string outfolder)
 {
 
     useNeuBell = true;
+    useDir = false;
+    useNeu = false;
 
     m_mp = getInitialDomain(true); // true : fills center with water
+    gsInfo << m_mp << "\n";
+
+    setup();
+
+    complexExpr u_expr("cos(K*sqrt(x*x + y*y))*exp(K*z)","0.0");
+
+    pde_u_dir_re = u_expr.getFunRe(const_map);
+    pde_u_dir_im = u_expr.getFunIm(const_map);
+
+    complexExpr laplU_expr("K * exp(K*z) * sin(K*sqrt(x*x + y*y)) / sqrt(x*x + y*y)","0.0");
+
+    lapl_uEx = laplU_expr.getFunRe(const_map);
+
+    gsBoundaryConditions<> tmp;
+    bcInfo_Gamma_f = tmp;
+
+    gsBoundaryConditions<> tmps;
+    bcInfo_Gamma_s = tmps;
+
+    gsBoundaryConditions<> tmpb;
+    bcInfo_Gamma_b = tmpb;
+
+    markBoundaries();
+
+    gsExprAssembler<> A(1,1);
+    gsExprEvaluator<> ev(A);
+
+    ev.options().setInt("quB",m_quB); // FIXIT lower no points
+    ev.options().setReal("quA", m_quA); // FIXIT lower no points
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    geometryMap G = A.getMap(*m_mp);
+
+    gsMultiPatch<> ur, ui;
+    solve(ur,ui);
+
+    gsMultiPatch<> markInner = markInnerDomain();
+    variable delta = A.getCoeff(markInner);
+
+    A.setIntegrationElements(dbasis);
+
+    variable u_r = A.getCoeff(ur);
+    variable u_i = A.getCoeff(ui);
+
+	variable B_real = A.getCoeff(*bell_term_re,G);
+	variable B_imag = A.getCoeff(*bell_term_im,G);
+
+    ev.options().setInt("quB",m_quB+2); // FIXIT lower no points
+    ev.options().setReal("quA", m_quA+2); // FIXIT lower no points
+
+    gsFunctionExpr<> ffun("z",3);
+    variable ff = A.getCoeff(ffun);
+    auto zdir = fjac(ff);
+
+    if (true) // If plot
+    {
+
+        ev.options().setInt("plot.npts", 8000);
+    
+        std::string name = "ur";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview( u_r , G, outfolder + name);
+    
+        name = "ui";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview( u_i , G, outfolder + name);
+
+        name = "bcreal";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview((wave_K*u_r - fjac(u_r).tr()*jac(G).inv()*zdir)*delta.val(), G, outfolder + name);
+
+        name = "bcimag";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview((wave_K*u_i - fjac(u_i).tr()*jac(G).inv()*nv(G))*delta.val(), G, outfolder + name);
+
+        name = "Breal";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview(-B_real, G, outfolder + name);
+
+        name = "Bimag";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview(-B_imag, G, outfolder + name);
+
+        name = "bcdiff_re";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview((B_real + wave_K*u_r - fjac(u_r).tr()*jac(G).inv()*zdir)*delta.val(), G, outfolder + name);
+
+        name = "bcdiff_im";
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview((B_imag + wave_K*u_i - fjac(u_i).tr()*jac(G).inv()*nv(G))*delta.val(), G, outfolder + name);
+    }
+
+
+    // Return to default settings
+    useNeuBell = false;
+    useNeu = true;
+
+
+    real_t timestep = 0.025*2*M_PI/wave_omega;
+    std::string vfold = "veloc/";
+    gsInfo << "Does " << outfolder + vfold << " exist? \n\n";
+    plotVelocityField(ur,ui,timestep,outfolder + vfold,false); // false means to only plot 'scattering field'
+
+}
+
+void gsStateEquationPotWaves::pointSourceTestForce(std::string outfolder)
+{
+
+    useForce = true;
+    useDir = true;
+    useNeu = false;
+
+    m_mp = getInitialDomain(false); // true : fills center with water
+
+    setup();
+
+    complexExpr u_expr("cos(K*sqrt(x*x + y*y))*exp(K*z)","0.0");
+
+    pde_u_dir_re = u_expr.getFunRe(const_map);
+    pde_u_dir_im = u_expr.getFunIm(const_map);
+
+    complexExpr laplU_expr("K * exp(K*z) * sin(K*sqrt(x*x + y*y)) / sqrt(x*x + y*y)","0.0");
+
+    lapl_uEx = laplU_expr.getFunRe(const_map);
+
+    gsBoundaryConditions<> tmp;
+    bcInfo_Gamma_f = tmp;
+
+    gsBoundaryConditions<> tmps;
+    bcInfo_Gamma_s = tmps;
+
+    gsBoundaryConditions<> tmpb;
+    bcInfo_Gamma_b = tmpb;
+
+    markBoundaries();
+    markBoundariesDirichletNoPML_NoCenter();
 
     gsExprAssembler<> A(1,1);
     gsExprEvaluator<> ev(A);
@@ -1357,12 +1619,12 @@ void gsStateEquationPotWaves::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_im
 		solution u_sol_imag = A.getSolution(u_i,solVector_Imag);
 		u_sol_imag.extract(u_imag);
 
-        gsInfo << "Norm of solVector_imag : " << solVector_Imag.norm() << "\n";
-        gsInfo << "Norm of u_sol : " << ev.integral(u_sol_imag.sqNorm()) << "\n";
+        //gsInfo << "Norm of solVector_imag : " << solVector_Imag.norm() << "\n";
+        //gsInfo << "Norm of u_sol : " << ev.integral(u_sol_imag.sqNorm()) << "\n";
 
         gsExprAssembler<>::variable utest = ev.getVariable(u_imag);
         ev.options().setInt("plot.npts", 8000);
-        gsInfo << "Norm of utest : " << ev.integral(utest) << "\n";
+        //gsInfo << "Norm of utest : " << ev.integral(utest) << "\n";
 
         ev.writeParaview( utest, G, "test");
 
@@ -1413,8 +1675,7 @@ gsMultiPatch<> gsStateEquationPotWaves::markPatches(gsVector< index_t > patches)
 
 gsMultiPatch<> gsStateEquationPotWaves::markInnerDomain()
 {
-    gsVector< index_t > patches(5);
-    patches << 0, 1, 2, 3, m_mp->nBoxes()-1;
+    gsVector< index_t > patches = getVectorWithDomainPatches();
 
     return markPatches(patches);
 
@@ -1461,4 +1722,347 @@ void gsStateEquationPotWaves::testSplineSpace(real_t k)
     solVec = solverLU.solve(A.rhs());
 
     gsInfo << "Err: " << ev.integral( (ue-usol).sqNorm() ) << "\n";
+}
+
+void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gsVector<> &rhs)
+{
+	// Method to generate system matrices and rhs
+	// Input 0 for real part of matrix, and 1 for imaginary part of matrix
+
+	gsExprAssembler<> A(1,1);
+	gsExprEvaluator<> ev(A);
+
+    A.options().setReal("quA",m_quA);
+    A.options().setInt("quB",m_quB);
+    
+    geometryMap G = A.getMap(*m_mp);
+
+    A.setIntegrationElements(dbasis);
+
+    space u = A.getSpace(dbasis);
+    u.setInterfaceCont(0);
+
+    // Setup terms
+
+    // Laplace Term
+
+    variable detJJm1Jm1_asVec_re = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_re,G);
+    variable detJJm1Jm1_asVec_im = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_im,G);
+
+    auto dJJJ_re = detJJm1Jm1_asVec_re.asDiag();
+    auto dJJJ_im = detJJm1Jm1_asVec_im.asDiag();
+
+    auto laplace_term_real = igrad(u,G)*(dJJJ_re*igrad(u,G).tr())*meas(G);
+    auto laplace_term_imag = igrad(u,G)*(dJJJ_im*igrad(u,G).tr())*meas(G);
+
+    variable dJ_le_re = A.getCoeff(*strech_detJ_len_re,G);
+    variable dJ_le_im = A.getCoeff(*strech_detJ_len_im,G);
+
+    // Zero
+    gsFunctionExpr<> zerfun("0.0",3);
+    variable zer = ev.getVariable(zerfun);
+
+	// Helmholtz Term
+	auto helmholtz_term_real = - wave_K*u*u.tr()*dJ_le_re.val()*nv(G).norm();
+	auto helmholtz_term_imag = - wave_K*u*u.tr()*dJ_le_im.val()*nv(G).norm();
+
+	// Rhs
+	variable F_real = A.getCoeff(*pde_F_re,G);
+	variable F_imag = A.getCoeff(*pde_F_im,G);
+
+    gsFunctionExpr<> ones_fun("1","1","1",3);
+    variable ones = A.getCoeff(ones_fun);
+
+	auto rhs_term_real = (F_real.tr()*nv(G)).val()*u*nv(G).norm();
+	auto rhs_term_imag = (F_imag.tr()*nv(G)).val()*u*nv(G).norm();
+
+    auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
+    auto zero_vec = zer.val()*u*nv(G).norm();     // Perhaps I need to multiply with u;
+
+    gsMultiPatch<> markInner = markInnerDomain();
+    variable delta = A.getCoeff(markInner);
+
+    // FIXIT : Remove these terms (or comment the out) 
+    //         so that we don't spend time precomputing B_real, laplU_real, dJ_re and dJ_im
+	// Rhs Bell
+	variable B_real = A.getCoeff(*bell_term_re,G);
+	variable B_imag = A.getCoeff(*bell_term_im,G);
+	auto rhs_bell_real = B_real.val()*u*nv(G).norm();
+	auto rhs_bell_imag = B_imag.val()*u*nv(G).norm();
+
+	// Rhs Bell
+    //
+	variable laplU_real = A.getCoeff(*lapl_uEx,G);
+    variable dJ_re = A.getCoeff(*strech_detJ_re,G);
+
+	auto rhs_force_real = laplU_real.val()*dJ_re.val()*u*meas(G);
+
+    variable dJ_im = A.getCoeff(*strech_detJ_im,G);
+
+	auto rhs_force_imag = laplU_real.val()*dJ_im.val()*u*meas(G);
+
+	if (realOrImag == 0){
+
+        if (useDir) 
+            u.addBc( bcInfo_Dirichlet_re.get("Dirichlet"));
+
+	    A.initSystem();
+
+		A.assemble(laplace_term_real);
+	    A.assembleLhsRhsBc(helmholtz_term_real, zero_vec , bcInfo_Gamma_f.neumannSides()); 
+		//A.assembleLhsRhsBc(-helmholtz_term_real, zero_vec , bcInfo_Gamma_b.neumannSides());
+        
+        if (useForce)
+            A.assemble(rhs_force_real);
+
+        if (useNeu)
+        {
+		    A.assembleLhsRhsBc(zero_matrix, rhs_term_real , bcInfo_Gamma_s.neumannSides());
+            //gsDebugVar(A.rhs().norm());
+        }
+
+        if (useNeuBell)
+        {
+		    A.assembleLhsRhsBc(zero_matrix, rhs_bell_real , bcInfo_Gamma_f.neumannSides());
+        }
+        gsDebugVar(A.rhs().norm());
+
+	} else {
+        // It is not a bug that we use bcInfo_Dirichlet_re and not ..._im here!
+        // The reason is that when we construct the full real system the rhs gets contributions from both combinations of A_real, A_imag and bcInfo..._re and bcInfo..._im
+        // But if we assume that u_imag = 0 then this reduces to
+        // | Ar  -Ai | | ur | = | fr - Ar_bnd ur_bnd |
+        // | -Ai -Ar | | ui | = | -fi + Ai_bnd ur_bnd |
+        //
+        // Both rhs we have ur_bnd on the right!
+        if (useDir) u.addBc( bcInfo_Dirichlet_re.get("Dirichlet")); 
+
+	    A.initSystem();
+        //A.assemble(u*u.tr());
+		A.assemble(laplace_term_imag); 
+        // FIXIT: If we use abs(detJ) we dont need to assemble this term:
+		A.assembleLhsRhsBc(helmholtz_term_imag, zero_vec , bcInfo_Gamma_f.neumannSides()); 
+
+        if (useForce)
+            A.assemble(rhs_force_imag);
+
+        if (useNeu)
+        {
+		    A.assembleLhsRhsBc(zero_matrix, rhs_term_imag , bcInfo_Gamma_s.neumannSides());
+        }
+
+        if (useNeuBell)
+        {
+		    A.assembleLhsRhsBc(zero_matrix, rhs_bell_imag , bcInfo_Gamma_f.neumannSides());
+        }
+        gsDebugVar(A.rhs().norm());
+    }
+
+	mat = A.matrix();
+
+	rhs = A.rhs();
+
+}
+
+
+// Methods for calculating the derivative
+gsMatrix<> gsStateEquationPotWaves::getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol){
+    // gsInfo << "f = " << *f << "\n" << std::flush;
+    // gsInfo << "ms = " << *ms << "\n" << std::flush;
+
+    gsFunctionExpr<> zero("0.0",3);
+    //! [Boundary conditions]
+
+    gsExprAssembler<> A(1,1);
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    A.options().setReal("quA",m_quA);
+    A.options().setInt("quB",m_quB);
+
+    geometryMap G = A.getMap(*m_mp);
+
+    gsExprEvaluator<> ev(A);
+    A.setIntegrationElements(dbasis);
+
+    space u = A.getSpace(dbasis);
+    u.setInterfaceCont(0);
+
+    gsMultiBasis<> geom_basis(*m_mp);
+
+    space v = A.getTestSpace(u,geom_basis,m_dim);
+    // v.setInterfaceCont(0);
+
+    // variable ff = ev.getVariable(f,G);
+    // variable dff_dx = A.getCoeff(*df_dx, G);
+    // variable dff_dy = A.getCoeff(*df_dy, G);
+
+    variable solVar = A.getCoeff(sol);
+    variable zer = A.getCoeff(zero,G);
+
+    variable dJ_le_re = A.getCoeff(*strech_detJ_len_re,G);
+    variable dJ_le_im = A.getCoeff(*strech_detJ_len_im,G);
+
+    variable detJJm1Jm1_asVec_re = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_re,G);
+    variable detJJm1Jm1_asVec_im = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_im,G);
+
+    auto dJJJ_re = detJJm1Jm1_asVec_re.asDiag();
+    auto dJJJ_im = detJJm1Jm1_asVec_im.asDiag();
+
+    auto gradSol = fjac(solVar).tr();
+    auto igradSol = fjac(solVar).tr()*jac(G).inv();
+
+    gsMultiPatch<> markInner = markInnerDomain();
+    variable delta = A.getCoeff(markInner);
+
+    // Laplace terms
+    // OBS: Here it is assumed that dJJJ_re = 1 in the Domain of interest
+    // OBS: Here it is assumed that dJJJ_im = 0 in the Domain of interest
+    auto d_lapl_real_term_1 = matrix_by_space(jac(G).inv(),jac(v)).trace()*igradSol*(igrad(u,G).tr())*meas(G);
+
+    auto d_lapl_real_term_2 = - collapse(fjac(solVar).tr(),matrix_by_space(jac(G).inv(),jac(v))*jac(G).inv()) * (igrad(u,G).tr())*meas(G);
+    
+    auto d_lapl_real_term_3 = - collapse(igradSol,matrix_by_space_tr(jac(G).inv(),jac(v)))*(igrad(u,G).tr())*meas(G);
+    
+
+	// Helmholtz Term
+	//auto helmholtz_term_real = - wave_K*u*u.tr()*dJ_le_re.val()*nv(G).norm();
+    //auto d_helm_real_term1 = - wave_K * nvDeriv(v,G)*nv(G)/nv(G).norm()*u.tr()*dJ_le_re.val();
+    auto d_helm_real_term1 = - wave_K*nvDeriv(v,G)*nv(G)/nv(G).norm()*solVar.val()*u.tr()*dJ_le_re.val();
+    // FIXIT : if helmholtx term is complex you need to differentiate the imaginary term also :)
+
+    //auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
+    auto zero_vec = zer.val()*v*nv(G)*nv(G).norm();     // Perhaps I need to multiply with u;
+
+    A.initSystem();
+    if (realOrImag == 0){
+        // Real sys
+        A.assemble(d_lapl_real_term_1);
+        A.assemble(d_lapl_real_term_2);
+        A.assemble(d_lapl_real_term_3);
+	    A.assembleLhsRhsBc(d_helm_real_term1, zero_vec , bcInfo_Gamma_f.neumannSides()); 
+    } else {
+        // Imag sys
+    }
+
+    return A.matrix(); 
+
+}
+
+gsMatrix<> gsStateEquationPotWaves::getDerivativeOfRhsZeroBC(index_t realOrImag){
+	// gsInfo << "getDerivativeOfRhsZeroBC\n" << std::flush;
+	// Method to generate system matrices and rhs
+	// Input 0 for real part of matrix, and 1 for imaginary part of matrix
+
+	gsExprAssembler<> A(1,1);
+	gsExprEvaluator<> ev(A);
+
+    A.options().setReal("quA",m_quA);
+    A.options().setInt("quB",m_quB);
+
+	geometryMap G = A.getMap(*m_mp);
+
+	gsFunctionExpr<> zero("0.0",m_dim);
+	variable zer = A.getCoeff(zero,G);
+
+	A.setIntegrationElements(dbasis);
+
+    space u = A.getSpace(dbasis);
+    u.setInterfaceCont(0);
+
+	gsMultiBasis<> geom_basis(*m_mp);
+    space v = A.getTestSpace(u,geom_basis,m_dim);
+
+	// Setup terms
+	// Rhs
+	variable F_real = A.getCoeff(*pde_F_re,G);
+	variable F_imag = A.getCoeff(*pde_F_im,G);
+
+	variable grad_F_real_vec = A.getCoeff(*pde_dF_re,G);
+	variable grad_F_imag_vec = A.getCoeff(*pde_dF_im,G);
+
+    auto grad_F_real = reshape(grad_F_real_vec,m_dim,m_dim);
+    auto grad_F_imag = reshape(grad_F_imag_vec,m_dim,m_dim);
+
+    gsFunctionExpr<> ones_fun("1","1","1",3);
+    variable ones = A.getCoeff(ones_fun);
+
+    gsMultiPatch<> markInner = markInnerDomain();
+    variable delta = A.getCoeff(markInner);
+
+    // real terms
+	auto drhs_real_term1 = (nvDeriv(v,G)*F_real)*u.tr()*nv(G).norm(); 
+
+	auto drhs_real_term2 = (v*grad_F_real*nv(G))*u.tr()*nv(G).norm(); 
+
+	auto drhs_real_term3 = (nvDeriv(v,G)*nv(G)/nv(G).norm())* (F_real.tr()*nv(G))*u.tr(); 
+
+    // imag terms
+	auto drhs_imag_term1 = (nvDeriv(v,G)*F_imag)*u.tr()*nv(G).norm(); 
+
+	auto drhs_imag_term2 = (v*grad_F_imag*nv(G))*u.tr()*nv(G).norm(); 
+
+	auto drhs_imag_term3 = (nvDeriv(v,G)*nv(G)/nv(G).norm())* (F_imag.tr()*nv(G))*u.tr(); 
+
+	A.initSystem();
+
+	if (realOrImag == 0){
+		// FIXIT: why including rhs here? TODO avoid this...
+		A.assembleLhsRhsBc(drhs_real_term1 + drhs_real_term2 + drhs_real_term3, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
+	} else {
+		// FIXIT: why including rhs here? TODO avoid this...
+		A.assembleLhsRhsBc(drhs_imag_term1 + drhs_imag_term2 + drhs_imag_term3, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
+	}
+
+	return A.matrix();
+
+}
+
+bool gsStateEquationPotWaves::isPatchInDomain(index_t p)
+{
+    gsVector< index_t > patches = getVectorWithDomainPatches();
+
+    for (index_t i = 0; i < patches.rows(); i++)
+    {
+        if (patches[i] == p)
+            return true;
+    }
+    return false;
+
+}    
+
+gsVector< index_t > gsStateEquationPotWaves::getVectorWithDomainPatches()
+{
+    gsVector< index_t > patches(5);
+    patches << 0, 1, 2, 3, 15;
+
+    return patches;
+}
+
+gsVector< index_t > gsStateEquationPotWaves::getVectorWithPMLPatches()
+{
+    gsVector< index_t > domPatches = getVectorWithDomainPatches();
+
+    gsVector< index_t > pmlPatches(m_mp->nBoxes() - domPatches.size());
+
+    index_t i = 0;
+    index_t j = 0;
+    for (index_t p = 0; p < m_mp->nBoxes(); p++)
+    {
+        if (p == domPatches[i])
+        {
+            i++;
+            continue;
+        } 
+        else
+        {
+            pmlPatches[j] = p;
+            j++;
+        }
+    }
+
+
+    return pmlPatches;
 }

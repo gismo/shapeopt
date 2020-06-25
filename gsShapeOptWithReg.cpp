@@ -1,9 +1,11 @@
 #include <gismo.h>
 #include <math.h>
 #include "gsShapeOptWithReg.h"
+#include "gsOptParam.h"
+#include "gsWinslowPow.h"
 
 // Implement
-gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB,real_t eps, bool glueInterfaces):
+gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB,real_t eps, bool glueInterfaces, bool usePow):
     m_glueInterfaces(glueInterfaces),
     m_eps(eps),
     m_mp(mp),
@@ -14,8 +16,16 @@ gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memo
 {
     setupMappers();
 
-    m_winslow = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
+    if (usePow)
+    {
+        m_winslow = memory::make_shared(new gsWinslowPow(m_mp,m_mappers,false,false,true,0));
+    }
+    else
+    {
+        m_winslow = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
+    }
     m_winslow->setQuad(quA,quB);
+
 
     setupOptParameters();
 }
@@ -266,3 +276,48 @@ void gsShapeOptWithReg::setWinslowQuad(real_t quA, index_t quB)
 {
     m_winslow->setQuad(quA, quB);
 }
+
+void gsShapeOptWithReg::runOptimizationUntilPosDetJ(index_t maxiter, real_t k, index_t maxRef)
+{
+    *m_log << "N.o. cps: " << n_cps << "\n";
+    *m_log << "N.o. free cps: " << n_free<< "\n";
+    *m_log << "N.o. tagged cps: " << n_tagged << "\n";
+    *m_log << "N.o. flat cps: " << n_flat << "\n\n";
+
+    *m_log << "m_eps = " << m_eps << "\n\n";
+
+    // gsInfo << "DoFs for analysis: " << m_stateEq.dbasis.size() << "\n";
+
+    counter2 = 0;
+
+    *m_log << "factor to decrease m_eps; k = " << k << "\n\n";
+
+    // Run optimization
+    for (index_t i = 0; i < maxiter; i++){
+        counter1 = 0;
+
+        *m_log << "m_eps = " << m_eps << "\n";
+        gsInfo << "m_eps = " << m_eps << "\n";
+
+        // Solve the current optimization problem
+        solve();
+
+        counter2++;
+
+        m_eps *= k;
+
+        gsMultiPatch<> snapped  = (std::dynamic_pointer_cast< gsOptParam >(m_opt))->getSnapped();
+        gsMultiPatch<>::Ptr snapped_ptr = memory::make_shared_not_owned(&snapped);
+        gsDetJacConstraint dJC(snapped_ptr, true); // True means that we use tensor product structure
+
+        index_t neededSteps;
+        real_t minD = dJC.provePositivityOfDetJ_TP(neededSteps, maxRef);
+
+        if (minD > 0)
+        {
+            gsInfo << "Optimization ended with minD = " << minD << "\n";
+            *m_log << "Optimization ended with minD = " << minD << "\n";
+            return;
+        }
+    }
+};

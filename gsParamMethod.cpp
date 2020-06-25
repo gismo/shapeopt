@@ -38,6 +38,8 @@ void gsParamMethod::computeMapInfo(){
 
     m_shift_free.setZero(m_mp->targetDim());
     m_shift_all.setZero(m_mp->targetDim());
+    m_shift_flat.setZero(m_mp->targetDim());
+    m_patchShift.setZero(m_mp->targetDim());
     m_shift_tagged.setZero(m_mp->targetDim());
 
     n_free = 0;
@@ -49,16 +51,23 @@ void gsParamMethod::computeMapInfo(){
         n_cps += m_mappers[i].size();
         n_tagged += m_mappers[i].taggedSize();
 
-        for(index_t p = 0; p < m_mp->nBoxes(); p++){
-            n_flat += m_mp->patch(p).coefsSize();
-        }
-
         // Set shifts
         if (i > 0){
             m_shift_free[i] = m_shift_free[i-1] + m_mappers[i-1].freeSize();
             m_shift_all[i] = m_shift_all[i-1] + m_mappers[i-1].size();
             m_shift_tagged[i] = m_shift_tagged[i-1] + m_mappers[i-1].taggedSize();
+
+            m_shift_flat[i] = n_flat;
         }
+
+        // Count flats
+        for(index_t p = 0; p < m_mp->nBoxes(); p++){
+            if (i == 0)
+                m_patchShift[i] = n_flat;
+
+            n_flat += m_mp->patch(p).coefsSize();
+        }
+
     }
 
     // FIXIT: move to a seperate method?

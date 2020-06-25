@@ -116,13 +116,13 @@ public:
 
 public:
     // Physical domain
-    memory::shared_ptr<gsMultiPatch<>> m_mp;
+    gsMultiPatch<>::Ptr m_mp;
 
     // Degree of splines used for analysis
     index_t degree = 2;
 
     // How many times should the 'geometry' splines be refined for analysis. 
-    index_t numRef = 1;
+    index_t m_numRefine = 1;
     bool isRefined = false;
 
     // Assembler variables

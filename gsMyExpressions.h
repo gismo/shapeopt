@@ -168,6 +168,245 @@ class jacT_expr : public _expr<jacT_expr<E> >
     void print(std::ostream &os) const { os << "jacT("; m_fev.print(os);os <<")"; }
 };
 
+/*
+   Expression for the derivate of the normal vector - Local to ASGL
+ */
+template<class E>
+class nvDeriv_expr : public _expr<nvDeriv_expr<E> >
+{
+    typename E::Nested_t _u;
+    gsGeometryMap<typename E::Scalar> _G;
+
+    public:
+    enum {Space = E::Space };
+
+    typedef typename E::Scalar Scalar;
+
+    mutable gsMatrix<Scalar> res;
+
+    nvDeriv_expr(const E & u, const gsGeometryMap<Scalar> & G) : _u(u), _G(G) { }
+
+    // FIXIT: Maybe this stuff can be more efficient. Look again, once validated.
+    MatExprType eval(const index_t k) const
+    {
+        const index_t dd = _u.source().domainDim();
+        index_t n = _u.rows();
+        res.setZero(n, dd);
+
+        gsMatrix<> jac = _u.data().values[1].col(k).transpose()
+            .blockDiag(_u.dim()); 
+
+        // FIXIT make dimension independent! Maybe ask Angelos
+        const gsAsConstMatrix<Scalar, 3, 3> jacG(_G.data().values[1].col(k).data(), 3, 3);
+
+
+        real_t sgn = sideOrientation( _G.data().side );
+        index_t dir = _G.data().side.direction();
+
+        
+        //gsDebugVar(dd);
+        //gsDebugVar(n);
+        //gsDebugVar(_u.cols());
+        //gsDebugVar(jac.rows());
+        //gsDebugVar(jac.cols());
+        for ( index_t j = 0; j < n; j++)
+        {
+            gsMatrix<> _jacT = jac.block(0,dd*j,dd,dd).transpose();
+            const gsAsConstMatrix<Scalar, 3, 3> jacT_j( _jacT.data(), 3, 3 );
+
+            index_t alt_sgn = sgn * ( jacG.determinant()<0 ? -1 : 1);
+
+            typename gsMatrix<Scalar, 3, 3>::FirstMinorMatrixType minor, minorG;
+            for ( index_t i = 0; i < dd; i++)
+            {
+
+                jacT_j.firstMinor(dir, i, minor);
+                jacG.firstMinor(dir, i, minorG);
+
+                gsMatrix<Scalar, 2, 2> tmpG(minorG);
+
+                res(j,i) = alt_sgn*(tmpG.adjugate()*minor).trace();// Derivative of det.!
+                alt_sgn *= -1;
+            }
+        }
+
+
+        return res;
+    }
+
+    const gsFeSpace<Scalar> & rowVar() const { return _u.rowVar(); }
+    const gsFeSpace<Scalar> & colVar() const { return gsNullExpr<Scalar>::get(); }
+
+    index_t rows() const { 
+        return _u.data().values[1].rows();
+    }
+
+    index_t cols() const { return _u.source().domainDim(); }
+
+    static constexpr bool rowSpan() {return true; }
+    static bool colSpan() {return false;}
+
+    void setFlag() const
+    {
+        _u.data().flags |= NEED_DERIV;
+        _G.data().flags |= NEED_GRAD;
+        if (_u.composed() )
+            _u.mapData().flags |= NEED_VALUE;
+    }
+
+    void parse(gsSortedVector<const gsFunctionSet<Scalar>*> & evList) const
+    {
+        //GISMO_ASSERT(NULL!=m_fd, "FeVariable: FuncData member not registered");
+        evList.push_sorted_unique(& _u.source());
+        evList.push_sorted_unique(& _G.source());
+
+        _u.data().flags |= NEED_DERIV;
+        _G.data().flags |= NEED_GRAD;
+        if (_u.composed() )
+            _u.mapData().flags |= NEED_VALUE;
+    }
+
+    void print(std::ostream &os) const { os << "nvDeriv("; _u.print(os); os <<")"; }
+};
+
+template<class T>
+class mynormal_expr : public _expr<mynormal_expr<T> >
+{
+    typename gsGeometryMap<T>::Nested_t _G;
+
+public:
+    typedef T Scalar;
+
+    mynormal_expr(const gsGeometryMap<T> & G) : _G(G) { }
+
+    MatExprType eval(const index_t k) const
+    {
+        gsVector<> Exact_Val = _G.data().outNormals.col(k);
+
+        const index_t dd = 3;
+
+        // FIXIT make dimension independent! Maybe ask Angelos
+        const gsAsConstMatrix<Scalar, 3, 3> jacG(_G.data().values[1].col(k).data(), 3, 3);
+
+        real_t sgn = sideOrientation( _G.data().side );
+        index_t dir = _G.data().side.direction();
+        
+        index_t alt_sgn = sgn * ( jacG.determinant()<0 ? -1 : 1);
+
+        gsVector<> out;
+        out.setZero(3);
+
+        typename gsMatrix<Scalar, 3, 3>::FirstMinorMatrixType minor, minorG;
+        for ( index_t i = 0; i < dd; i++)
+        {
+            jacG.firstMinor(dir, i, minorG);
+
+            gsMatrix<Scalar, 2, 2> tmpG(minorG);
+
+            out[i] = alt_sgn*tmpG.determinant();// Derivative of det.!
+            alt_sgn *= -1;
+        }
+
+
+        return out;
+    }
+
+    index_t rows() const { return _G.data().dim.second; }
+    index_t cols() const { return 1; }
+
+    const gsFeSpace<T> & rowVar() const {return gsNullExpr<T>::get();}
+    const gsFeSpace<T> & colVar() const {return gsNullExpr<T>::get();}
+
+    static constexpr bool rowSpan() {return false;}
+    static bool colSpan() {return false;}
+
+    void setFlag() const { _G.data().flags |= NEED_OUTER_NORMAL; }
+
+    void parse(gsSortedVector<const gsFunctionSet<Scalar>*> & evList) const
+    {
+        //GISMO_ASSERT(NULL!=m_fd, "FeVariable: FuncData member not registered");
+        evList.push_sorted_unique(&_G.source());
+        _G.data().flags |= NEED_OUTER_NORMAL;
+    }
+
+    // Normalized to unit length
+    normalized_expr<mynormal_expr<T> > normalized()
+    { return normalized_expr<mynormal_expr<T> >(*this); }
+
+    void print(std::ostream &os) const { os << "myNv("; _G.print(os); os <<")"; }
+};
+
+/*
+   Expression for the derivate of the normal vector - Local to ASGL
+ */
+template<class E>
+class collapsedJac_expr : public _expr<collapsedJac_expr<E> >
+{
+    typename E::Nested_t _u;
+
+    public:
+    enum {Space = E::Space };
+
+    typedef typename E::Scalar Scalar;
+
+    mutable gsMatrix<Scalar> res;
+
+    collapsedJac_expr(const E & u) : _u(u) { }
+
+    MatExprType eval(const index_t k) const
+    {
+        const index_t dd = _u.source().domainDim();
+        index_t n = _u.rows();
+        res.setZero(n, dd);
+
+        gsMatrix<> jac = _u.data().values[1].col(k).transpose()
+            .blockDiag(_u.dim()); 
+
+        //gsDebugVar(dd);
+        //gsDebugVar(n);
+        //gsDebugVar(_u.cols());
+        //gsDebugVar(jac.rows());
+        //gsDebugVar(jac.cols());
+        for ( index_t j = 0; j < n; j++)
+        {
+            res.row(j) = jac.block(0,dd*j,dd,dd).diagonal();
+        }
+
+        return res;
+    }
+
+    const gsFeSpace<Scalar> & rowVar() const { return _u.rowVar(); }
+    const gsFeSpace<Scalar> & colVar() const { return gsNullExpr<Scalar>::get(); }
+
+    index_t rows() const { 
+        return _u.data().values[1].rows() / cols();
+    }
+
+    index_t cols() const { return _u.source().domainDim(); }
+
+    static constexpr bool rowSpan() {return true; }
+    static bool colSpan() {return false;}
+
+    void setFlag() const
+    {
+        _u.data().flags |= NEED_DERIV;
+        if (_u.composed() )
+            _u.mapData().flags |= NEED_VALUE;
+    }
+
+    void parse(gsSortedVector<const gsFunctionSet<Scalar>*> & evList) const
+    {
+        //GISMO_ASSERT(NULL!=m_fd, "FeVariable: FuncData member not registered");
+        evList.push_sorted_unique(& _u.source());
+
+        _u.data().flags |= NEED_DERIV;
+        if (_u.composed() )
+            _u.mapData().flags |= NEED_VALUE;
+    }
+
+    void print(std::ostream &os) const { os << "collapsedJac("; _u.print(os); os <<")"; }
+};
+
 /// The derivative of the jacobian of a geometry map with respect to a coordinate.
 template<class E> EIGEN_STRONG_INLINE
 dJacdc_expr<E> dJacdc(const E & u, index_t c) { return dJacdc_expr<E>(u,c); }
@@ -175,6 +414,19 @@ dJacdc_expr<E> dJacdc(const E & u, index_t c) { return dJacdc_expr<E>(u,c); }
 /// The transpose of Jacobian matrix of a FE variable
 template<class E> EIGEN_STRONG_INLINE
 jacT_expr<E> jacT(const E & u) { return jacT_expr<E>(u); }
+
+/// The (outer pointing) boundary normal of a geometry map
+template<class T> EIGEN_STRONG_INLINE
+mynormal_expr<T> myNv(const gsGeometryMap<T> & u) { return mynormal_expr<T>(u); }
+
+/// The derivate of the normal vector - Local to ASGL
+template<class E> EIGEN_STRONG_INLINE
+nvDeriv_expr<E> nvDeriv(const E & u, const gsGeometryMap<typename E::Scalar> & G) { return nvDeriv_expr<E>(u,G); }
+
+
+/// The derivate of the normal vector - Local to ASGL
+template<class E> EIGEN_STRONG_INLINE
+collapsedJac_expr<E> collapsedJac(const E & u) { return collapsedJac_expr<E>(u); }
 
 
 } // namespace expr

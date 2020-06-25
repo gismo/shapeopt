@@ -16,6 +16,19 @@ gsShapeOptProblem::gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, memo
 
 };
 
+/*
+gsShapeOptProblem::gsShapeOptProblem(index_t tarDim, memory::shared_ptr<gsShapeOptLog> slog, bool useDetJCons):
+    m_mappers(tarDim),
+    m_log(slog),
+    m_useDetJCons(useDetJCons)
+{
+    gsInfo << "\n Constructor 1 \n";
+    if (m_useDetJCons)
+        m_dJC = memory::make_shared(new gsDetJacConstraint(mp));
+
+};
+*/
+
 gsShapeOptProblem::gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptLog> slog, memory::shared_ptr<gsConstraint> constraint):
     m_mp(mp),
     m_mappers(mp->targetDim()),
@@ -196,6 +209,9 @@ gsMatrix<> gsShapeOptProblem::mapGradient(gsDofMapper mapper_in, gsMatrix<> mat_
     } else if (col) {
         mat_out.setZero(mat_in.rows(),n_free + n_tagged);
     } else {
+        gsDebugVar(mapper_in.freeSize() + mapper_in_shifts[m_mp->targetDim()-1]);
+        gsDebugVar(mat_in.rows());
+        gsDebugVar(mat_in.cols());
         GISMO_ERROR("Wrong input size in mapMatrix..\n");
     }
 

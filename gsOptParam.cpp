@@ -179,3 +179,22 @@ gsDofMapper gsOptParam::mapper_grad() const
 
     return u.mapper();
 }
+
+gsMultiPatch<> gsOptParam::getSnapped()
+{
+    // Create return value
+    gsMultiPatch<> out(*m_mp);
+    gsMultiPatch<>::Ptr out_ptr = memory::make_shared_not_owned(&out);
+
+    // Get goal
+	gsVector<> tagged_goal = m_pM_goal.getTagged();
+
+    // Update goal on return value
+    gsWinslow win(out_ptr,false,false,true,0);
+	win.updateTagged(tagged_goal);
+
+    gsDebugVar((tagged_goal - win.getTagged()).norm());
+
+    return out;
+
+}

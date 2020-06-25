@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <ctime>
 
+#include "gsMyExpressions.h"
+
 #include "gsDetJacConstraint.h"
 #include "gsNewDetJacConstraint.h"
 #include "gsAggregatedConstraint.h"
@@ -29,6 +31,7 @@
 #include "gsShapeOptProblem.h"
 #include "gsShapeOptWithReg.h"
 #include "gsOptAntenna.h"
+#include "gsOptPotWaves.h"
 #include "gsOptParam.h"
 #include "gsOptParamFull.h"
 #include "gsOptInit.h"
@@ -326,6 +329,83 @@ void convergenceTestOfParaJacobian(gsOptParamMethod &lOP){
 
 }
 
+void convergenceTestOfFunction(gsFunctionExpr<> fun, gsFunctionExpr<> grad, gsFunctionExpr<> hess ){
+    index_t dim = 3;
+    gsMatrix<> u(dim,1);
+    u << 0,0,0;
+
+	gsMatrix<> fun_eval_mat = fun.eval(u);
+    real_t fun_eval = -fun_eval_mat(0,0);
+	gsVector<> fun_grad = grad.eval(u);
+	gsMatrix<> fun_hess = hess.eval(u);
+
+    gsDebugVar(fun_eval);
+    gsDebugVar(fun_grad);
+    gsDebugVar(fun_hess);
+
+	std::srand((unsigned int) std::time(0));
+	gsVector<> ran;
+	ran.setRandom(dim);
+
+	index_t beg = 0;
+	index_t n = 20;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+	gsVector<> Error2(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(dim);
+
+		for(index_t i = 0; i < dim; i++){
+			perturp[i] = ran[i];
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> u_new = u + perturp;
+
+		gsMatrix<> fun_eval_new = fun.eval(u_new);
+        real_t fun_new = -fun_eval_new(0,0);
+
+        gsAsConstMatrix<> fun_hessC(fun_hess.data(),dim,dim);
+
+		real_t guess0 = fun_eval;
+		real_t guess1 = fun_eval + fun_grad.transpose()*perturp;
+		real_t guess2 = fun_eval + fun_grad.transpose()*perturp + 0.5*perturp.transpose()*fun_hessC*perturp;
+
+		gsInfo << fun_new <<" " << guess1 << " " << guess2 << "\n";
+		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
+
+		real_t error0 = std::abs(guess0 - fun_new);
+		real_t error1 = std::abs(guess1 - fun_new);
+		real_t error2 = std::abs(guess2 - fun_new);
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+		Error2[i] = error2;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsVector<> rate2;
+	rate2.setZero(n);
+	rate2.segment(1,n-1) = log10(Error2.segment(1,n-1).array()/Error2.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,6);
+	disp << Eps,Error0,Error1,rate,Error2,rate2;
+	gsInfo << "eps \tErr0 \tErr1 \trate \tErr2 \trate\n";
+	gsInfo << disp << "\n";
+
+}
+
 void convergenceTestOfParaLagrangianJacobian(gsOptParamMethod &lOP){
 	real_t liao = lOP.evalLagrangian();
 	gsVector<> grad = lOP.gradLagrangian();
@@ -404,7 +484,7 @@ void convergenceTestOfParaLagrangianJacobian(gsOptParamMethod &lOP){
 }
 
 void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
-	//std::srand((unsigned int) std::time(0));
+	std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
 	ran.setRandom(sOP.numDesignVars());
 
@@ -413,7 +493,18 @@ void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
 
 	sOP.updateDesignVariables(des);
 	real_t obj = sOP.evalObj();
+
+    // Time
+    clock_t start, stop;
+	double totalTime;
+
+	start = clock();
 	gsVector<> grad = sOP.gradObj();
+	stop = clock();
+	totalTime = (stop - start) / (double)CLOCKS_PER_SEC;
+    gsInfo << "\n Time to compute grad: " << totalTime << "\n";
+
+	
 
 	index_t beg = 3;
 	index_t n = 20;
@@ -467,6 +558,85 @@ void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
 
 }
 
+void convergenceTestOfJacobianAll(gsShapeOptProblem &sOP){
+	//std::srand((unsigned int) std::time(0));
+	gsVector<> ran;
+	ran.setRandom(sOP.n_flat);
+
+	gsVector<> des = sOP.getFlat();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	sOP.updateFlat(des);
+	real_t obj = sOP.evalObj();
+	gsVector<> grad = sOP.gradAll();
+
+    //gsDebugVar(grad.norm());
+
+	index_t beg = 3;
+	index_t n = 8;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-beg-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(sOP.n_flat);
+
+        index_t i_flat = 0;
+        for( index_t d = 0; d < sOP.m_mp->targetDim(); d++)
+        {
+            for( index_t p = 0; p < sOP.m_mp->nBoxes(); p++)
+            {
+                for (index_t i = 0; i < sOP.m_mp->patch(p).coefsSize(); i++)
+                {
+                    if(sOP.isCpsInDomain(i,p,d))
+                    {
+                        perturp[i_flat] = ran[i_flat];
+                    }
+
+                    i_flat++;
+                }
+            }
+        }
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+		// sOP.resetParametrizationToReference();
+		sOP.updateFlat(newDes);
+		// if (i == 1) sOP.writeToFile(sOP.getFlat(),"cpsPerturb.txt");
+        //
+
+		real_t newObj = sOP.evalObj();
+		real_t guess0 = obj;
+		real_t guess1 = obj + grad.transpose()*perturp;
+
+		gsInfo << guess0 <<" " << guess1 << " " << newObj << "\n";
+
+		real_t error0 = std::abs(guess0 - newObj);
+		real_t error1 = std::abs(guess1 - newObj);
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,4);
+	disp << Eps,Error0,Error1,rate;
+	gsInfo << "\neps \tErr0 \tErr1 \trate\n";
+	gsInfo << disp << "\n";
+
+}
+
 void convergenceTestOfJacobian(gsOptInit4th &sOP){
 	//std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
@@ -502,7 +672,6 @@ void convergenceTestOfJacobian(gsOptInit4th &sOP){
 		perturp *= eps;
 
 		gsMatrix<> newDes = des + perturp;
-        gsDebugVar(newDes);
 
 		// sOP.resetParametrizationToReference();
 		// if (i == 1) sOP.writeToFile(sOP.getFlat(),"cpsPerturb.txt");
@@ -511,7 +680,6 @@ void convergenceTestOfJacobian(gsOptInit4th &sOP){
         sOP.updateFromDesignVars(newDes);
 
 		real_t newObj = sOP.evalObj();
-        gsDebugVar(newObj);
 		real_t guess0 = obj;
 		real_t guess1 = obj + grad.transpose()*perturp;
 
@@ -2388,7 +2556,7 @@ bool testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB,
     gsVector<> out(4);
     out.setZero(4);
 
-    minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 3);
+    minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 5);
 
     out(0) = minD;
     out(1) = neededRefSteps;
@@ -2616,6 +2784,48 @@ void scaleMP(gsMultiPatch<> &mp)
 bool contains(std::string str, std::string substr)
 {   return str.find(substr) != std::string::npos; }
 
+void testOfNvDeriv(gsMultiPatch<> mp)
+{
+    gsMultiBasis<> dbasis(mp);
+    
+	gsExprAssembler<> A(1,1);
+	gsExprEvaluator<> ev(A);
+
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+
+    geometryMap G = A.getMap(mp);
+
+    A.setIntegrationElements(dbasis);
+
+	gsMultiBasis<> geom_basis(mp);
+
+    space u = A.getSpace(dbasis);
+    space v = A.getTestSpace(u,geom_basis,3);
+
+    gsFunctionExpr<> fun("x",3);
+    variable ff = A.getCoeff(fun);
+    auto vec = fjac(ff);
+
+    gsFunctionExpr<> zerfun("0.0",3);
+    variable zer = ev.getVariable(zerfun);
+    auto zero_vec = v*vec;     // Perhaps I need to multiply with u;
+
+    gsBoundaryConditions<> bcInfo;
+    for (index_t i = 0; i < mp.nBoundary(); i++)
+    {
+        patchSide ps = mp.boundaries()[i];
+        bcInfo.addCondition(ps.patch,ps.index(),condition_type::neumann,zerfun);
+
+    }
+
+    A.initSystem();
+    A.assemble( -2*nvDeriv(v,G)*nv(G)*u.tr(), zero_vec );
+	//A.assembleLhsRhsBc(nvDeriv(v,G)*nv(G)*u.tr(), zero_vec , bcInfo.neumannSides()); 
+
+}
+
 int main(int argc, char* argv[]){
 gsInfo <<  "Hello G+Smo.\n";
 
@@ -2661,6 +2871,9 @@ bool potWave = false;
 real_t alpha = 0; // Parameter for constraint aggregation
 real_t eps = 0; // Parameter for constraint aggregation
 
+bool decreaseTau = false;
+real_t decrTauFactor = 1.0/4.0;
+
 gsCmdLine cmd("A test of lumped mass matricies");
 cmd.addInt("p", "degree", "Degree of B-Splines.", degree);
 cmd.addInt("a", "param", "Parametrization: 0: spring, 1: modLiao, 2: winslow, 3: liao, 4: harmonic, 5: use regularization and perform optimization on all cps", param);
@@ -2703,6 +2916,9 @@ cmd.addSwitch("optParam", "Run optParam code", optParam);
 cmd.addSwitch("optParamXML", "Run optParamXML code", optParamXML);
 cmd.addSwitch("potWave", "Run potWave code", potWave);
 
+cmd.addSwitch("decreasingTau", "decrease tau", decreaseTau);
+cmd.addReal("c","decrTauFactor", "factor with which to decrease tau", decrTauFactor);
+
 cmd.getValues(argc,argv);
 
 output = "/" + output;
@@ -2716,21 +2932,48 @@ gsShapeOptLog slog(output);
 
 // Test 3D PML and water waves
 if (potWave) {
-    gsStateEquationPotWaves SE(numRefine, 3 + jig,3 + jig, 2 + jig, 2 + param, 2 + param,1 + 0.5*param);
+    //gsStateEquationPotWaves SE(numRefine, 3 + lambda_1,3 + lambda_1, 2 + 0.5*lambda_1, 2 + lambda_2, 2 + lambda_2,1 + 0.5*lambda_2);
 
-    SE.setQuad(quA,quB);
+    //SE.pointSourceTest(BASE_FOLDER + output);
+    //SE.convergenceTestOnlyPML( maxiter , BASE_FOLDER + output );
+    //SE.convergenceTestNoPML_NoCenter( maxiter , BASE_FOLDER + output );
 
-    //gsMultiPatch<> ur, ui;
-    //SE.solve(ur,ui);
 
-    //SE.plotSolution(ur,BASE_FOLDER + output + "ur");
-    //SE.plotSolution(ui,BASE_FOLDER + output + "ui");
+    gsStateEquationPotWaves SE(numRefine);
 
-    //SE.plotVelocityField(ur,ui,0.05,BASE_FOLDER + output + "velocity/veloc");
+    gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
+
+    gsMultiPatch<>::Ptr mp_ptr = SE.m_mp;
+    gsMultiBasis<> tmp(*mp_ptr);
+    gsDebugVar(tmp.size());
+
+    gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
+    
+    gsInfo << " \n ================== \n";
+    //gsInfo << " Objective : " << optPW.evalObj();
+
+    //convergenceTestOfFunction(fun, grad, hess);
+    //convergenceTestOfJacobianAll(optPW);
+    convergenceTestOfJacobian(optPW);
+    
+    
+
+ //   SE.setQuad(quA,quB);
+ //
+ //   gsMultiPatch<> ur, ui;
+ //   SE.solve(ur,ui);
+ ////
+ //   SE.plotSolution(ur,BASE_FOLDER + output + "ur");
+ //   SE.plotSolution(ui,BASE_FOLDER + output + "ui");
+ //
+ //   real_t timestep = 0.025*2*M_PI/SE.wave_omega;
+ ////
+ //   SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/veloc");
     //SE.convergenceTest( maxiter, BASE_FOLDER + output );
     //SE.convergenceTestNoPML_NoCenter( maxiter, BASE_FOLDER + output );
     //SE.convergenceTestOnlyPMLAllDir( maxiter, BASE_FOLDER + output, lambda_1 );
-    SE.pointSourceTest(BASE_FOLDER + output);
+    //SE.pointSourceTestForce(BASE_FOLDER + output);
     //SE.convergenceTestOnlyPML( maxiter , BASE_FOLDER + output );
     //SE.testSplineSpace(maxiter);
     //SE.convergenceTestNoPML( maxiter , BASE_FOLDER + output );
@@ -2786,6 +3029,79 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // // gsHBSpline<2> bb(gg->basis(),mm);
 // exit(0);
 //
+//
+
+// Generate min W starting guess
+if (false) 
+{
+    gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
+
+	gsWinslow winslow(mp_ptr,false,false,true,0);
+    winslow.update();
+
+    std::string str_out = "startGuess/minWinslow.txt";
+    gsVector<> flat = winslow.getFlat();
+	saveVec(flat,str_out);
+
+    exit(0);
+}
+
+// Calculate E_{h/4} for a specific design, and write to file
+// --startFromFile
+// -startFile "path/to/file"
+// -o "folder/to/output/result/"
+// -r THE REFINEMENT FROM OPTIMIZATION
+//
+if (false) 
+{
+    gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
+
+	gsWinslow winslow(mp_ptr);
+    gsInfo << "\nLOAD FROM " << startFile << "\n\n";
+	winslow.updateFlat( loadVec(winslow.n_flat,startFile));
+
+    gsOptAntenna optA(mp_ptr,numRefine + 2,slog1_ptr,param,quA,quB,true);
+
+    gsInfo << "write to " << output + "Eh4.txt" << "\n";
+	std::ofstream file (output + "Eh4.txt",std::ofstream::app);
+	file << std::setprecision(12);
+
+    real_t obj = optA.evalObj();
+    gsInfo << "Eh4 : " << obj << "\n";
+    file << startFile << " " << obj << "\n";
+    file.close();
+    exit(0);
+}
+
+// Check number of uniform constraints
+if (false)
+{
+    gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
+
+    gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
+    exit(0);
+    gsWinslow winslow(mp_ptr,optA.mappers(),false,false,true,0);
+
+    winslow.setQuad(quA,quB);
+
+    winslow.updateFlat(loadVec(winslow.n_flat,output));
+
+    std::string nm = "mp_ptr";
+	gsWriteParaview(*mp_ptr,nm,10000,true,true);
+
+    gsDetJacConstraint dJC(mp_ptr);
+    gsInfo << "mind = " << dJC.evalCon().minCoeff() << "\n";
+
+    dJC.refineUntilPositiveUniformly(maxiter);
+
+    gsInfo << "\n\nmind = " << dJC.evalCon().minCoeff() << "\n";
+    gsInfo << "size = " << dJC.evalCon().size() << "\n";
+    return 0;
+
+}
 
 
 // Test of runtim
@@ -2839,6 +3155,109 @@ if(optParamXML)
 
 	gsMultiPatch<>::uPtr mp_uptr;
 
+	mp_uptr = fd.getFirst< gsMultiPatch<> > ();
+
+    scaleMP(*mp_uptr);
+
+	for(int i = 0; i < numRefine; i++){
+		mp_uptr->patch(0).uniformRefine();
+	}
+
+    gsMultiPatch<> mp(*mp_uptr);
+    mp_ptr = memory::make_shared_not_owned(&mp);
+    
+	gsMultiPatch<> mp_init;
+	gsMultiPatch<>::Ptr mp_init_ptr = memory::make_shared_not_owned(&mp_init);
+
+	if (dim == 2) {
+    	mp_init = getInitGuess2d(*mp_ptr);
+	} else if (dim == 3) {
+    	mp_init = getInitGuess3d(*mp_ptr);
+    	//mp_init = getInitGuess3d_unitSq(*mp_ptr);
+        //mp_init = getInitGuess3d_full(mp);
+	}
+
+    for (index_t p = 0; p < mp_init.nBoxes(); p++)
+    {
+        gsMultiPatch<> sp(mp_init.patch(p));
+	    testValidity(sp,"detJ" + std::to_string(p) + ".txt", quA, quB, output);
+    }
+
+    gsShapeOptLog slog1(output,true,false,false);
+	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
+
+    std::string name = "init";
+    slog1.plotInParaview(mp_init,name);
+
+    name = "goal";
+    slog1.plotInParaview(*mp_ptr,name);
+
+	gsOptParam optP(mp_init_ptr,mp_ptr,slog1_ptr,param);
+    optP.setupMappers();
+    gsOptParam::Ptr optP_ptr = memory::make_shared_not_owned( &optP);
+
+	gsInfo << "EPS = " << eps << "\n";
+    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps, true, true); // glue interfaces, usePow
+
+    //optWR.evalObj();
+    if (decreaseTau)
+    {
+        optWR.runOptimizationUntilPosDetJ(maxiter,decrTauFactor,5);
+    }
+    else
+    {
+        optWR.solve();
+    }
+
+ 	name = "jigsaw";
+    slog1.plotInParaview(mp,name);
+
+ 	name = "mp_final";
+    slog1.plotInParaview(mp_init,name);
+
+	//testValidity(mp_init,"detJ.txt", quA, quB, output);
+	
+ 	// Test snaps
+	gsWinslow win(mp_init_ptr,false,false,true,0); 
+	gsWinslow win_jig(mp_ptr,false,false,true,0); 
+	gsVector<> tagged_jig = win_jig.getTagged();
+	win.updateTagged(tagged_jig);
+
+	std::stringstream stream_out;
+	stream_out <<  output << "cps_snapped.txt";
+	std::string str_out = stream_out.str();
+	gsVector<> flat = win.getFlat();
+	saveVec(flat,str_out);
+
+    gsInfo << "Test validity of snap\n";
+	testValidity(mp_init,"detJ_snap.txt", quA, quB, output);
+	
+	// Snap bnd control points
+	gsWinslow::Ptr win_ptr = memory::make_shared_not_owned(&win);
+	gsAffineOptParamMethod lin(win_ptr,false);
+
+	gsVector<> free = lin.getUpdate(tagged_jig);
+	win.updateFreeAndTagged(free,tagged_jig);
+
+	std::stringstream stream_out2;
+    gsInfo << "Test validity of snap lin\n";
+	stream_out2 <<  output << "cps_SnapLin.txt";
+	str_out = stream_out2.str();
+	flat = win.getFlat();
+	saveVec(flat,str_out);
+
+	testValidity(mp_init,"detJ_SnapLin.txt", quA, quB, output);
+
+	return 0;
+}
+
+// Old optParamXML code
+if(false)
+{
+	gsFileData<> fd(BASE_FOLDER + startFile);
+
+	gsMultiPatch<>::uPtr mp_uptr;
+
     if ( contains(startFile,"twistedFlat") )
     {
         gsInfo << "I AM HERE\n";
@@ -2859,7 +3278,6 @@ if(optParamXML)
     
     gsMultiPatch<> corner;
     std::vector< gsDofMapper > mappers(dim);
-
 
 	//gsMultiPatch<> corner = loadCorner(jig,dim,mappers,numRefine);
 	gsMultiPatch<>::Ptr corner_ptr = memory::make_shared_not_owned(&corner);
@@ -3309,11 +3727,6 @@ if (optParam)
 		mp_init = mp_init.patch(patch);
 	}
 
-	for (index_t r = 0; r < numRefine; r++)
-	{
-		jigsaw.uniformRefine();
-		mp_init.uniformRefine();
-	}
 
 	gsMultiPatch<>::Ptr jigsaw_ptr = memory::make_shared_not_owned(&jigsaw);
 	gsMultiPatch<>::Ptr mp_init_ptr = memory::make_shared_not_owned(&mp_init);
@@ -3330,16 +3743,26 @@ if (optParam)
 		}
 	}
 
-	real_t scale = 1;
-	if (jigtype == 4 && dim == 3) scale = 0.01;
-	if (jigtype == 1 || jigtype == 5 || jigtype == 6 || (jigtype == 2 && dim == 2)) scale = 0.1;
-	if ((jigtype == 2 || jigtype == 3) && dim == 3) scale = 1.0/2.5;
+    std::string name;
+    switch (jigtype) {
+        case 1 : name = "/parametrizations/XML/2D/Jigsaw1"; break;
+        case 2 : name = "/parametrizations/XML/2D/Jigsaw2"; break;
+    }
+
+    scaleMP(*jigsaw_ptr);
+
+    gsInfo << "Writing to " << BASE_FOLDER + name << " \n \n ";
+
+	gsFileData<> fd;
+	fd << jigsaw; 
+    fd.save(BASE_FOLDER + name);
+    exit(0); 
 
 
-	for(index_t p = 0; p < jigsaw.nBoxes(); p++)
+	for (index_t r = 0; r < numRefine; r++)
 	{
-		jigsaw.patch(p).scale(scale);
-		mp_init.patch(p).scale(scale);
+		jigsaw.uniformRefine();
+		mp_init.uniformRefine();
 	}
 
 	//testValidity(jigsaw,"detJ_goal.txt", quA, quB, output);
@@ -3365,7 +3788,7 @@ if (optParam)
     gsShapeOptLog slog1(output,true,false,false);
 	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
-    std::string name = "init";
+    name = "init";
     slog1.plotInParaview(mp_init,name);
 
 
@@ -3440,6 +3863,9 @@ if (startFromFile)
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,6,quA,quB);
 		gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
 
+        gsWinslow winslow2(mp_ptr,optA.mappers());
+        winslow2.update();
+
         gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
         optWR.setWinslowQuad(quA_optParam, quB_optParam);
 
@@ -3462,7 +3888,7 @@ if (startFromFile)
 }
 
 // test winslow derivatives
-if (false) 
+if (true) 
 {
     mp = getJigSaw3D(4).patch(0);
     changeSignOfDetJ(mp.patch(0));
@@ -3555,7 +3981,7 @@ if (false )
 }
 
 // Test of refine and plotting det J surfaces
-if (true) 
+if (false) 
 {
     // Note on what to try:
     //  How about if I run without constraints on detJ and afterwards refine m_mp

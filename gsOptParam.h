@@ -41,6 +41,9 @@ public:
 
 	void setQuad(real_t quA, index_t quB){ m_quA = quA; m_quB = quB; };
 
+    gsMultiPatch<> getSnapped();
+
+
 public:
 
 	typedef memory::shared_ptr<gsOptParam> Ptr;
