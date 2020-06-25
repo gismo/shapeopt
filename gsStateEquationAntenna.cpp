@@ -561,7 +561,6 @@ void gsStateEquationAntenna::assembleAndSolve(){
 
 	}
 
-
 // Old methods
 
 /* gsMatrix<> gsStateEquationAntenna::getKu(gsMultiPatch<> sol){

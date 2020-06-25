@@ -151,6 +151,8 @@ public:
     // FIXIT: use a vector of index_t instead
     gsVector<> m_shift_free; // Contains the shifts used when mapping free DoFs
     gsVector<> m_shift_all; // Contains the shifts used when mapping all DoFs
+    gsVector<> m_shift_flat; 
+    gsVector<> m_patchShift; 
     gsVector<> m_shift_tagged; // Contains the shifts used when mapping all DoFs
 
     // Save information on fixed and tagged cps.

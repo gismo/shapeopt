@@ -36,6 +36,7 @@ using namespace gismo;
 #include "gsShapeOptLog.h"
 #include <gsIpopt/gsOptProblem.h>
 
+
 class gsShapeOptProblem: public gsOptProblem<real_t>{
 public:
 
@@ -43,6 +44,8 @@ public:
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
     gsShapeOptProblem(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptLog> slog, bool useDetJCons = false);
+
+    gsShapeOptProblem(memory::shared_ptr<gsShapeOptLog> slog, bool useDetJCons = false);
 
     // Constructs from a pointer to a parametrization method, should glue the interfaces together and
     // eliminate boundaries.
@@ -149,6 +152,15 @@ public:
     gsVector<> getTagged() const { return m_paramMethod->getTagged(); };
     gsVector<> getControlPoints() const { return m_paramMethod->getControlPoints(); };
     gsVector<> getFlat() const { return m_paramMethod->getFlat(); };
+
+    void updateFree(gsVector<> in) const { return m_paramMethod->updateFree(in); };
+    void updateTagged(gsVector<> in) const { return m_paramMethod->updateTagged(in); };
+    void updateFlat(gsVector<> in) const { return m_paramMethod->updateFlat(in); };
+
+
+    virtual bool isPatchInPML( index_t p ){ GISMO_NO_IMPLEMENTATION; };
+    virtual bool isFlatInPML( index_t p ){ GISMO_NO_IMPLEMENTATION; };
+    virtual bool isCpsInDomain( index_t i, index_t p, index_t dim ){ GISMO_NO_IMPLEMENTATION; };
 
     // Accessors
     std::vector< gsDofMapper > mappers() { return m_mappers; };

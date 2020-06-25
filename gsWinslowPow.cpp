@@ -3,7 +3,7 @@
 using namespace gismo;
 
 real_t gsWinslowPow::evalObj() const {
-    // gsInfo << "evalObj() \n";
+     //gsInfo << "gsWinslowPow: evalObj() \n";
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(*m_integrationBasis);

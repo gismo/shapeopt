@@ -11,7 +11,7 @@ class gsShapeOptWithReg: public gsOptProblem<real_t>{
 public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
-    gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true);
+    gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true, bool usePow = false);
 
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;
@@ -44,6 +44,9 @@ public:
     void runOptimization(index_t maxiter);
 
     void setWinslowQuad(real_t quA, index_t quB);
+
+    void runOptimizationUntilPosDetJ(index_t maxiter, real_t k, index_t maxRef);
+
 
 
 public:

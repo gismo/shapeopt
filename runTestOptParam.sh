@@ -2,26 +2,38 @@
 
 OUT="output.txt";
 BS="/";
-BASE_FOLDER="../results/OptParamTests/jig3d_deg4/"
+BASE_FOLDER="../results/OptParam2D/"
 
 A=3; # quA
-B=1; # quB
+B=2; # quB
 
-e=0.05;
-jig=1;
-dim=3;
+dim=2;
 
 
 # Save the ipopt preferences
 mkdir -p "${BASE_FOLDER}"
-cp ../gismo/filedata/options/ipopt.opt $BASE_FOLDER/ipopt.opt
+cp ../gismo/filedata/options/ipopt.opt $BASE_FOLDER/ipopt_decrTau.opt
 
-for R in 1 
+for R in 0 1  
 do
-	FOLDER="$BASE_FOLDER/refine${R}_reg${e}_2nd/";
-	
-	mkdir -p "${FOLDER}"
-	
-	(time ./main --optParam -r ${R} -A $A -B $B -e $e -j $jig -d $dim -o "$BS${FOLDER}") |& tee "${FOLDER}$BS$OUT"; 
-	
+    for e in 64 
+    do
+        for jig in 1 2
+        do
+        
+        	#FOLDER="$BASE_FOLDER/Jigsaw${jig}/refine${R}_reg${e}/";
+        	#
+        	#mkdir -p "${FOLDER}";
+        	#
+        	#(time ./main -r $R -e $e --optParamXML --startFile "parametrizations/XML/2D/Jigsaw${jig}.xml" -d $dim -o "${FOLDER}"
+            #) |& tee "${FOLDER}$BS$OUT"; 
+
+        	FOLDER="$BASE_FOLDER/Jigsaw${jig}/refine${R}_decreasingTau${e}/";
+        	
+        	mkdir -p "${FOLDER}";
+        	
+        	(time ./main -r $R -e $e --decreasingTau --decrTauFactor 0.25 --optParamXML --startFile "parametrizations/XML/2D/Jigsaw${jig}.xml" -d $dim -o "${FOLDER}"
+            ) |& tee "${FOLDER}$BS$OUT"; 
+        done
+    done
 done

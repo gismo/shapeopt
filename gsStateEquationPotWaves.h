@@ -13,6 +13,8 @@ class gsStateEquationPotWaves: public gsStateEquation {
 public:
     gsStateEquationPotWaves(index_t numRefine);
 
+    gsStateEquationPotWaves(gsMultiPatch<>::Ptr mp_ptr, index_t numRefine);
+
     gsStateEquationPotWaves(index_t numRefine, real_t Lx, real_t Ly, real_t Lz, real_t lx, real_t ly, real_t lz); 
 
     void constructor();
@@ -43,7 +45,7 @@ public:
 
     void getUI(gsMultiPatch<> &uI_re, gsMultiPatch<> &uI_im) ;
 
-    void plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch<> &ui, real_t timestep, std::string outfile);
+    void plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch<> &ui, real_t timestep, std::string outfile, bool includeIncident = true);
 
     // Convergence test against manufactures solution
     void convergenceTest(index_t maxRefine, std::string outfolder); 
@@ -64,6 +66,8 @@ public:
 
     void pointSourceTest(std::string outfolder);
 
+    void pointSourceTestForce(std::string outfolder);
+
 
     void setup();
 
@@ -74,6 +78,18 @@ public:
     gsMultiPatch<> markInnerDomain();
 
     void testSplineSpace(real_t k);
+
+    bool isBndGamma_s( index_t b); // Input is the boundary index!
+
+    // Methods for derivatives
+    //
+    gsMatrix<> getDerivativeOfRhsZeroBC(index_t realOrImag);
+    gsMatrix<> getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol);
+
+    bool isPatchInDomain(index_t p);
+
+    gsVector< index_t > getVectorWithDomainPatches();
+    gsVector< index_t > getVectorWithPMLPatches();
 
 
 private:
@@ -86,6 +102,8 @@ private:
 public:
 
     //gsSparseSolver<>::CGDiagonal solver;
+    gsMultiBasis<> dbasis_domain;
+    gsMultiPatch<> m_mp_domain;
 
     // Wave parameters
     real_t wave_omega;//= sqrt(K * g) set in constructor
@@ -94,19 +112,19 @@ public:
     real_t wave_A       = 1.0;                            // Amplitude
 
     // PML parameters
-    real_t pml_n        = 2;    // Exponent
+    real_t pml_n        = 3;    // Exponent
     real_t pml_C        = 5;    // constant
 
-    real_t pml_Lx       = 5;
+    real_t pml_Lx       = 4;
     real_t pml_lx       = 3;
-    real_t pml_Ly       = 5;
+    real_t pml_Ly       = 4;
     real_t pml_ly       = 3;
-    real_t pml_Lz       = 1;
+    real_t pml_Lz       = 3;
     real_t pml_lz       = 2.0;
 
     real_t init_lbx     = 0.5;
     real_t init_lby     = 0.5;
-    real_t init_lbz     = 0.2;
+    real_t init_lbz     = 0.5;
     //real_t pml_Lx       = 8;
     //real_t pml_lx       = 1;
     //real_t pml_Ly       = 8;
@@ -144,11 +162,19 @@ public:
     gsFunctionExpr<>::uPtr pde_F_re;
     gsFunctionExpr<>::uPtr pde_F_im;
 
+    gsFunctionExpr<>::uPtr pde_dF_re;
+    gsFunctionExpr<>::uPtr pde_dF_im;
+
     // Gaussian bell curve for testing with point source
     bool                   useNeuBell = false;
-    real_t                 bell_sigma       = 0.01;
+    real_t                 bell_sigma       = 0.1;
     real_t                 bell_amplitude   = 1;
-    gsFunctionExpr<>::uPtr bell_curve;
+    gsFunctionExpr<>::uPtr bell_term_re;
+    gsFunctionExpr<>::uPtr bell_term_im;
+
+    // Force term for testing with point source
+    bool                   useForce = false;
+    gsFunctionExpr<>::uPtr lapl_uEx;
                                       
     // Boundary conditions
     gsBoundaryConditions<> bcInfo_Gamma_f; // Marks free surface, Gamma_f, as neumann
@@ -162,6 +188,10 @@ public:
 
     bool useDir = false;
     bool useNeu = true;
+
+    gsVector< index_t > m_isBndGamma_s_vec;
+    
+    index_t m_dim = 3;
 
 };
 

@@ -403,6 +403,10 @@ void gsOptAntenna::setupDesignBounds()
     real_t lb_y = d_g/2*m_stateEq.pde_L_f;
     real_t ub_y = (d_g/2 + d_bh)*m_stateEq.pde_L_f;
 
+    gsInfo << "width = " << (ub_x - lb_x)/m_stateEq.pde_r_t << " \n";
+    gsInfo << "height = " << (ub_y - lb_y)/m_stateEq.pde_r_t << " \n";
+    gsInfo << "gap = " << (lb_y)/m_stateEq.pde_r_t << " \n";
+
     m_desLowerBounds.setZero(n_tagged);
     // X coordinates
     gsVector<> xLowerBounds;
