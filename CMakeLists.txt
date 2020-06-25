@@ -34,6 +34,7 @@ if (NOT DEFINED CMAKE_CXX_STANDARD)
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-enum-compare")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L$ENV{MODULE_OPENBLAS_LIB_DIR} -lopenblas")
 
 # G+Smo
 find_package(gismo REQUIRED)

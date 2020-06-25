@@ -175,6 +175,9 @@ public:
     // Method to set number of quadrature points for parametrization method
     void setOptParamQuad(real_t quA, index_t quB);
 
+    virtual real_t getQuA(){ GISMO_NO_IMPLEMENTATION };
+    virtual real_t getQuB(){ GISMO_NO_IMPLEMENTATION };
+
 public:
     mutable memory::shared_ptr<gsMultiPatch<>> m_mp;
     mutable memory::shared_ptr<gsConstraint> m_dJC;

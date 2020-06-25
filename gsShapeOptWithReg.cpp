@@ -36,6 +36,9 @@ real_t gsShapeOptWithReg::evalObj() const
     if ( std::isinf(winslow) )
         return winslow;
 
+    gsInfo << "SE : quA, quB: " << m_opt->getQuA() << ", " << m_opt->getQuB() << "\n";
+    gsInfo << "Win: quA, quB: " << m_winslow->m_quA << ", " << m_winslow->m_quB << "\n";
+
     return m_opt->evalObj() + m_eps*m_winslow->evalObj();
 }
 

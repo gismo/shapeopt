@@ -2,7 +2,9 @@
 
 OUT="output.txt";
 BS="/";
-BASE_FOLDER="../results/OptAntenna_startGuesses"
+BASE_FOLDER="../results/OptAntenna_startGuess_2nd/"
+
+mkdir -p "${BASE_FOLDER}"
 
 R=4; # numRefine
 I=9; # maxiter
@@ -12,31 +14,33 @@ B=1; # quB
 N=5;
 M=4;
 
-e=0.125;
+e=$1;
 
 # Save the ipopt preferences
-#cp ../gismo/filedata/options/ipopt.opt $BASE_FOLDER/ipopt.opt
-#
-#FOLDER="$BASE_FOLDER/refine${R}_reg${e}_fromSquare/";
-#
-#mkdir -p "${FOLDER}"
-#
-#(time ./main -n $N -m $M -r $R -A $A -B $B -i $I -a 5 -e $e -o "$BS${FOLDER}" --startFromFile -f "startGuess/square.txt") |& tee "${FOLDER}$BS$OUT"; 
+cp ../gismo/filedata/options/ipopt.opt $BASE_FOLDER/ipopt.opt
 
-FOLDER="$BASE_FOLDER/refine${R}_winslow44_fromSquare/";
+case $2 in
+	square)
+	FOLDER="$BASE_FOLDER/refine${R}_reg${e}_fromSquare/";
+	
+	mkdir -p "${FOLDER}"
+	
+	(time ./main -n $N -m $M -r $R -A $A -B $B -i $I -a 5 -e $e -o "$BS${FOLDER}" --startFromFile -f "startGuess/square.txt") |& tee "${FOLDER}$BS$OUT"  ;
+	;;
 
-mkdir -p "${FOLDER}"
+	lin)
+	FOLDER="$BASE_FOLDER/refine${R}_reg${e}_fromLin/";
+	
+	mkdir -p "${FOLDER}"
+	
+	(time ./main -n $N -m $M -r $R -A $A -B $B -i $I -a 5 -e $e -o "$BS${FOLDER}" --startFromFile -f "startGuess/ref4_winslow44_5.txt") |& tee "${FOLDER}$BS$OUT" ; 
+	;;
 
-(time ./main -n $N -m $M -r $R -A $A -B $B -i $I -a 6 -o "$BS${FOLDER}" --startFromFile -f "startGuess/square.txt") |& tee "${FOLDER}$BS$OUT"; 
-
-#FOLDER="$BASE_FOLDER/refine${R}_reg${e}_fromLin/";
-#
-#mkdir -p "${FOLDER}"
-#
-#(time ./main -n $N -m $M -r $R -A $A -B $B -i $I -a 5 -e $e -o "$BS${FOLDER}" --startFromFile -f "startGuess/ref4_winslow44_5.txt") |& tee "${FOLDER}$BS$OUT"; 
-#
-#FOLDER="$BASE_FOLDER/refine${R}_winslow44_fromReg/";
-#
-#mkdir -p "${FOLDER}"
-#
-#(time ./main -n $N -m $M -r $R -A $A -B $B -i $I -a 6 -s 20 -o "$BS${FOLDER}" --startFromFile -f "startGuess/ref4_reg0125.txt") |& tee "${FOLDER}$BS$OUT"; 
+	minW)
+	FOLDER="$BASE_FOLDER/refine${R}_reg${e}_fromMinWinslow/";
+	
+	mkdir -p "${FOLDER}"
+	
+	(time ./main -n $N -m $M -r $R -A $A -B $B -i $I -a 5 -e $e -o "$BS${FOLDER}" --startFromFile -f "startGuess/minWinslow.txt") |& tee "${FOLDER}$BS$OUT" ; 
+	;;
+esac

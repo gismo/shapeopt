@@ -48,6 +48,9 @@ public:
     gsVector<> getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
 
     gsDofMapper mapper_grad() const;
+
+    real_t getQuA(){ return m_stateEq.m_quA; };
+    real_t getQuB(){ return m_stateEq.m_quB; };
 public:
 
 	typedef memory::shared_ptr<gsOptAntenna> Ptr;

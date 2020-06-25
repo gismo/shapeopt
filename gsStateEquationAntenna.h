@@ -13,6 +13,8 @@ public:
     gsStateEquationAntenna(memory::shared_ptr<gsMultiPatch<>> mpin, index_t numRefine): 
         gsStateEquation(mpin, numRefine), zero("0.0",2)
     {
+	std::complex<real_t> _i(0,1);
+
         pde_f       = pde_f/pde_L_f;
         pde_omega   = 2*M_PI*pde_f;
         pde_eps_rs_real  = -20.198689873114;
@@ -21,10 +23,10 @@ public:
         pde_eps_crs_imag = pde_eps_rs_imag - pde_sigma/(pde_omega*pde_L_f*pde_eps0);
         pde_k0      = 2*M_PI*pde_f*sqrt(pde_eps0*pde_mu0);
 
-        pde_eps_rs = pde_eps_rs_real + 1i*pde_eps_rs_imag;
-        pde_eps_crs = pde_eps_crs_real + 1i*pde_eps_crs_imag;
+        pde_eps_rs = pde_eps_rs_real + _i*pde_eps_rs_imag;
+        pde_eps_crs = pde_eps_crs_real + _i*pde_eps_crs_imag;
 
-        pde_bnd_const = 1.0/pde_eps_cr*(1i*pde_k0 + 1.0/(2*pde_r_t));
+        pde_bnd_const = 1.0/pde_eps_cr*(_i*pde_k0 + 1.0/(2*pde_r_t));
 
         pde_eps_crs_inv = 1.0/pde_eps_crs;
         pde_eps_cr_inv = 1.0/pde_eps_cr;
@@ -164,10 +166,10 @@ public:
     real_t pde_mu_cr   = pde_mu_r;                              // MISSING... Perhaps mu_r mispelled?
     real_t pde_k0      = 2*M_PI*pde_f*sqrt(pde_eps0*pde_mu0);  // ok
 
-    std::complex<real_t> pde_eps_rs = pde_eps_rs_real + 1i*pde_eps_rs_imag;
-    std::complex<real_t> pde_eps_crs = pde_eps_crs_real + 1i*pde_eps_crs_imag;
+    std::complex<real_t> pde_eps_rs;
+    std::complex<real_t> pde_eps_crs;
 
-    std::complex<real_t> pde_bnd_const = 1.0/pde_eps_cr*(1i*pde_k0 + 1.0/(2*pde_r_t));
+    std::complex<real_t> pde_bnd_const;
 
     std::complex<real_t> pde_eps_crs_inv = 1.0/pde_eps_crs;
     real_t pde_eps_cr_inv = 1.0/pde_eps_cr;
