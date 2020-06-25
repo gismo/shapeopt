@@ -2805,10 +2805,12 @@ if (startDes == 20)
     if (param == 5) // Use regularization
     {
 	
-        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,0,quA,quB);
+        gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,6,quA,quB);
 		gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
 
         gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
+        //optWR.setWinslowQuad(quA_optParam, quB_optParam);
+	
         optWR.solve();
     } else if (param == 6) {
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
@@ -2825,7 +2827,6 @@ if (startDes == 20)
     }
 
     return 0;
-
 
 }
 
@@ -3435,20 +3436,33 @@ if (startFromFile)
     gsShapeOptLog slog1(output,true,false,false);
 	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
+
 	gsWinslow winslow(mp_ptr);
+	gsVector<> flat_bef = winslow.getFlat();
+	gsInfo << "\n ================ \n Load from" << BASE_FOLDER + startFile << " \n ===================== \n";
 	winslow.updateFlat( loadVec(winslow.n_flat,BASE_FOLDER + startFile));
+	gsVector<> flat_aft = winslow.getFlat();
+	gsDebugVar((flat_bef - flat_aft).norm());
+	exit(0);
+
 
     if (param == 5) // Use regularization
     {
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,6,quA,quB);
 		gsOptAntenna::Ptr optA_ptr = memory::make_shared_not_owned(&optA);
 
+	//gsWinslow winslow2(mp_ptr,optA.mappers());
+	//winslow2.update();
+
         gsShapeOptWithReg optWR(mp_ptr,optA_ptr,numRefine,slog1_ptr,quA,quB,eps);
-        optWR.setWinslowQuad(quA_optParam, quB_optParam);
+    //    optWR.setWinslowQuad(quA_optParam, quB_optParam);
 
         optWR.solve();
     } else if (param == 6) {
         gsOptAntenna optA(mp_ptr,numRefine,slog1_ptr,param,quA,quB,true);
+
+	gsWinslow winslow2(mp_ptr,optA.mappers());
+	winslow2.update();
 
         optA.setOptParamQuad(quA_optParam, quB_optParam);
 
