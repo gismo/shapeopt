@@ -36,8 +36,8 @@ real_t gsShapeOptWithReg::evalObj() const
     if ( std::isinf(winslow) )
         return winslow;
 
-    gsInfo << "SE : quA, quB: " << m_opt->getQuA() << ", " << m_opt->getQuB() << "\n";
-    gsInfo << "Win: quA, quB: " << m_winslow->m_quA << ", " << m_winslow->m_quB << "\n";
+    //gsInfo << "SE : quA, quB: " << m_opt->getQuA() << ", " << m_opt->getQuB() << "\n";
+    //gsInfo << "Win: quA, quB: " << m_winslow->m_quA << ", " << m_winslow->m_quB << "\n";
 
     return m_opt->evalObj() + m_eps*m_winslow->evalObj();
 }
@@ -77,6 +77,7 @@ void gsShapeOptWithReg::setupMappers()
         {
             for (index_t i = 0; i < m_mp->patch(k).coefsSize(); i++) // For each cps
             {
+                gsDebugVar(m_opt->mappers().size());
                 // If i,k is neither free nor tagged
                 if (!m_opt->mappers()[d].is_free(i,k) and !m_opt->mappers()[d].is_tagged(i,k))
                     m_mappers[d].eliminateDof(i,k);

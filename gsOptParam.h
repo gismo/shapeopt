@@ -43,6 +43,10 @@ public:
 
     gsMultiPatch<> getSnapped();
 
+    
+    real_t getQuA(){ return 0; }; // We dont use quadrature for objective!
+    real_t getQuB(){ return 0; };
+
 
 public:
 

@@ -3141,7 +3141,7 @@ if (startDes == 20)
 
 }
 
-if(true)
+if(false)
 {
 	extractCornersAndSaveXML(jig,dim);
 	return 0;
@@ -3156,8 +3156,9 @@ if(optParamXML)
     std::vector< gsDofMapper > mappers(dim);
     if (useCorner)
     {
+        gsInfo << "USECORNER\n";
 	    gsMultiPatch<> corner = loadCorner(jig,dim,mappers,numRefine);
-        *mp_uptr = corner;
+        mp_uptr = memory::make_unique( new gsMultiPatch<>(corner) );
 
     }
     else
@@ -3180,8 +3181,14 @@ if(optParamXML)
 	if (dim == 2) {
     	mp_init = getInitGuess2d(*mp_ptr);
 	} else if (dim == 3) {
-    	mp_init = getInitGuess3d(*mp_ptr);
-    	//mp_init = getInitGuess3d_unitSq(*mp_ptr);
+        if (useCorner)
+        {
+    	    mp_init = getInitGuess3d_unitSq(*mp_ptr);
+        }
+        else
+        {
+    	    mp_init = getInitGuess3d(*mp_ptr);
+        }
         //mp_init = getInitGuess3d_full(mp);
 	}
 
@@ -3204,14 +3211,14 @@ if(optParamXML)
     gsOptParam::Ptr optP_ptr;
     if (useCorner)
     {
+        gsInfo << "USECORNER\n";
 	    gsOptParam optP(mp_init_ptr,mp_ptr,mappers,slog1_ptr,param);
-        optP_ptr = memory::make_shared( &optP);
+        optP_ptr = memory::make_shared( new gsOptParam(mp_init_ptr,mp_ptr,mappers,slog1_ptr,param) );
     }
     else
     {
-	    gsOptParam optP(mp_init_ptr,mp_ptr,slog1_ptr,param);
-        optP.setupMappers();
-        optP_ptr = memory::make_shared( &optP);
+        optP_ptr = memory::make_shared( new gsOptParam(mp_init_ptr,mp_ptr,slog1_ptr,param) );
+        optP_ptr->setupMappers();
     }
 
 	gsInfo << "EPS = " << eps << "\n";
