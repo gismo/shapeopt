@@ -1619,7 +1619,14 @@ void extractCornersAndSaveXML(index_t jigtype, index_t dim)
 	}
 	
     std::ostringstream strs;
-    strs << BASE_FOLDER << "/parametrizations/JigsawXML/jig" << dim << "d_" << num;
+    if (jigtype == 2 && dim == 3)
+    {
+        strs << BASE_FOLDER << "/parametrizations/JigsawXML/jig_small" << dim << "d_small";
+    }
+    else
+    {
+        strs << BASE_FOLDER << "/parametrizations/JigsawXML/jig" << dim << "d_" << num;
+    }
     std::string str = strs.str();
 
 	fd.save(str);
@@ -2922,6 +2929,9 @@ cmd.addSwitch("potWave", "Run potWave code", potWave);
 cmd.addSwitch("decreasingTau", "decrease tau", decreaseTau);
 cmd.addReal("c","decrTauFactor", "factor with which to decrease tau", decrTauFactor);
 
+bool useCorner = false;
+cmd.addSwitch("useCorner", "use only a corner of multipatch", useCorner);
+
 cmd.getValues(argc,argv);
 
 output = "/" + output;
@@ -3034,21 +3044,6 @@ gsInfo << "The domain is a "<< patches <<"\n";
 //
 //
 
-// Generate min W starting guess
-if (false) 
-{
-    gsShapeOptLog slog1(output,true,false,false);
-	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
-
-	gsWinslow winslow(mp_ptr,false,false,true,0);
-    winslow.update();
-
-    std::string str_out = "startGuess/minWinslow.txt";
-    gsVector<> flat = winslow.getFlat();
-	saveVec(flat,str_out);
-
-    exit(0);
-}
 
 // Calculate E_{h/4} for a specific design, and write to file
 // --startFromFile
@@ -3146,7 +3141,7 @@ if (startDes == 20)
 
 }
 
-if(false)
+if(true)
 {
 	extractCornersAndSaveXML(jig,dim);
 	return 0;
@@ -3154,12 +3149,21 @@ if(false)
 
 if(optParamXML)
 {
-    
 	gsFileData<> fd(BASE_FOLDER + startFile);
 
 	gsMultiPatch<>::uPtr mp_uptr;
 
-	mp_uptr = fd.getFirst< gsMultiPatch<> > ();
+    std::vector< gsDofMapper > mappers(dim);
+    if (useCorner)
+    {
+	    gsMultiPatch<> corner = loadCorner(jig,dim,mappers,numRefine);
+        *mp_uptr = corner;
+
+    }
+    else
+    {
+	    mp_uptr = fd.getFirst< gsMultiPatch<> > ();
+    }
 
     scaleMP(*mp_uptr);
 
@@ -3196,9 +3200,19 @@ if(optParamXML)
     name = "goal";
     slog1.plotInParaview(*mp_ptr,name);
 
-	gsOptParam optP(mp_init_ptr,mp_ptr,slog1_ptr,param);
-    optP.setupMappers();
-    gsOptParam::Ptr optP_ptr = memory::make_shared_not_owned( &optP);
+
+    gsOptParam::Ptr optP_ptr;
+    if (useCorner)
+    {
+	    gsOptParam optP(mp_init_ptr,mp_ptr,mappers,slog1_ptr,param);
+        optP_ptr = memory::make_shared( &optP);
+    }
+    else
+    {
+	    gsOptParam optP(mp_init_ptr,mp_ptr,slog1_ptr,param);
+        optP.setupMappers();
+        optP_ptr = memory::make_shared( &optP);
+    }
 
 	gsInfo << "EPS = " << eps << "\n";
     gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps, true, true); // glue interfaces, usePow
