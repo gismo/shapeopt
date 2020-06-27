@@ -40,6 +40,11 @@ real_t gsWinslowPow::evalObj() const {
 
     real_t out = ev.integral(jac(G)%jac(G)*pow(detJ,q));
 
+    //gsDebugVar(out);
+
+    //real_t outNoPow = ev.integral(jac(G)%jac(G)*pow(detJ,-1));
+    //gsDebugVar(outNoPow);
+
     return out;
 
 }

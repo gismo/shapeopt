@@ -16,7 +16,6 @@ public:
 
     bool checkForNegativeDetJ();
 
-    real_t minDetJInGaussPts(index_t incPts = 0);
 
     // Method to update inner controlpoints, given tagged Dofs (x).
     // Checks that updating the tagged vertices will not lead to negative determinant

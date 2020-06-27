@@ -124,7 +124,7 @@ void gsOptParamMethod::jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVec
 
 void gsOptParamMethod::computeJacStructure()
 {
-		gsDebugVar(use_detJacConstraint);
+		//gsDebugVar(use_detJacConstraint);
     // Use the sparsity provided by gsDetJacConstraint m_dJC
     if (use_detJacConstraint){
         gsIpOptSparseMatrix J = jacobCon();

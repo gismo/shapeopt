@@ -91,21 +91,3 @@ bool gsWinslowWithDeriv::checkForNegativeDetJ(){
 
     return true;
 }
-
-real_t gsWinslowWithDeriv::minDetJInGaussPts(index_t incPts){
-
-    gsExprAssembler<> A(1,1);
-    gsMultiBasis<> dbasis(*m_mp);
-    A.setIntegrationElements(dbasis);
-
-    gsExprEvaluator<> ev(A);
-    ev.options().setInt("quB",m_quB + incPts);
-    ev.options().setReal("quA",m_quA);
-
-    typedef gsExprAssembler<>::geometryMap geometryMap;
-
-    geometryMap G = A.getMap(*m_mp);
-	gsDebugVar(ev.max((jac(G).det())));
-
-    return ev.min(jac(G).det());
-}

@@ -18,10 +18,12 @@ gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memo
 
     if (usePow)
     {
+        *m_log << "use Pow!\n";
         m_winslow = memory::make_shared(new gsWinslowPow(m_mp,m_mappers,false,false,true,0));
     }
     else
     {
+        *m_log << "We do not use Pow!\n";
         m_winslow = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
     }
     m_winslow->setQuad(quA,quB);
@@ -77,7 +79,6 @@ void gsShapeOptWithReg::setupMappers()
         {
             for (index_t i = 0; i < m_mp->patch(k).coefsSize(); i++) // For each cps
             {
-                gsDebugVar(m_opt->mappers().size());
                 // If i,k is neither free nor tagged
                 if (!m_opt->mappers()[d].is_free(i,k) and !m_opt->mappers()[d].is_tagged(i,k))
                     m_mappers[d].eliminateDof(i,k);
@@ -306,15 +307,38 @@ void gsShapeOptWithReg::runOptimizationUntilPosDetJ(index_t maxiter, real_t k, i
         // Solve the current optimization problem
         solve();
 
+        std::string name = "mp";
+        m_log->plotInParaview(*m_mp,name,i);
+
+
         counter2++;
 
         m_eps *= k;
 
         gsMultiPatch<> snapped  = (std::dynamic_pointer_cast< gsOptParam >(m_opt))->getSnapped();
         gsMultiPatch<>::Ptr snapped_ptr = memory::make_shared_not_owned(&snapped);
+
+        name = "snapped";
+        m_log->plotInParaview(snapped,name,i);
+
+        gsInfo << "construct dJC\n";
         gsDetJacConstraint dJC(snapped_ptr, true); // True means that we use tensor product structure
+        gsWinslow tmp(snapped_ptr, false);
 
         index_t neededSteps;
+    
+        gsInfo << "compute minDetJInGauss\n";
+        real_t minGaussD = tmp.minDetJInGaussPts(15);
+        if (minGaussD < 0)
+        {
+            gsInfo << "detJ value of " << minGaussD << " detected, continues.\n";
+            *m_log << "detJ value of " << minGaussD << " detected, continues.\n";
+            continue;
+        }
+        gsInfo << "smalles value of detJ found : " << minGaussD << "\n";
+        *m_log << "smalles value of detJ found : " << minGaussD << "\n";
+
+        gsInfo << "compute detJ coefs\n";
         real_t minD = dJC.provePositivityOfDetJ_TP(neededSteps, maxRef);
 
         if (minD > 0)

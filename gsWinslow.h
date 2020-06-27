@@ -29,6 +29,9 @@ public:
 
     gsVector<> gradObj(gsVector<> &gradObjTagged) const;
 
+    real_t minDetJInGaussPts(index_t incPts = 0);
+
+
 public:
 
 	typedef memory::unique_ptr<gsWinslow> uPtr;

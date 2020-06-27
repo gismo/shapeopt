@@ -190,10 +190,10 @@ gsMultiPatch<> gsOptParam::getSnapped()
 	gsVector<> tagged_goal = m_pM_goal.getTagged();
 
     // Update goal on return value
-    gsWinslow win(out_ptr,false,false,true,0);
+    gsWinslow win(out_ptr,mappers(),false,false,true,0);
 	win.updateTagged(tagged_goal);
 
-    gsDebugVar((tagged_goal - win.getTagged()).norm());
+    //gsDebugVar((tagged_goal - win.getTagged()).norm());
 
     return out;
 

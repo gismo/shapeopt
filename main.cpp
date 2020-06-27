@@ -1652,6 +1652,9 @@ gsMultiPatch<> loadCorner(index_t jigtype, index_t dim, std::vector< gsDofMapper
 	index_t p = 0;
 	gsMultiPatch<> out(mp.patch(p));
 
+    if (jigtype == 5)
+        changeSignOfDetJ(out.patch(0));
+
     // Get mappers from multibasis with interfaces glued
     gsMultiBasis<> geoBasis(out);
     for (index_t d = 0; d < out.targetDim(); d++)
@@ -1688,11 +1691,14 @@ gsMultiPatch<> loadCorner(index_t jigtype, index_t dim, std::vector< gsDofMapper
 
         gsVector<unsigned> boundaryDofs = mp.basis(ps.patch).boundary(ps);
 
+        index_t size = boundaryDofs.size();
+
 		index_t fixDir = 0;
         for (index_t d = 0; d < out.targetDim(); d++)
 		{
-			real_t diff = out.patch(0).coef(boundaryDofs[0],d) - out.patch(0).coef(boundaryDofs[1],d);
-			if (diff == 0)
+			real_t diff1 = out.patch(0).coef(boundaryDofs[0],d) - out.patch(0).coef(boundaryDofs[1],d);
+			real_t diff2 = out.patch(0).coef(boundaryDofs[0],d) - out.patch(0).coef(boundaryDofs[size/2],d);
+			if (diff1 == 0 && diff2 == 0)
 			{
 				gsInfo << "Fix direction " << d << "\n";
 				fixDir = d;
@@ -1725,6 +1731,42 @@ gsMultiPatch<> loadCorner(index_t jigtype, index_t dim, std::vector< gsDofMapper
                 mappers[d].markTagged(boundaryDofs[j],ps.patch);
             }
         }
+    }
+
+    // Tag interfaces
+    for (index_t i = 0; i < mp.nInterfaces(); i++){
+        // Get boundary local indices
+		boundaryInterface interface = mp.bInterface(i);
+		patchSide ps = interface.first();
+
+		if (ps.patch != p)
+		{
+			ps = interface.second();
+			if (ps.patch != p) 
+				continue;
+		}
+
+        gsVector<unsigned> boundaryDofs = mp.basis(ps.patch).boundary(ps);
+
+        index_t size = boundaryDofs.size();
+
+		index_t fixDir = 0;
+        for (index_t d = 0; d < out.targetDim(); d++)
+		{
+			real_t diff1 = out.patch(0).coef(boundaryDofs[0],d) - out.patch(0).coef(boundaryDofs[1],d);
+			real_t diff2 = out.patch(0).coef(boundaryDofs[0],d) - out.patch(0).coef(boundaryDofs[size/2],d);
+			if (diff1 == 0 && diff2 == 0)
+			{
+				gsInfo << "Fix direction " << d << "\n";
+				fixDir = d;
+				break;
+			}
+
+		}
+
+            for (index_t j = 0; j < boundaryDofs.size(); j ++){
+                mappers[fixDir].markTagged(boundaryDofs[j],ps.patch);
+            }
     }
 
 	return out;
@@ -2566,12 +2608,20 @@ bool testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB,
     gsVector<> out(4);
     out.setZero(4);
 
-    minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 5);
+    real_t minGaussD = win.minDetJInGaussPts(15);
+    out(2) = minGaussD;
+
+    if (minGaussD < 0)
+    {
+        gsInfo << "detJ < 0 in gauss point!!! \n";
+        gsInfo << " value was: " << minGaussD << "\n";
+        return 0;
+    }
+
+    minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 3);
 
     out(0) = minD;
     out(1) = neededRefSteps;
-    out(2) = minDgauss;
-    out(3) = win.minDetJInGaussPts(15);
 
     std::stringstream stream;
     stream << BASE_FOLDER << output << name;
@@ -2932,6 +2982,9 @@ cmd.addReal("c","decrTauFactor", "factor with which to decrease tau", decrTauFac
 bool useCorner = false;
 cmd.addSwitch("useCorner", "use only a corner of multipatch", useCorner);
 
+bool usePow = false;
+cmd.addSwitch("usePow", "use winslow: JTJ/detJ^(2/d)", usePow);
+
 cmd.getValues(argc,argv);
 
 output = "/" + output;
@@ -3154,6 +3207,7 @@ if(optParamXML)
 	gsMultiPatch<>::uPtr mp_uptr;
 
     std::vector< gsDofMapper > mappers(dim);
+    gsDebugVar(useCorner);
     if (useCorner)
     {
         gsInfo << "USECORNER\n";
@@ -3164,13 +3218,14 @@ if(optParamXML)
     else
     {
 	    mp_uptr = fd.getFirst< gsMultiPatch<> > ();
+
+	    for(int i = 0; i < numRefine; i++){
+	    	mp_uptr->patch(0).uniformRefine();
+	    }
     }
 
     scaleMP(*mp_uptr);
 
-	for(int i = 0; i < numRefine; i++){
-		mp_uptr->patch(0).uniformRefine();
-	}
 
     gsMultiPatch<> mp(*mp_uptr);
     mp_ptr = memory::make_shared_not_owned(&mp);
@@ -3183,7 +3238,8 @@ if(optParamXML)
 	} else if (dim == 3) {
         if (useCorner)
         {
-    	    mp_init = getInitGuess3d_unitSq(*mp_ptr);
+    	    //mp_init = getInitGuess3d_unitSq(*mp_ptr);
+    	    mp_init = getInitGuess3d_full(*mp_ptr);
         }
         else
         {
@@ -3222,7 +3278,7 @@ if(optParamXML)
     }
 
 	gsInfo << "EPS = " << eps << "\n";
-    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps, true, true); // glue interfaces, usePow
+    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps, true, usePow); // glue interfaces, usePow
 
     //optWR.evalObj();
     if (decreaseTau)
@@ -3243,10 +3299,13 @@ if(optParamXML)
 	//testValidity(mp_init,"detJ.txt", quA, quB, output);
 	
  	// Test snaps
-	gsWinslow win(mp_init_ptr,false,false,true,0); 
-	gsWinslow win_jig(mp_ptr,false,false,true,0); 
+	gsWinslow win(mp_init_ptr,optP_ptr->mappers(),false,false,true,0); 
+	gsWinslow win_jig(mp_ptr,optP_ptr->mappers(),false,false,true,0); 
 	gsVector<> tagged_jig = win_jig.getTagged();
 	win.updateTagged(tagged_jig);
+
+ 	name = "mp_snapped";
+    slog1.plotInParaview(mp_init,name);
 
 	std::stringstream stream_out;
 	stream_out <<  output << "cps_snapped.txt";
@@ -3256,6 +3315,9 @@ if(optParamXML)
 
     gsInfo << "Test validity of snap\n";
 	testValidity(mp_init,"detJ_snap.txt", quA, quB, output);
+
+ 	name = "mp_snappedLin";
+    slog1.plotInParaview(mp_init,name);
 	
 	// Snap bnd control points
 	gsWinslow::Ptr win_ptr = memory::make_shared_not_owned(&win);

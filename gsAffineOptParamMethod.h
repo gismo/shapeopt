@@ -25,7 +25,7 @@ class gsAffineOptParamMethod : public gsAffineParamMethod{
 public:
     // Empty constructor
     gsAffineOptParamMethod(){
-        gsInfo << "gsAffineOptParamMethod was called with empty constructor\n";
+        //gsInfo << "gsAffineOptParamMethod was called with empty constructor\n";
     };
 
     // Construct from gsOptParamMethod

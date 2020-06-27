@@ -7,7 +7,7 @@ gsWinslow::gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, bool use_dJC, bool
     m_checkForInf(checkForInf),
     m_checkForInf_eps(checkForInf_eps)
 {
-    gsInfo << "Check for inf in Winslow: " << checkForInf << " with eps " << checkForInf_eps << "\n";
+    //gsInfo << "Check for inf in Winslow: " << checkForInf << " with eps " << checkForInf_eps << "\n";
 }
 
 gsWinslow::gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDofMapper > mappers, bool use_dJC, bool useTensorStructureforDJC, bool checkForInf, real_t checkForInf_eps):
@@ -15,7 +15,7 @@ gsWinslow::gsWinslow(memory::shared_ptr<gsMultiPatch<>> mpin, std::vector< gsDof
     m_checkForInf(checkForInf),
     m_checkForInf_eps(checkForInf_eps)
 {
-    gsInfo << "Check for inf in Winslow: " << checkForInf << " with eps " << checkForInf_eps << "\n";
+    //gsInfo << "Check for inf in Winslow: " << checkForInf << " with eps " << checkForInf_eps << "\n";
 }
 
 real_t gsWinslow::evalObj() const {
@@ -184,4 +184,23 @@ gsVector<> gsWinslow::gradObj(gsVector<> &gradObjTagged) const{
 
     return mapMatrix(mapper,all);
 
+}
+
+real_t gsWinslow::minDetJInGaussPts(index_t incPts){
+
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(*m_mp);
+    A.setIntegrationElements(dbasis);
+
+    gsExprEvaluator<> ev(A);
+    ev.options().setInt("quB",m_quB + incPts);
+    ev.options().setReal("quA",m_quA);
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+
+    geometryMap G = A.getMap(*m_mp);
+	//gsDebugVar(ev.max((jac(G).det())));
+	//gsDebugVar(ev.min((jac(G).det())));
+
+    return ev.min(jac(G).det());
 }
