@@ -55,6 +55,7 @@ public:
 
     // Method to solve PDE and return real and imaginary part in u_real and u_imag
     virtual void solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag);
+    virtual void solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag, gsVector<> &solVec_real, gsVector<> &solVec_imag);
 
     // Method to get real and imaginary part of F
     gsMatrix<> getRhsZeroBC(index_t realOrImag);
@@ -115,6 +116,10 @@ public:
 
 
 public:
+    // Holder for last solution
+    gsMultiPatch<> m_ur; 
+    gsMultiPatch<> m_ui; 
+
     // Physical domain
     gsMultiPatch<>::Ptr m_mp;
 

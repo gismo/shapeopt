@@ -250,6 +250,12 @@ void gsStateEquation::getSystem(gsSparseMatrix<> &mat, gsVector<> &rhs){
 }
 
 void gsStateEquation::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag){
+    gsVector<> tmp1, tmp2;
+    solve(u_real, u_imag, tmp1, tmp2);
+}
+
+
+void gsStateEquation::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag, gsVector<> &solVec_real, gsVector<> &solVec_imag){
 		gsSparseMatrix<> mat;
 		gsVector<> rhs;
 		getSystem(mat,rhs);
@@ -292,6 +298,13 @@ void gsStateEquation::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag){
 		solution u_sol_imag = A.getSolution(u,solVector_Imag);
 
 		u_sol_imag.extract(u_imag);
+
+        solVec_real = solVector_Real;
+        solVec_imag = solVector_Imag;
+
+        // Save solutions. FIXIT: avoid copying data
+        m_ur = u_real;
+        m_ui = u_imag;
 }
 
 gsMatrix<> gsStateEquation::getU(index_t realOrImag){
