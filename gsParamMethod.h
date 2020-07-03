@@ -144,6 +144,10 @@ public:
     virtual void setupOptParameters() { GISMO_NO_IMPLEMENTATION; };
 
 public:
+    typedef memory::unique_ptr< gsParamMethod > uPtr;
+    typedef memory::shared_ptr< gsParamMethod > Ptr;
+
+public:
     mutable memory::shared_ptr<gsMultiPatch<>> m_mp;
 
     std::vector< gsDofMapper > m_mappers; // Mapper for each coordinate

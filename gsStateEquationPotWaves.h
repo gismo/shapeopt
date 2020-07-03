@@ -26,14 +26,31 @@ public:
     // Result is saved in arguments mat and rhs.
     void getTerm(index_t realOrImag, gsSparseMatrix<> &mat, gsVector<> &rhs);
 
+    void getObjFunctions(
+        gsFunctionExpr<>::uPtr &expKzpiKx_re,
+        gsFunctionExpr<>::uPtr &expKzpiKx_im
+    );
+
+    void getObjFunctions(
+        gsFunctionExpr<>::uPtr &grad_expKz_expiKx_re,
+        gsFunctionExpr<>::uPtr &grad_expKz_expiKx_im,
+        gsFunctionExpr<>::uPtr &hess_asVec_expKz_expiKx_re,
+        gsFunctionExpr<>::uPtr &hess_asVec_expKz_expiKx_im
+    ); 
+
+
+
     // Overloaded to allow the use of Dirichlet bnd conditions
     void solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag);
+    using gsStateEquation::solve;
+    //void solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag, gsVector<> &solVec_real, gsVector<> &solVec_imag);
 
     // Method to mark boundaries Gamma_f and Gamma_s
     // Result go in members bcInfo_Gamma_f and bcInfo_Gamma_s
     void markBoundaries();
     void markBoundariesDirichlet();
     void markBoundariesDirichletNoPML();
+    void markCenterBessel();
 
     void markBoundariesDirichletNoPML_NoCenter();
 
@@ -46,6 +63,8 @@ public:
     void getUI(gsMultiPatch<> &uI_re, gsMultiPatch<> &uI_im) ;
 
     void plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch<> &ui, real_t timestep, std::string outfile, bool includeIncident = true);
+
+    void plotVelocityBessel(real_t timestep, std::string outfile);
 
     // Convergence test against manufactures solution
     void convergenceTest(index_t maxRefine, std::string outfolder); 
@@ -61,6 +80,9 @@ public:
 
     // Convergence test against manufactures solution, center filled with water (to only test PML)
     void convergenceTestOnlyPMLAllDir(index_t maxRefine, std::string outfolder, real_t angle = 0); 
+
+    // Convergence test against Bessel Functions
+    void convergenceTestBessel(index_t maxRefine, std::string outfolder); 
 
     void convTestHelper(bool useDirichlet, bool useNeumann, index_t max_refine, std::string outfolder);
 
@@ -91,6 +113,7 @@ public:
     gsVector< index_t > getVectorWithDomainPatches();
     gsVector< index_t > getVectorWithPMLPatches();
 
+    void getBessel();
 
 private:
     // Helper method
@@ -108,19 +131,19 @@ public:
     // Wave parameters
     real_t wave_omega;//= sqrt(K * g) set in constructor
     real_t wave_g       = 9.82;                         // Gravitation
-    real_t wave_K       = 4.0;   // Wave number
+    real_t wave_K       = 3.0;   // Wave number
     real_t wave_A       = 1.0;                            // Amplitude
 
     // PML parameters
     real_t pml_n        = 3;    // Exponent
     real_t pml_C        = 5;    // constant
 
-    real_t pml_Lx       = 4;
+    real_t pml_Lx       = 5;
     real_t pml_lx       = 3;
-    real_t pml_Ly       = 4;
+    real_t pml_Ly       = 5;
     real_t pml_ly       = 3;
-    real_t pml_Lz       = 3;
-    real_t pml_lz       = 2.0;
+    real_t pml_Lz       = 2;
+    real_t pml_lz       = 1.0;
 
     real_t init_lbx     = 0.5;
     real_t init_lby     = 0.5;
@@ -186,6 +209,10 @@ public:
     gsFunctionExpr<>::uPtr pde_u_dir_re;          // Solution at Dirichlet bnd
     gsFunctionExpr<>::uPtr pde_u_dir_im;          // Solution at Dirichlet bnd HAS TO BE ZERO
 
+    gsFunctionExpr<>::uPtr pde_bessel_J0exp;
+    gsFunctionExpr<>::uPtr pde_bessel_mY0exp;
+
+    bool useDirRI = false;
     bool useDir = false;
     bool useNeu = true;
 

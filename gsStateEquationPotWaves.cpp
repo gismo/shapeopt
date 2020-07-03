@@ -642,8 +642,8 @@ void gsStateEquationPotWaves::constructor()
     //complexExpr bell_cE( "- bell_A * exp(- (x*x + y*y)/(2*bell_s2) )", "0");
 
     complexExpr bell_cE = expon.exp();
-    gsDebugVar(bell_cE.real);
-    gsDebugVar(bell_cE.imag);
+    //gsDebugVar(bell_cE.real);
+    //gsDebugVar(bell_cE.imag);
 
     complexExpr bellTerm = detJ*bell_cE;
    
@@ -740,6 +740,33 @@ void gsStateEquationPotWaves::markBoundaries()
     gsInfo << "bcInfo_Gamma_f : \n" << bcInfo_Gamma_f << "\n";
     gsInfo << "bcInfo_Gamma_b \n" << bcInfo_Gamma_b << "\n";
     gsInfo << "bcInfo_Gamma_s : \n" << bcInfo_Gamma_s << "\n";
+
+}
+
+void gsStateEquationPotWaves::markCenterBessel()
+{
+    for (index_t i = 0; i < m_mp->nBoundary(); i++)
+    {
+        patchSide ps = m_mp->boundaries()[i];
+        gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+        // Find Gamma_s
+        // Goal is to find the boundaries inside the PML domain (ie. not on the PML layers)
+        bool cond1 = !checkIfInPML(boundaryDofs,m_mp->patch(ps.patch).coefs(),pml_lx,pml_ly,pml_lz);
+        bool cond2 = !checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs(),2);
+        bool cond3 = !checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs(),1);
+        if (cond1 and cond2 and cond3)
+        {
+            //gsInfo << "GAMMA_S: Add condition at patch " << ps.patch << " bnd " << ps.index() << "\n";
+            bcInfo_Dirichlet_re.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_bessel_J0exp);
+            bcInfo_Dirichlet_im.addCondition(ps.patch, ps.index(), condition_type::dirichlet, *pde_bessel_mY0exp);
+        }
+    }
+
+    gsInfo << "bcInfo_Gamma_f : \n" << bcInfo_Gamma_f << "\n";
+    gsInfo << "bcInfo_Gamma_s : \n" << bcInfo_Gamma_s << "\n";
+    gsInfo << "bcInfo_Gamma_d : \n" << bcInfo_Dirichlet_re << "\n";
+    gsInfo << "bcInfo_Gamma_d : \n" << bcInfo_Dirichlet_im << "\n";
 
 }
 
@@ -1125,6 +1152,102 @@ void gsStateEquationPotWaves::plotVelocityField(gsMultiPatch<> &ur, gsMultiPatch
 
 }
 
+void gsStateEquationPotWaves::plotVelocityBessel(real_t timestep, std::string outfile)
+{
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::solution    solution;
+
+    gsExprAssembler<> A(1,1);
+
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
+
+    // Elements used for numerical integration
+    gsMultiBasis<> dbas(*m_mp);
+    A.setIntegrationElements(dbas);
+    gsExprEvaluator<> ev(A);
+
+    geometryMap G = A.getMap(*m_mp);
+
+    getBessel();
+    variable uRe = A.getCoeff(*pde_bessel_J0exp,G);
+    variable uIm = A.getCoeff(*pde_bessel_mY0exp,G);
+
+    // Solve for Bessel
+    useNeu = false;
+    useDirRI = true;
+
+    pde_u_dir_re = memory::make_unique( new gsFunctionExpr<>(*pde_bessel_J0exp ) );
+    pde_u_dir_im = memory::make_unique( new gsFunctionExpr<>(*pde_bessel_mY0exp) );
+
+    gsMultiPatch<> markInner = markInnerDomain();
+    variable delta = A.getCoeff(markInner);
+    markCenterBessel();
+
+    gsMultiPatch<> ur,ui;
+    solve(ur,ui);
+    // ...
+
+    useNeu = true;
+    useDirRI = false;
+
+    variable uSRe = A.getCoeff(ur);
+    variable uSIm = A.getCoeff(ui);
+
+    gsInfo << "Diff real: " << ev.integral(delta*(uSRe-uRe).norm()*meas(G)) << "\n";
+    gsInfo << "Diff real: " << ev.integral(delta*(uSIm-uIm).norm()*meas(G)) << "\n";
+
+    std::string nm = outfile + "_ur";
+    ev.writeParaview( uSRe    , G, nm);
+    nm = outfile + "_ui";
+    ev.writeParaview( uSIm    , G, nm);
+
+
+
+    index_t i = 20;
+    real_t t = 0;
+
+    //ev.options().setSwitch("plot.elements", true);
+    ev.options().setInt("plot.npts", 8000);
+
+    index_t maxIter = 1000;
+
+    while( t < 2*M_PI/wave_omega)
+    {
+        // Generate name of file
+        std::string name = outfile + "_" + std::to_string( i );
+
+        // Calculate velocity field at time t
+        real_t coswt = cos( wave_omega * t);
+        real_t sinwt = sin( wave_omega * t);
+
+        auto velocity_field = wave_A*uRe*coswt - wave_A*uIm*sinwt;
+
+        // Plot
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview( velocity_field    , G, name);
+
+        auto velocity_field_s = wave_A*uSRe*coswt - wave_A*uSIm*sinwt;
+
+        // Plot
+        gsInfo<< "Plotting " << name << " in Paraview...\n";
+        ev.writeParaview( velocity_field    , G, name);
+        std::string name2 = outfile + "_s" + std::to_string( i );
+        ev.writeParaview( velocity_field_s    , G, name2 );
+
+
+        // Update time
+        t += timestep;
+        i++;
+
+        if (i > maxIter)
+           return; 
+    }
+
+
+}
+
 void gsStateEquationPotWaves::convergenceTest(index_t max_refine, std::string outfolder)
 {
 
@@ -1260,6 +1383,40 @@ void gsStateEquationPotWaves::convergenceTestOnlyPMLAllDir(index_t max_refine, s
 
     convTestHelper(true, false, max_refine, outfolder);
 
+
+}
+
+void gsStateEquationPotWaves::convergenceTestBessel(index_t max_refine, std::string outfolder)
+{
+
+    getBessel();
+    pde_u_dir_re = memory::make_unique( new gsFunctionExpr<>(*pde_bessel_J0exp));
+    pde_u_dir_im = memory::make_unique( new gsFunctionExpr<>(*pde_bessel_mY0exp));
+
+    setup();
+
+    gsBoundaryConditions<> tmp;
+    bcInfo_Gamma_f = tmp;
+
+    gsBoundaryConditions<> tmpb;
+    bcInfo_Gamma_b = tmpb;
+
+    markBoundaries();
+    markCenterBessel();
+
+    useDirRI = true;
+    convTestHelper(false, false, max_refine, outfolder);
+
+    gsMultiPatch<> ur, ui;
+    solve(ur,ui);
+    
+    real_t timestep = 0.025*2*M_PI/wave_omega;
+    std::string vfold = "velocity/";
+    gsInfo << "Does " << outfolder + vfold << " exist? \n\n";
+    plotVelocityField(ur,ui,timestep,outfolder + vfold,false); // false means to only plot 'scattering field'
+
+    useDirRI = false;
+
 }
 
 void gsStateEquationPotWaves::pointSourceTest(std::string outfolder)
@@ -1307,16 +1464,14 @@ void gsStateEquationPotWaves::pointSourceTest(std::string outfolder)
 
     geometryMap G = A.getMap(*m_mp);
 
-    gsMultiPatch<> ur, ui;
-    solve(ur,ui);
-
     gsMultiPatch<> markInner = markInnerDomain();
     variable delta = A.getCoeff(markInner);
 
     A.setIntegrationElements(dbasis);
 
-    variable u_r = A.getCoeff(ur);
-    variable u_i = A.getCoeff(ui);
+    // Use last solution, only works since we solved in convTestHelper
+    variable u_r = A.getCoeff(m_ur); 
+    variable u_i = A.getCoeff(m_ui);
 
 	variable B_real = A.getCoeff(*bell_term_re,G);
 	variable B_imag = A.getCoeff(*bell_term_im,G);
@@ -1375,7 +1530,7 @@ void gsStateEquationPotWaves::pointSourceTest(std::string outfolder)
     real_t timestep = 0.025*2*M_PI/wave_omega;
     std::string vfold = "veloc/";
     gsInfo << "Does " << outfolder + vfold << " exist? \n\n";
-    plotVelocityField(ur,ui,timestep,outfolder + vfold,false); // false means to only plot 'scattering field'
+    plotVelocityField(m_ur,m_ui,timestep,outfolder + vfold,false); // false means to only plot 'scattering field'
 
 }
 
@@ -1508,7 +1663,8 @@ void gsStateEquationPotWaves::convTestHelper(bool useDirichlet, bool useNeumann,
 
         A.setIntegrationElements(dbasis);
 
-        variable u_e = A.getCoeff(*pde_u_dir_re,G);
+        variable u_er = A.getCoeff(*pde_u_dir_re,G);
+        variable u_ei = A.getCoeff(*pde_u_dir_im,G);
         variable u_r = A.getCoeff(ur);
         variable u_i = A.getCoeff(ui);
 
@@ -1517,8 +1673,9 @@ void gsStateEquationPotWaves::convTestHelper(bool useDirichlet, bool useNeumann,
         ev.options().setInt("quB",m_quB+2); // FIXIT lower no points
         ev.options().setReal("quA", m_quA+2); // FIXIT lower no points
 
-        real_t errorSq = ev.integral( delta*(u_e - u_r).sqNorm()*meas(G));
-        gsInfo << "size : \t " << dbasis.size() << " , Error \t \t: " << sqrt(errorSq) << "\n";
+        real_t errorSq_re = ev.integral( delta*(u_er - u_r).sqNorm()*meas(G));
+        real_t errorSq_im = ev.integral( delta*(u_ei - u_i).sqNorm()*meas(G));
+        gsInfo << "size : \t " << dbasis.size() << " , Error real \t : " << sqrt(errorSq_re) << " , Error imag \t : " << sqrt(errorSq_im) <<"\n";
 
         real_t h = 0;
         for (index_t p = 0; p < m_mp->nBoxes(); p++)
@@ -1529,9 +1686,9 @@ void gsStateEquationPotWaves::convTestHelper(bool useDirichlet, bool useNeumann,
 
         }
 
-        f << dbasis.size() << " " << h << " " << sqrt(errorSq) << "\n";
+        f << dbasis.size() << " " << h << " " << sqrt(errorSq_re) << " " << sqrt(errorSq_im) << "\n";
         
-        if ( i == max_refine-1) // If plot
+        if ( true ) // If plot
         {
 
             ev.options().setInt("plot.npts", 8000);
@@ -1548,13 +1705,21 @@ void gsStateEquationPotWaves::convTestHelper(bool useDirichlet, bool useNeumann,
             gsInfo<< "Plotting " << name << " in Paraview...\n";
             ev.writeParaview( u_i , G, outfolder + name);
         
-            name = "uexact";
+            name = "uer";
             gsInfo<< "Plotting " << name << " in Paraview...\n";
-            ev.writeParaview( u_e , G, outfolder + name);
+            ev.writeParaview( u_er , G, outfolder + name);
+
+            name = "uei";
+            gsInfo<< "Plotting " << name << " in Paraview...\n";
+            ev.writeParaview( u_ei , G, outfolder + name);
         
-            name = "diff";
+            name = "diff_r";
             gsInfo<< "Plotting " << name << " in Paraview...\n";
-            ev.writeParaview( delta*(u_e - u_r)  , G, outfolder + name);
+            ev.writeParaview( delta*(u_er - u_r)  , G, outfolder + name);
+
+            name = "diff_i";
+            gsInfo<< "Plotting " << name << " in Paraview...\n";
+            ev.writeParaview( delta*(u_ei - u_i)  , G, outfolder + name);
         }
 
         dbasis.uniformRefine();
@@ -1773,8 +1938,8 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
     gsFunctionExpr<> ones_fun("1","1","1",3);
     variable ones = A.getCoeff(ones_fun);
 
-	auto rhs_term_real = (F_real.tr()*nv(G)).val()*u*nv(G).norm();
-	auto rhs_term_imag = (F_imag.tr()*nv(G)).val()*u*nv(G).norm();
+	auto rhs_term_real = (F_real.tr()*nv(G)).val()*u; // We omit *nv(G).norm() since we need unitnv
+	auto rhs_term_imag = (F_imag.tr()*nv(G)).val()*u; //*nv(G).norm();
 
     auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
     auto zero_vec = zer.val()*u*nv(G).norm();     // Perhaps I need to multiply with u;
@@ -1803,7 +1968,7 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
 
 	if (realOrImag == 0){
 
-        if (useDir) 
+        if (useDir || useDirRI) 
             u.addBc( bcInfo_Dirichlet_re.get("Dirichlet"));
 
 	    A.initSystem();
@@ -1825,8 +1990,8 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
         {
 		    A.assembleLhsRhsBc(zero_matrix, rhs_bell_real , bcInfo_Gamma_f.neumannSides());
         }
-        gsDebugVar(A.rhs().norm());
-
+        //gsDebugVar(A.rhs().norm());
+        
 	} else {
         // It is not a bug that we use bcInfo_Dirichlet_re and not ..._im here!
         // The reason is that when we construct the full real system the rhs gets contributions from both combinations of A_real, A_imag and bcInfo..._re and bcInfo..._im
@@ -1836,6 +2001,8 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
         //
         // Both rhs we have ur_bnd on the right!
         if (useDir) u.addBc( bcInfo_Dirichlet_re.get("Dirichlet")); 
+        if (useDirRI) u.addBc( bcInfo_Dirichlet_im.get("Dirichlet")); 
+
 
 	    A.initSystem();
         //A.assemble(u*u.tr());
@@ -1855,12 +2022,26 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
         {
 		    A.assembleLhsRhsBc(zero_matrix, rhs_bell_imag , bcInfo_Gamma_f.neumannSides());
         }
-        gsDebugVar(A.rhs().norm());
+
+        // If we dont useDirRI then return rhs
     }
 
 	mat = A.matrix();
+    rhs = A.rhs();
+    //gsDebugVar(rhs.rows());
 
-	rhs = A.rhs();
+    if (useDirRI)
+    {
+        // Assemble real part again
+        
+	    A.initSystem();
+	    A.assemble(laplace_term_real);
+	    A.assembleLhsRhsBc(helmholtz_term_real, zero_vec , bcInfo_Gamma_f.neumannSides()); 
+
+        rhs = A.rhs();
+        //gsDebugVar(rhs.rows());
+
+    }
 
 }
 
@@ -1993,27 +2174,27 @@ gsMatrix<> gsStateEquationPotWaves::getDerivativeOfRhsZeroBC(index_t realOrImag)
     variable delta = A.getCoeff(markInner);
 
     // real terms
-	auto drhs_real_term1 = (nvDeriv(v,G)*F_real)*u.tr()*nv(G).norm(); 
+	auto drhs_real_term1 = (nvDeriv(v,G)*F_real)*u.tr(); 
 
-	auto drhs_real_term2 = (v*grad_F_real*nv(G))*u.tr()*nv(G).norm(); 
+	auto drhs_real_term2 = (v*grad_F_real*nv(G))*u.tr(); 
 
-	auto drhs_real_term3 = (nvDeriv(v,G)*nv(G)/nv(G).norm())* (F_real.tr()*nv(G))*u.tr(); 
+	//auto drhs_real_term3 = (nvDeriv(v,G)*nv(G)/nv(G).norm())* (F_real.tr()*nv(G))*u.tr(); 
 
     // imag terms
-	auto drhs_imag_term1 = (nvDeriv(v,G)*F_imag)*u.tr()*nv(G).norm(); 
+	auto drhs_imag_term1 = (nvDeriv(v,G)*F_imag)*u.tr();//*nv(G).norm(); 
 
-	auto drhs_imag_term2 = (v*grad_F_imag*nv(G))*u.tr()*nv(G).norm(); 
+	auto drhs_imag_term2 = (v*grad_F_imag*nv(G))*u.tr();//*nv(G).norm(); 
 
-	auto drhs_imag_term3 = (nvDeriv(v,G)*nv(G)/nv(G).norm())* (F_imag.tr()*nv(G))*u.tr(); 
+	//auto drhs_imag_term3 = (nvDeriv(v,G)*nv(G)/nv(G).norm())* (F_imag.tr()*nv(G))*u.tr(); 
 
 	A.initSystem();
 
 	if (realOrImag == 0){
 		// FIXIT: why including rhs here? TODO avoid this...
-		A.assembleLhsRhsBc(drhs_real_term1 + drhs_real_term2 + drhs_real_term3, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
+		A.assembleLhsRhsBc(drhs_real_term1 + drhs_real_term2, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
 	} else {
 		// FIXIT: why including rhs here? TODO avoid this...
-		A.assembleLhsRhsBc(drhs_imag_term1 + drhs_imag_term2 + drhs_imag_term3, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
+		A.assembleLhsRhsBc(drhs_imag_term1 + drhs_imag_term2, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
 	}
 
 	return A.matrix();
@@ -2065,4 +2246,138 @@ gsVector< index_t > gsStateEquationPotWaves::getVectorWithPMLPatches()
 
 
     return pmlPatches;
+}
+
+void gsStateEquationPotWaves::getObjFunctions(
+        gsFunctionExpr<>::uPtr &expKzpiKx_re,
+        gsFunctionExpr<>::uPtr &expKzpiKx_im
+        ) 
+{
+
+    complexExpr fun(" exp( K * z) * cos( K * x ) ", " exp( K * z) * sin( K * x )");
+
+    expKzpiKx_re = fun.getFunRe(const_map);
+    expKzpiKx_im = fun.getFunIm(const_map);
+
+}
+
+void gsStateEquationPotWaves::getObjFunctions(
+        gsFunctionExpr<>::uPtr &grad_expKz_expiKx_re,
+        gsFunctionExpr<>::uPtr &grad_expKz_expiKx_im,
+        gsFunctionExpr<>::uPtr &hess_asVec_expKz_expiKx_re,
+        gsFunctionExpr<>::uPtr &hess_asVec_expKz_expiKx_im
+) 
+{
+    // exp(Kz) ( cos(Kx) + i sin(Kx) )
+    // d/dx = K exp(Kz) ( - sin(Kx) + i cos(Kx) )
+    // d/dy = 0.0
+    // d/dz = K exp(Kz) ( cos(Kx) + i sin(Kx) )
+
+    complexExpr d_fun_dx(" - K * exp( K * z) * sin( K * x ) ", " K * exp( K * z) * cos( K * x )");
+    complexExpr d_fun_dy(" 0.0 ", "0.0");
+    complexExpr d_fun_dz(" K * exp(K * z) * cos(K * x) ", " K * exp( K * z) * sin( K * x ) ");
+    grad_expKz_expiKx_re = getVectorFunRe(const_map, d_fun_dx, d_fun_dy, d_fun_dz);
+    grad_expKz_expiKx_im = getVectorFunIm(const_map, d_fun_dx, d_fun_dy, d_fun_dz);
+
+    // d2/dx2 = K * K * exp(Kz) ( - cos(Kx) - i sin(Kx) )
+    // d2/dy2 = 0.0
+    // d2/dz2 = K * K * exp(Kz) ( cos(Kx) + i sin(Kx) )
+
+    complexExpr xx(" - K * K * exp( K * z) * cos( K * x ) ", " - K * K * exp( K * z) * sin( K * x )");
+    complexExpr yy(" 0.0 ", "0.0");
+    complexExpr zz(" K * K * exp( K * z) * cos( K * x ) ", " K * K * exp( K * z) * sin( K * x ) ");
+
+    complexExpr xy(" 0.0 ", "0.0");
+    complexExpr xz(" - K * K * exp( K * z) * sin( K * x ) ", " K * K * exp( K * z) * cos( K * x ) ");
+
+    complexExpr yz(" 0.0 ", " 0.0 ");
+
+    hess_asVec_expKz_expiKx_re = getSymmVectorFunRe(const_map, xx, xy, xz, yy, yz, zz);
+    hess_asVec_expKz_expiKx_im = getSymmVectorFunIm(const_map, xx, xy, xz, yy, yz, zz);
+
+
+}
+
+void gsStateEquationPotWaves::getBessel()
+
+{
+    std::stringstream stream;
+    stream.precision(12);
+
+    // --------- J0 --------- //
+    index_t N = 50;
+    for (index_t k = 0; k < N; k++)
+    {
+        stream << "(-1)^" << k << "*";
+        stream << "(1/4.0 * " << wave_K*wave_K << "*(x^2 + y^2))^" << k << "*";
+
+        // 1/(k!)^2
+        stream << "1/(1.0" ;
+        for (index_t i = 2; i <= k; i++) // k!
+        {
+            stream << "*" << i ;
+        }
+        stream << ")^2 ";
+
+        if (k < N-1)
+            stream << " + ";
+
+    }
+
+    std::string J0str = stream.str();
+
+    // ----------- Y0 ------------ //
+    stream.clear();
+    stream.str(std::string());
+
+
+    real_t gamma = 0.57721566490153286060;
+    stream << 2.0/M_PI << "* ( log( 1/2 * " << wave_K << "*sqrt(x^2 + y^2) ) + " << gamma << ")*";
+    stream << "( " << J0str << " )";
+
+    stream << " + ";
+    // Second part
+    stream << 2.0/M_PI << " * ( ";
+
+    real_t sum = 0;
+    for (index_t n = 1; n < N; n++)
+    {
+        stream << "(-1)^" << n+1 << "*";
+        stream << "(1/4.0 * " << wave_K*wave_K << "*(x^2 + y^2))^" << n << "*";
+
+        // 1/(k!)^2
+        stream << "1/(1.0" ;
+        for (index_t i = 2; i <= n; i++) // k!
+        {
+            stream << "*" << i ;
+        }
+        stream << ")^2 ";
+
+        // 1 + 1/2 + ...
+        sum += 1.0/n;
+
+        stream << " * " << sum ;
+
+        if (n < N-1)
+            stream << " + ";
+
+    }
+
+    stream << " )";
+    std::string Y0str = stream.str();
+
+    // Multiply with exp(Kz)
+    stream.clear();
+    stream.str(std::string());
+    stream << "exp( " << wave_K << " * z ) *(" << J0str << ")";
+    std::string J0exp_str = stream.str();
+
+    stream.clear();
+    stream.str(std::string());
+    stream << "- exp( " << wave_K << " * z ) *(" << Y0str << ")";
+    std::string mY0exp_str = stream.str();
+
+    pde_bessel_J0exp = memory::make_unique( new gsFunctionExpr<>(J0exp_str, 3) );
+    pde_bessel_mY0exp = memory::make_unique( new gsFunctionExpr<>(mY0exp_str, 3) );
+
 }
