@@ -13,6 +13,7 @@
 
 #include "gsMyExpressions.h"
 
+#include "gs2NormConstraints.h"
 #include "gsDetJacConstraint.h"
 #include "gsNewDetJacConstraint.h"
 #include "gsAggregatedConstraint.h"
@@ -166,6 +167,72 @@ void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
 		// gsVector<> newres = dJC.generateDResultVector();
 		// dJC.getDvectors(newres);
 		gsVector<> newres = pM.m_dJC->evalCon();
+
+		gsVector<> guess = result + Jac*perturp;
+
+		real_t error0 = (result - newres).norm();
+		real_t error1 = (guess - newres).norm();
+
+		Error0[i] = error0;
+		Error1[i] = error1;
+	}
+
+	gsVector<> rate;
+	rate.setZero(n);
+	rate.segment(1,n-1) = log10(Error1.segment(1,n-1).array()/Error1.segment(0,n-1).array())/log10(2);
+	gsMatrix<> disp(n,4);
+	disp << Eps,Error0,Error1,rate;
+	gsInfo << "eps \tErr0 \tErr1 \trate\n";
+	gsInfo << disp << "\n";
+
+}
+
+void convergenceTestOfConstraintTagged(gsOptParamMethod &pM, gsConstraint &con){
+	// gsVector<> result = dJC.generateDResultVector();
+	// dJC.getDvectors(result);
+	gsVector<> result = con.evalCon();
+
+    gsIpOptSparseMatrix J = con.getJacobian();
+	gsMatrix<> Jac = J.asDense();
+	gsInfo << "\n Size of D vector : " << result.size() << "\n";
+	gsInfo << " Size of Jacobian : ( " << Jac.rows() << ", " << Jac.cols() << ")\n";
+
+	gsVector<> des = pM.getFree();
+	gsInfo << "\n Size of design vector : " << des.size() << "\n";
+
+	index_t n = 20;
+	gsVector<> Eps(n);
+	gsVector<> Error0(n);
+	gsVector<> Error1(n);
+
+	gsVector<> ran;
+	std::srand((unsigned int) std::time(0));
+	ran.setRandom(des.size());
+
+
+	for(index_t i = 0; i < n; i++){
+		// Generate pertubation
+		real_t eps = pow(2,-i);
+		Eps[i] = eps;
+
+		gsVector<> perturp;
+		perturp.setZero(des.size());
+		for(index_t j = 0; j < des.size(); j++){
+			perturp[j] = ran[j];
+		}
+
+		perturp /= perturp.norm();
+
+		perturp *= eps;
+
+		gsVector<> newDes = des + perturp;
+
+		pM.updateFree(newDes);
+
+
+		// gsVector<> newres = dJC.generateDResultVector();
+		// dJC.getDvectors(newres);
+		gsVector<> newres = con.evalCon();
 
 		gsVector<> guess = result + Jac*perturp;
 
@@ -2618,7 +2685,7 @@ bool testValidity(gsMultiPatch<> &mp, std::string name, real_t quA, index_t quB,
         return 0;
     }
 
-    minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 3);
+    minD = dJC.provePositivityOfDetJ_TP(neededRefSteps, 5);
 
     out(0) = minD;
     out(1) = neededRefSteps;
@@ -2936,7 +3003,18 @@ real_t decrTauFactor = 1.0/4.0;
 
 gsCmdLine cmd("A test of lumped mass matricies");
 cmd.addInt("p", "degree", "Degree of B-Splines.", degree);
-cmd.addInt("a", "param", "Parametrization: 0: spring, 1: modLiao, 2: winslow, 3: liao, 4: harmonic, 5: use regularization and perform optimization on all cps", param);
+
+cmd.addInt("a", "param", "Parametrization: \
+        0: spring, \
+        1: modLiao, \
+        2: winslow, \
+        3: liao, \
+        4: harmonic, \
+        5: use regularization and perform optimization on all cps, \
+        6: use winslow with out const5raints, \
+        7: maxDetJ, \
+        8 : Harmonic without constraints", param);
+
 cmd.addInt("r", "numberRefine", "Number of refinements", numRefine);
 cmd.addInt("n", "nx", "Number of splines in first direction", nx);
 cmd.addInt("m", "ny", "Number of splines in second direction", ny);
@@ -2976,6 +3054,9 @@ cmd.addSwitch("optParam", "Run optParam code", optParam);
 cmd.addSwitch("optParamXML", "Run optParamXML code", optParamXML);
 cmd.addSwitch("potWave", "Run potWave code", potWave);
 
+bool paramTestXML = false;
+cmd.addSwitch("paramTestXML", "Run paramTestXML code", paramTestXML);
+
 cmd.addSwitch("decreasingTau", "decrease tau", decreaseTau);
 cmd.addReal("c","decrTauFactor", "factor with which to decrease tau", decrTauFactor);
 
@@ -3005,8 +3086,14 @@ if (potWave) {
     //SE.convergenceTestNoPML_NoCenter( maxiter , BASE_FOLDER + output );
 
 
+    
     gsStateEquationPotWaves SE(numRefine);
-
+    
+    SE.convergenceTestBessel( maxiter, BASE_FOLDER + output );
+    real_t timestep = 0.025*2*M_PI/SE.wave_omega;
+    //SE.plotVelocityBessel(timestep , BASE_FOLDER + output + "velocity/veloc");
+    return 0;
+    
     gsShapeOptLog slog1(output,true,false,false);
 	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
@@ -3014,28 +3101,46 @@ if (potWave) {
     gsMultiBasis<> tmp(*mp_ptr);
     gsDebugVar(tmp.size());
 
-    gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
+    //gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
+
+    //convergenceTestOfJacobianAll(optPW);
+
+    /*
+    gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
+    gsShapeOptWithReg optWR(mp_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps);
+
+    gs2NormConstraints con2(mp_ptr,optWR.mappers(), 0.2, 0.5);
+
+    gsWinslow win(mp_ptr,optWR.mappers(),false);
+
+    gsInfo<< win.getTagged().transpose() << "\n\n\n";
+    convergenceTestOfConstraintTagged(win, con2);
+
+    gsInfo << con2.evalCon();
     
     gsInfo << " \n ================== \n";
+    */
     //gsInfo << " Objective : " << optPW.evalObj();
 
     //convergenceTestOfFunction(fun, grad, hess);
-    //convergenceTestOfJacobianAll(optPW);
-    convergenceTestOfJacobian(optPW);
+    //convergenceTestOfJacobian(optPW);
     
     
 
- //   SE.setQuad(quA,quB);
+    /*
+    SE.setQuad(quA,quB);
+ 
+    gsMultiPatch<> ur, ui;
+    SE.solve(ur,ui);
  //
- //   gsMultiPatch<> ur, ui;
- //   SE.solve(ur,ui);
- ////
- //   SE.plotSolution(ur,BASE_FOLDER + output + "ur");
- //   SE.plotSolution(ui,BASE_FOLDER + output + "ui");
+    SE.plotSolution(ur,BASE_FOLDER + output + "ur");
+    SE.plotSolution(ui,BASE_FOLDER + output + "ui");
+ 
+    real_t timestep = 0.025*2*M_PI/SE.wave_omega;
  //
- //   real_t timestep = 0.025*2*M_PI/SE.wave_omega;
- ////
- //   SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/veloc");
+    SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/veloc", true);
+    SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/scatt", false);
+    */
     //SE.convergenceTest( maxiter, BASE_FOLDER + output );
     //SE.convergenceTestNoPML_NoCenter( maxiter, BASE_FOLDER + output );
     //SE.convergenceTestOnlyPMLAllDir( maxiter, BASE_FOLDER + output, lambda_1 );
@@ -3095,7 +3200,229 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // // gsHBSpline<2> bb(gg->basis(),mm);
 // exit(0);
 //
-//
+
+if (false)
+{
+    std::stringstream stream;
+    stream.precision(16);
+
+    real_t wave_K = 4;
+
+    // --------- J0 --------- //
+    index_t N = 50;
+    stream << "exp( " << wave_K << " * z ) *(";
+    for (index_t k = 0; k < N; k++)
+    {
+        stream << "(-1)^" << k << "*";
+        stream << "(1/4.0 * " << wave_K*wave_K << "*(x^2 + y^2))^" << k << "*";
+
+        // 1/(k!)^2
+        stream << "1/(1.0" ;
+        for (index_t i = 2; i <= k; i++) // k!
+        {
+            stream << "*" << i ;
+        }
+        stream << ")^2 ";
+
+        if (k < N-1)
+            stream << " + ";
+
+    }
+    stream << ")";
+
+    std::string J0str = stream.str();
+
+    // ----------- Y0 ------------ //
+    stream.clear();
+    stream.str(std::string());
+
+    stream << "exp( " << wave_K << " * z ) *(";
+
+    // First part
+    real_t gamma = 0.57721566490153286060;
+    stream << 2.0/M_PI << "* ( log( 1/2 * " << wave_K << "*sqrt(x^2 + y^2) ) + " << gamma << ")*";
+    stream << "( " << J0str << " )";
+
+    stream << " + ";
+    // Second part
+    stream << 2.0/M_PI << " * ( ";
+
+    real_t sum = 0;
+    for (index_t n = 1; n < N; n++)
+    {
+        stream << "(-1)^" << n+1 << "*";
+        stream << "(1/4.0 * " << wave_K*wave_K << "*(x^2 + y^2))^" << n << "*";
+
+        // 1/(k!)^2
+        stream << "1/(1.0" ;
+        for (index_t i = 2; i <= n; i++) // k!
+        {
+            stream << "*" << i ;
+        }
+        stream << ")^2 ";
+
+        // 1 + 1/2 + ...
+        sum += 1.0/n;
+
+        stream << " * " << sum ;
+
+        if (n < N-1)
+            stream << " + ";
+
+    }
+
+    stream << " ) )";
+
+    std::string Y0str = stream.str();
+
+    gsFunctionExpr<> J0(J0str,2);
+
+    index_t neval = 2;
+    gsMatrix<> u(2,neval);
+    u << 0.5,5,
+        0.5,5;
+
+	gsMatrix<> fun_eval_mat = J0.eval(u);
+
+    gsDebugVar(wave_K);
+    gsDebugVar(pow(u(0,0),2));
+    gsDebugVar(pow(u(1,0),2));
+    gsDebugVar(sqrt(pow(u(0,0),2) +  pow(u(1,0),2)));
+
+    for (index_t i = 0; i < neval; i++)
+    {
+        real_t fun_eval = fun_eval_mat(0,i);
+
+        gsInfo << "J0(" << wave_K*sqrt(pow(u(0,i),2) +  pow(u(1,i),2)) << ") = " << fun_eval << "\n";
+    }
+
+    gsFunctionExpr<> Y0(Y0str,2);
+
+	gsMatrix<> y_eval_mat = Y0.eval(u);
+
+    for (index_t i = 0; i < neval; i++)
+    {
+        real_t fun_eval = y_eval_mat(0,i);
+
+        gsInfo << std::setprecision(12) << "Y0(" << u(0,i) << ", " << u(1,i) << ") = " << fun_eval << "\n";
+    }
+
+
+    return 0;
+   
+
+}
+
+// Save as XML
+if (false)
+{
+   gsMultiPatch<> seastar = getSeastar();
+   gsFileData<> fd;//
+   fd << seastar;
+
+   std::string name = BASE_FOLDER + output;
+   fd.save( name ); 
+   return 0;
+}
+
+
+if(paramTestXML)
+{
+	gsFileData<> fd(BASE_FOLDER + startFile);
+
+	gsMultiPatch<>::uPtr mp_uptr;
+
+    std::vector< gsDofMapper > mappers(dim);
+    gsDebugVar(useCorner);
+    if (useCorner)
+    {
+        gsInfo << "USECORNER\n";
+	    gsMultiPatch<> corner = loadCorner(jig,dim,mappers,numRefine);
+        mp_uptr = memory::make_unique( new gsMultiPatch<>(corner) );
+
+    }
+    else
+    {
+	    mp_uptr = fd.getFirst< gsMultiPatch<> > ();
+
+	    for(int i = 0; i < numRefine; i++){
+	    	mp_uptr->patch(0).uniformRefine();
+	    }
+
+    }
+
+    scaleMP(*mp_uptr);
+
+    gsMultiPatch<> mp(*mp_uptr);
+    mp_ptr = memory::make_shared_not_owned(&mp);
+
+    // START FROM SPRING METHOD
+    gsSpringMethod tmp(mp_ptr);
+    tmp.update();
+
+    // Put mappers in var
+    if (!useCorner)
+    {
+        mappers = tmp.mappers();
+    }
+
+    // Get startGuess
+    if ( param == 1 || param == 2 || param == 3 || param == 4 || param == 6 )
+    {
+        gsMaxDetJac mDJ(mp_ptr,mappers,true); // Use TP solver
+        mDJ.update();
+
+        std::string name = "init_detJProof.txt";
+        bool valid = testValidity(*mp_ptr,name, quA, quB, output);
+
+        if (!valid)
+        {
+            gsInfo << "\n ------------ !!!!!! --------------- \n Start guess was not found! \n\n";
+        }
+
+
+    }
+
+    std::string name = "init.txt";
+    gsVector<> flat = tmp.getFlat();
+    saveVec(flat, BASE_FOLDER + output + name);
+
+    gsParamMethod::Ptr pM_ptr;
+
+    switch (param) {
+        case 0 : pM_ptr = memory::make_shared( new gsSpringMethod(mp_ptr,mappers));break; 
+        case 1 : pM_ptr = memory::make_shared( new gsModLiao(mp_ptr,mappers, true, true));break;   // detJ
+        case 2 : pM_ptr = memory::make_shared( new gsWinslow(mp_ptr,mappers, true, true));break;
+        case 3 : pM_ptr = memory::make_shared( new gsLiao(mp_ptr,mappers, true, true));break;
+        case 4 : pM_ptr = memory::make_shared( new gsHarmonic(mp_ptr,mappers, true, true));break;
+        case 6 : pM_ptr = memory::make_shared( new gsWinslow(mp_ptr,mappers, false, false, true, 0));break;        // No detJ
+        case 7 : pM_ptr = memory::make_shared( new gsMaxDetJac(mp_ptr,mappers));break;
+        case 8 : pM_ptr = memory::make_shared( new gsHarmonic(mp_ptr,mappers,false));break;        // No detJ
+    }
+
+    real_t m_eps = 0.00001;
+    if ( param == 1 || param == 2 || param == 3 || param == 4 || param == 6 )
+    {
+        (std::dynamic_pointer_cast< gsOptParamMethod >(pM_ptr))->m_dJC->setEps(m_eps);
+        (std::dynamic_pointer_cast< gsOptParamMethod >(pM_ptr))->setupOptParameters();
+    }
+
+    pM_ptr->update();
+
+    name = "detJProof.txt";
+    testValidity(*mp_ptr, name, quA, quB, output);
+
+    name = "mp";
+    gsWriteParaview(*mp_ptr, BASE_FOLDER + output + name,10000,true,true);
+
+    name = "cps";
+    flat = pM_ptr->getFlat();
+    saveVec(flat, BASE_FOLDER + output + name);
+
+
+    return 0;
+    
+}
 
 
 // Calculate E_{h/4} for a specific design, and write to file
@@ -3226,6 +3553,12 @@ if(optParamXML)
 
     scaleMP(*mp_uptr);
 
+    std::stringstream stream;
+    stream << BASE_FOLDER << output << "jig" << dim << "d_" << jig;
+    std::string nm = stream.str();
+    gsWriteParaview(*mp_uptr,nm,10000);
+
+    return 0; 
 
     gsMultiPatch<> mp(*mp_uptr);
     mp_ptr = memory::make_shared_not_owned(&mp);
