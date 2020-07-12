@@ -12,8 +12,8 @@ gs2NormConstraints::gs2NormConstraints(gsMultiPatch<>::Ptr mp, std::vector< gsDo
     m_b(b)
 {
 
-    GISMO_ASSERT(m_mappers[0].taggedSize() == m_mappers[1].taggedSize(), "Error, the same cps need to be tagged for all directions");
-    GISMO_ASSERT(m_mappers[0].taggedSize() == m_mappers[2].taggedSize(), "Error, the same cps need to be tagged for all directions");
+    //GISMO_ASSERT(m_mappers[0].taggedSize() == m_mappers[1].taggedSize(), "Error, the same cps need to be tagged for all directions");
+    //GISMO_ASSERT(m_mappers[0].taggedSize() == m_mappers[2].taggedSize(), "Error, the same cps need to be tagged for all directions");
 
     m_dim = m_mp->targetDim();
 
@@ -23,7 +23,7 @@ gs2NormConstraints::gs2NormConstraints(gsMultiPatch<>::Ptr mp, std::vector< gsDo
     {
         n_free += m_mappers[d].freeSize();
         if ( d > 0)
-            m_free_shift[d] = m_free_shift[d-1] + m_mappers[d].freeSize();
+            m_free_shift[d] = m_free_shift[d-1] + m_mappers[d-1].freeSize();
     }
 
     gsDebugVar(m_free_shift);
@@ -76,11 +76,12 @@ gsVector<> gs2NormConstraints::evalCon()
         if (k != -1) // If a constraint is attached to ii
         {
             // get local index (p,i);
-            std::pair< index_t, index_t > local = lindex(ii); 
+            std::pair< index_t, index_t > local = lindex(ii); // WHAT SHOULD d BE?
             index_t p = local.first;
             index_t i = local.second;
 
             out[k] = m_mp->patch(p).coef(i).squaredNorm();
+            //gsDebugVar(out[k]);
         }
     }
 
@@ -94,8 +95,43 @@ gsIpOptSparseMatrix gs2NormConstraints::getJacobian()
     gsMatrix<> jac(n_constraints,n_free);
     jac.setZero(n_constraints,n_free);
 
-    gsDebugVar(jac.rows());
-    gsDebugVar(jac.cols());
+    for (index_t ii = 0; ii < n_cps; ii++)
+    {
+        index_t k = constraintMap[ii];
+
+        if (k != -1) // If a constraint is attached to ii
+        {
+            // get local index (p,i) using m_mappers[0] index
+            std::pair< index_t, index_t > local = lindex(ii); // We use m_mappers[0] to map 
+            index_t p = local.first;
+            index_t i = local.second;
+
+            for (index_t d = 0; d < m_dim; d++) // For each component
+            {
+                // Get the m_mappers[d] index
+                if (!isFree(i,p,d)) continue; // Skip if i,p,d is not free
+
+                index_t jj = index(i, p, d); // Get global index of (i,p,d)
+                jac(k,jj) = 2*m_mp->patch(p).coef(i,d);
+
+            }
+        }
+    }
+
+    // FIXIT why are the norm sometimes 0?
+    //gsDebugVar(jac.norm());
+
+    // We have to use a dense matrix otherwise I got an error.! Perhaps fix this? FIXIT
+    gsIpOptSparseMatrix out(jac, -1); 
+
+    return out;
+}
+
+gsIpOptSparseMatrix gs2NormConstraints::getJacobian(gsVector<> free) 
+{
+
+    gsMatrix<> jac(n_constraints,n_free);
+    jac.setZero(n_constraints,n_free);
 
     for (index_t ii = 0; ii < n_cps; ii++)
     {
@@ -103,28 +139,33 @@ gsIpOptSparseMatrix gs2NormConstraints::getJacobian()
 
         if (k != -1) // If a constraint is attached to ii
         {
-            // get local index (p,i);
-            std::pair< index_t, index_t > local = lindex(ii); 
+            // get local index (p,i) using m_mappers[0] index
+            std::pair< index_t, index_t > local = lindex(ii); // We use m_mappers[0] to map 
             index_t p = local.first;
             index_t i = local.second;
 
             for (index_t d = 0; d < m_dim; d++) // For each component
             {
+                // Get the m_mappers[d] index
                 if (!isFree(i,p,d)) continue; // Skip if i,p,d is not free
 
                 index_t jj = index(i, p, d); // Get global index of (i,p,d)
                 jac(k,jj) = 2*m_mp->patch(p).coef(i,d);
+
+                gsInfo << "const " << k << ": " << i << ", " << p << " attach to " << jj << "\n"; 
+
+                gsDebugVar(m_mp->patch(p).coef(i,d) - free[jj]);
             }
         }
     }
 
-    // With 0 tolerance, we (hopefully) still predict sparsity pattern
-    // Note that some of the 'nonzero' entries are so close to zero that tol 1e-10 is too large
-    gsIpOptSparseMatrix out(jac, 0); 
+    // FIXIT why are the norm sometimes 0?
+    //gsDebugVar(jac.norm());
+
+    // We have to use a dense matrix otherwise I got an error.! Perhaps fix this? FIXIT
+    gsIpOptSparseMatrix out(jac, -1); 
 
     return out;
-
-
 }
 
 gsVector<> gs2NormConstraints::getUpperBounds() 
@@ -136,6 +177,8 @@ gsVector<> gs2NormConstraints::getUpperBounds()
         out[i] = m_b*m_b;
     }
 
+    return out;
+
 }
 
 gsVector<> gs2NormConstraints::getLowerBounds() 
@@ -146,6 +189,8 @@ gsVector<> gs2NormConstraints::getLowerBounds()
     {
         out[i] = m_a*m_a;
     }
+
+    return out;
 
 }
 
@@ -163,7 +208,6 @@ bool gs2NormConstraints::isACompTagged( index_t i , index_t p)
 bool gs2NormConstraints::isFree( index_t i, index_t p, index_t d)
 {
     return m_mappers[d].is_free(i,p); // If (i,p,d) is free
-
 }
 
 bool gs2NormConstraints::isACompFree( index_t i, index_t p)
@@ -182,10 +226,10 @@ index_t gs2NormConstraints::index( index_t i, index_t p, index_t d )
     return m_free_shift[d] + m_mappers[d].index(i,p);
 }
 
-std::pair< index_t, index_t > gs2NormConstraints::lindex( index_t ii )
+std::pair< index_t, index_t > gs2NormConstraints::lindex( index_t ii, index_t d )
 {
     std::vector< std::pair<index_t,index_t> > result;
-    m_mappers[0].preImage(ii, result);
+    m_mappers[d].preImage(ii, result);
 
     return result[0];
 }

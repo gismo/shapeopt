@@ -34,6 +34,7 @@
 #include "gsIpOptSparseMatrix.h"
 #include "gsShapeOptProblem.h"
 #include "gsShapeOptWithReg.h"
+#include "gsOptPotWavesWithReg.h"
 #include "gsOptAntenna.h"
 #include "gsOptPotWaves.h"
 #include "gsOptParam.h"
@@ -187,7 +188,7 @@ void convergenceTestOfDetJJacobian(gsOptParamMethod &pM){
 
 }
 
-void convergenceTestOfConstraintTagged(gsOptParamMethod &pM, gsConstraint &con){
+void convergenceTestOfConstraintFree(gsOptParamMethod &pM, gsConstraint &con){
 	// gsVector<> result = dJC.generateDResultVector();
 	// dJC.getDvectors(result);
 	gsVector<> result = con.evalCon();
@@ -3066,6 +3067,9 @@ cmd.addSwitch("useCorner", "use only a corner of multipatch", useCorner);
 bool usePow = false;
 cmd.addSwitch("usePow", "use winslow: JTJ/detJ^(2/d)", usePow);
 
+bool changeSign = false;
+cmd.addSwitch("changeSign", "change sign of detJ", changeSign);
+
 cmd.getValues(argc,argv);
 
 output = "/" + output;
@@ -3089,65 +3093,71 @@ if (potWave) {
     
     gsStateEquationPotWaves SE(numRefine);
     
-    SE.convergenceTestBessel( maxiter, BASE_FOLDER + output );
-    real_t timestep = 0.025*2*M_PI/SE.wave_omega;
+    //SE.convergenceTestBessel( maxiter, BASE_FOLDER + output );
+    //real_t timestep = 0.025*2*M_PI/SE.wave_omega;
     //SE.plotVelocityBessel(timestep , BASE_FOLDER + output + "velocity/veloc");
-    return 0;
+    //return 0;
     
     gsShapeOptLog slog1(output,true,false,false);
 	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
     gsMultiPatch<>::Ptr mp_ptr = SE.m_mp;
-    gsMultiBasis<> tmp(*mp_ptr);
-    gsDebugVar(tmp.size());
 
-    //gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
+    gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
 
     //convergenceTestOfJacobianAll(optPW);
 
-    /*
     gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
-    gsShapeOptWithReg optWR(mp_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps);
+    gsOptPotWavesWithReg optWR(mp_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps);
 
+    //convergenceTestOfJacobian(optPW);
+    //
+
+    
+    optPW.getTestMatrix();
+
+    gsInfo << " \n ================== \n";
+    gsInfo << " Objective : " << optPW_ptr->evalObj();
+
+    optWR.runOptimization();
+
+
+    // ========================================
+    // =========   Test constraints   =========
+    // ========================================
+    
+    /*
     gs2NormConstraints con2(mp_ptr,optWR.mappers(), 0.2, 0.5);
 
     gsWinslow win(mp_ptr,optWR.mappers(),false);
 
     gsInfo<< win.getTagged().transpose() << "\n\n\n";
-    convergenceTestOfConstraintTagged(win, con2);
-
-    gsInfo << con2.evalCon();
-    
-    gsInfo << " \n ================== \n";
+    convergenceTestOfConstraintFree(win, con2);
     */
-    //gsInfo << " Objective : " << optPW.evalObj();
+    //
+    //
+    //mp_ptr->closeGaps();
 
-    //convergenceTestOfFunction(fun, grad, hess);
-    //convergenceTestOfJacobian(optPW);
-    
-    
+    //con2.evalCon();
+    //con2.getJacobian(win.getFree());
 
-    /*
+    // ===========================k=============
+    // =========  Plot velocity field =========
+    // ========================================
+   /* 
     SE.setQuad(quA,quB);
  
     gsMultiPatch<> ur, ui;
     SE.solve(ur,ui);
- //
+ 
     SE.plotSolution(ur,BASE_FOLDER + output + "ur");
     SE.plotSolution(ui,BASE_FOLDER + output + "ui");
  
     real_t timestep = 0.025*2*M_PI/SE.wave_omega;
- //
+ 
     SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/veloc", true);
     SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/scatt", false);
     */
-    //SE.convergenceTest( maxiter, BASE_FOLDER + output );
-    //SE.convergenceTestNoPML_NoCenter( maxiter, BASE_FOLDER + output );
-    //SE.convergenceTestOnlyPMLAllDir( maxiter, BASE_FOLDER + output, lambda_1 );
-    //SE.pointSourceTestForce(BASE_FOLDER + output);
-    //SE.convergenceTestOnlyPML( maxiter , BASE_FOLDER + output );
-    //SE.testSplineSpace(maxiter);
-    //SE.convergenceTestNoPML( maxiter , BASE_FOLDER + output );
 
     gsInfo << "\n -------------- \n";
 
@@ -3316,11 +3326,16 @@ if (false)
 // Save as XML
 if (false)
 {
-   gsMultiPatch<> seastar = getSeastar();
+   gsMultiPatch<> jigsaw3d = getJigSaw3D(jig);
+
+   for (index_t i = 0; i < jigsaw3d.nBoxes(); i++)
+        changeSignOfDetJ(jigsaw3d.patch(i));
+
    gsFileData<> fd;//
-   fd << seastar;
+   fd << jigsaw3d;
 
    std::string name = BASE_FOLDER + output;
+   gsInfo << "Save in " << name << "\n";
    fd.save( name ); 
    return 0;
 }
@@ -3352,6 +3367,12 @@ if(paramTestXML)
     }
 
     scaleMP(*mp_uptr);
+
+    if (changeSign)
+    {
+        for (index_t i = 0; i < mp_uptr->nBoxes(); i++)
+            changeSignOfDetJ(mp_uptr->patch(i));
+    }
 
     gsMultiPatch<> mp(*mp_uptr);
     mp_ptr = memory::make_shared_not_owned(&mp);
@@ -3551,14 +3572,18 @@ if(optParamXML)
 	    }
     }
 
+    if (changeSign)
+    {
+        for (index_t i = 0; i < mp_uptr->nBoxes(); i++)
+            changeSignOfDetJ(mp_uptr->patch(i));
+    }
+
     scaleMP(*mp_uptr);
 
-    std::stringstream stream;
-    stream << BASE_FOLDER << output << "jig" << dim << "d_" << jig;
-    std::string nm = stream.str();
-    gsWriteParaview(*mp_uptr,nm,10000);
-
-    return 0; 
+    //std::stringstream stream;
+    //stream << BASE_FOLDER << output << "jig" << dim << "d_" << jig;
+    //std::string nm = stream.str();
+    //gsWriteParaview(*mp_uptr,nm,10000);
 
     gsMultiPatch<> mp(*mp_uptr);
     mp_ptr = memory::make_shared_not_owned(&mp);

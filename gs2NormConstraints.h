@@ -22,6 +22,7 @@ public:
     gsVector<> evalCon();
 
     gsIpOptSparseMatrix getJacobian();
+    gsIpOptSparseMatrix getJacobian(gsVector<> free);
 
     gsVector<> getUpperBounds();
     gsVector<> getLowerBounds();
@@ -31,7 +32,7 @@ public:
     bool isACompFree( index_t i, index_t p);      // Is local index free in some component
     bool isFree( index_t i, index_t p, index_t d);      // Is local index (i,p,d) free ?
     index_t index( index_t i, index_t p, index_t d = 0);       // Get global index from (i,p,d)
-    std::pair< index_t, index_t > lindex( index_t ii );                     // Get local index (p,i) from global
+    std::pair< index_t, index_t > lindex( index_t ii, index_t d = 0);                     // Get local index (p,i) from global
 
 public:
 

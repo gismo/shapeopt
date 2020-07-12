@@ -108,6 +108,90 @@ class dJacdc_expr : public _expr<dJacdc_expr<E> >
     void print(std::ostream &os) const { os << "dJacdc("; _u.print(os); os <<")"; }
 };
 
+template <typename E1, typename E2>
+class my_collapse_expr : public _expr<my_collapse_expr<E1, E2> >
+{
+    typename E1::Nested_t _u;
+    typename E2::Nested_t _v;
+
+public:
+    enum {ScalarValued = 0, ColBlocks = 0};
+    enum { Space = E1::Space || E2::Space};
+
+    typedef typename E1::Scalar Scalar;
+
+    mutable gsMatrix<Scalar> res;
+
+    my_collapse_expr(_expr<E1> const& u,
+              _expr<E2> const& v)
+    : _u(u), _v(v) { }
+
+    //EIGEN_STRONG_INLINE MatExprType
+    const gsMatrix<Scalar> &
+    eval(const index_t k) const
+    {
+        const index_t nb = rows();
+        const MatExprType tmpA = _u.eval(k);
+        const MatExprType tmpB = _v.eval(k);
+
+        /*
+        gsDebugVar(nb);
+        gsDebugVar(tmpA.rows());
+        gsDebugVar(tmpA.cols());
+        gsDebugVar(tmpB.rows());
+        gsDebugVar(tmpB.cols());
+        gsDebugVar(_v.rows());
+        gsDebugVar(E1::ColBlocks);
+        gsDebugVar(E2::ColBlocks);
+        */
+
+        if (E1::ColBlocks)
+        {
+            const index_t ur = _v.rows();
+            res.resize(nb, ur);
+            for (index_t i = 0; i!=nb; ++i)
+            {
+                res.row(i).transpose().noalias() = tmpA.middleCols(i*ur,ur) * tmpB;
+            }
+        }
+        else if (E2::ColBlocks)
+        {
+            const index_t ur = _u.cols();
+            res.resize(nb, ur);
+            for (index_t i = 0; i!=nb; ++i)
+            {
+                res.row(i).noalias() = tmpA * tmpB.middleCols(i*ur,ur);
+            }
+        }
+
+        return res;
+    }
+
+    index_t rows() const { return E1::ColBlocks ? _u.cols() / _v.rows() : _v.cols() / _u.cols() ; }
+    index_t cols() const { return E1::ColBlocks ? _v.rows()  : _u.cols(); }
+    void setFlag() const { _u.setFlag(); _v.setFlag(); }
+    void parse(gsSortedVector<const gsFunctionSet<Scalar>*> & evList) const
+    { _u.parse(evList); _v.parse(evList); }
+
+    static constexpr bool rowSpan() { return E1::Space ? E1::rowSpan() : E2::rowSpan(); }
+    static bool colSpan() { return E2::Space ? E2::colSpan() : E1::colSpan(); }
+
+    const gsFeSpace<Scalar> & rowVar() const
+    { return E1::ColBlocks ? _u.rowVar() : _v.rowVar(); }
+    const gsFeSpace<Scalar> & colVar() const
+    {
+        GISMO_ERROR("none");
+    }
+
+    void print(std::ostream &os) const { _u.print(os); os<<"my~"; _v.print(os); }
+};
+
+// Multi-matrix collapsed by a vector
+template <typename E1, typename E2> //EIGEN_STRONG_INLINE
+//collapse_expr<E1,E2> const  operator&(<E1> const& u, _expr<E2> const& v)
+my_collapse_expr<E1,E2> my_collapse( _expr<E1> const& u, _expr<E2> const& v)
+{ return my_collapse_expr<E1, E2>(u, v); }
+
 /*
    Expression for the transpose Jacobian matrix of a FE variable - Local to ASGL
  */

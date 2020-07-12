@@ -99,6 +99,9 @@ public:
     // Get the vector of all control points in flat layout (one patch at a time)
     gsVector<> getFlat() const;
 
+    // Get the vector of all global control points 
+    gsVector<> getAll() const;
+
     // Update from vector of all control points in flat layout (one patch at a time)
     void updateFlat(gsVector<> flat) const;
 

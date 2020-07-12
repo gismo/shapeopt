@@ -342,13 +342,29 @@ void gsParamMethod::updateFreeAndTagged(gsVector<> des, gsVector<> x) const
 
 gsVector<> gsParamMethod::getControlPoints() const
 {
-
     gsVector<> out(n_flat);
     for(index_t p = 0; p < m_mp->nBoxes(); p++){
         for(index_t i = 0; i < m_mp->patch(p).coefsSize(); i++){
             for(index_t d = 0; d < m_mp->targetDim(); d++){
                 index_t ii = m_mappers[d].index(i,p) + m_shift_all[d];
                 out[ii] = m_mp->patch(p).coef(i,d);
+            }
+        }
+    }
+    return out;
+}
+
+gsVector<> gsParamMethod::getAll() const
+{
+
+    gsVector<> out(n_cps);
+    for(index_t p = 0; p < m_mp->nBoxes(); p++){
+        for(index_t i = 0; i < m_mp->patch(p).coefsSize(); i++){
+            for(index_t d = 0; d < m_mp->targetDim(); d++){
+                index_t ii = m_mappers[d].index(i,p);
+                index_t gl = ii + m_shift_all[d];
+
+                out[gl] = m_mp->patch(p).coef(i,d);
             }
         }
     }

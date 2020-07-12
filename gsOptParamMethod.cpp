@@ -75,6 +75,9 @@ bool gsOptParamMethod::update()
     m_curDesign = getFree();
     solve();
 
+    gsInfo << "MIN DETJ CONST: " << m_dJC->evalCon().minCoeff() << "\n";
+    gsInfo << "m_eps: " << m_dJC->m_eps << "\n";
+
     return m_status; // Return status from optimization, see gsOptProblem.h for details
 
 };

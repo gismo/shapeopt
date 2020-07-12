@@ -559,26 +559,46 @@ void gsStateEquationPotWaves::constructor()
     // Streching functions for PML
     gsInfo << "\n Pml : \n";
 
+    // the factor (-1)^(n-1) makes sure that the sign is (-1) for even n and 1 for odd n
+    //    since we need f'(x) > 0 when xtilde = x + if(x).
+    std::string f_x_expr =  
+        "switch                                                             "
+        "{                                                                  "
+        "   case (x < - lx)  : C/(omega * (Lx - lx)^n)*(- x - lx)^ ( n );   "
+        "   case (x >   lx)  : - C/(omega * (Lx - lx)^n)*(x - lx)^ ( n );     "
+        "   default          : 0;                                           "
+        "}                                                                  ";
+
+    std::string f_y_expr =  
+        "switch                                                             "
+        "{                                                                  "
+        "   case (y < - ly)  : C/(omega * (Ly - ly)^n)*(- y - ly)^ ( n );   "
+        "   case (y >   ly)  : - C/(omega * (Ly - ly)^n)*(y - ly)^ ( n );     "
+        "   default          : 0;                                           "
+        "}                                                                  ";
+
+    complexExpr strech_x("x",f_x_expr);
+    complexExpr strech_y("y",f_y_expr);
+
     std::string dsx_expr_im = 
         "switch                                                             "
         "{                                                                  "
-        "   case (x < - lx)  : n*C/(omega * (Lx - lx)^n)*(- x - lx)^(n - 1);   "
-        "   case (x >   lx)  : n*C/(omega * (Lx - lx)^n)*(x - lx)^(n - 1);     "
+        "   case (x < - lx)  : - n*C/(omega * (Lx - lx)^n)*( - x - lx)^(n - 1);   "
+        "   case (x >   lx)  : - n*C/(omega * (Lx - lx)^n)*(x - lx)^(n - 1);     "
         "   default          : 0;                                           "
         "}                                                                  ";
         
     std::string dsy_expr_im = 
         "switch                                                             "
         "{                                                                  "
-        "   case (y < - ly)  : n*C/(omega * (Ly - ly)^n)*(- y - ly)^(n - 1);   "
-        "   case (y >   ly)  : n*C/(omega * (Ly - ly)^n)*(y - ly)^(n - 1);     "
+        "   case (y >   ly)  : - n*C/(omega * (Ly - ly)^n)*(y - ly)^(n - 1);     "
         "   default          : 0;                                           "
         "}                                                                  ";
 
     std::string dsz_expr_im = 
         "switch                                                             "
         "{                                                                  "
-        "   case (z < - lz)  : n*C/(omega * (Lz - lz)^n)*(- z - lz)^(n - 1);   "
+        "   case (z < - lz)  :  - n*C/(omega * (Lz - lz)^n)*( - z - lz)^(n - 1);   "
         "   default          : 0;                                           "
         "}                                                                  ";
     
@@ -591,9 +611,6 @@ void gsStateEquationPotWaves::constructor()
 
     strech_detJ_re = detJ.getFunRe(const_map);
     strech_detJ_im = detJ.getFunIm(const_map);
-
-    strech_detJ_len_re = detJ.getFunRe(const_map);
-    strech_detJ_len_im = detJ.getFunIm(const_map);
 
     complexExpr dstrech_x_inv = dstrech_x.inv();
     complexExpr dstrech_y_inv = dstrech_y.inv();
@@ -611,24 +628,6 @@ void gsStateEquationPotWaves::constructor()
     strech_detJ_Jm1_Jm1_asVec_re = getVectorFunRe(const_map, xcomp, ycomp, zcomp);
     strech_detJ_Jm1_Jm1_asVec_im = getVectorFunIm(const_map, xcomp, ycomp, zcomp);
 
-    std::string f_x_expr =  
-        "switch                                                             "
-        "{                                                                  "
-        "   case (x < - lx)  : - C/(omega * (Lx - lx)^n)*(- x - lx)^ ( n );   "
-        "   case (x >   lx)  : C/(omega * (Lx - lx)^n)*(x - lx)^ ( n );     "
-        "   default          : 0;                                           "
-        "}                                                                  ";
-
-    std::string f_y_expr =  
-        "switch                                                             "
-        "{                                                                  "
-        "   case (y < - ly)  : - C/(omega * (Ly - ly)^n)*(- y - ly)^ ( n );   "
-        "   case (y >   ly)  : C/(omega * (Ly - ly)^n)*(y - ly)^ ( n );     "
-        "   default          : 0;                                           "
-        "}                                                                  ";
-
-    complexExpr strech_x("x",f_x_expr);
-    complexExpr strech_y("y",f_y_expr);
     //complexExpr strech_x("x1","y1");
     //complexExpr strech_y("x1","y2");
 
@@ -958,6 +957,8 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomain(bool includeCenter
     out->computeTopology();
 
     out->uniformRefine();
+    out->degreeElevate(m_degree-1);
+    out->closeGaps();
 
 
     return out;
@@ -1407,13 +1408,13 @@ void gsStateEquationPotWaves::convergenceTestBessel(index_t max_refine, std::str
     useDirRI = true;
     convTestHelper(false, false, max_refine, outfolder);
 
-    gsMultiPatch<> ur, ui;
-    solve(ur,ui);
-    
+    gsDebugVar(m_ur); 
+    gsDebugVar(m_ui); 
     real_t timestep = 0.025*2*M_PI/wave_omega;
     std::string vfold = "velocity/";
     gsInfo << "Does " << outfolder + vfold << " exist? \n\n";
-    plotVelocityField(ur,ui,timestep,outfolder + vfold,false); // false means to only plot 'scattering field'
+    plotVelocityField(m_ur,m_ui,timestep,outfolder + vfold,false); // false means to only plot 'scattering field'
+    
 
     useDirRI = false;
 
@@ -1787,12 +1788,15 @@ void gsStateEquationPotWaves::solve(gsMultiPatch<> &u_real, gsMultiPatch<> &u_im
         //gsInfo << "Norm of solVector_imag : " << solVector_Imag.norm() << "\n";
         //gsInfo << "Norm of u_sol : " << ev.integral(u_sol_imag.sqNorm()) << "\n";
 
-        gsExprAssembler<>::variable utest = ev.getVariable(u_imag);
-        ev.options().setInt("plot.npts", 8000);
+        //gsExprAssembler<>::variable utest = ev.getVariable(u_imag);
+        //ev.options().setInt("plot.npts", 8000);
         //gsInfo << "Norm of utest : " << ev.integral(utest) << "\n";
 
-        ev.writeParaview( utest, G, "test");
+        //ev.writeParaview( utest, G, "test");
+        //
 
+        m_ur = u_real;
+        m_ui = u_imag;
 
 
 
@@ -1920,16 +1924,16 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
     auto laplace_term_real = igrad(u,G)*(dJJJ_re*igrad(u,G).tr())*meas(G);
     auto laplace_term_imag = igrad(u,G)*(dJJJ_im*igrad(u,G).tr())*meas(G);
 
-    variable dJ_le_re = A.getCoeff(*strech_detJ_len_re,G);
-    variable dJ_le_im = A.getCoeff(*strech_detJ_len_im,G);
+    variable dJ_re = A.getCoeff(*strech_detJ_re,G);
+    variable dJ_im = A.getCoeff(*strech_detJ_im,G);
 
     // Zero
     gsFunctionExpr<> zerfun("0.0",3);
     variable zer = ev.getVariable(zerfun);
 
 	// Helmholtz Term
-	auto helmholtz_term_real = - wave_K*u*u.tr()*dJ_le_re.val()*nv(G).norm();
-	auto helmholtz_term_imag = - wave_K*u*u.tr()*dJ_le_im.val()*nv(G).norm();
+	auto helmholtz_term_real = - wave_K*u*u.tr()*dJ_re.val()*nv(G).norm();
+	auto helmholtz_term_imag = - wave_K*u*u.tr()*dJ_im.val()*nv(G).norm();
 
 	// Rhs
 	variable F_real = A.getCoeff(*pde_F_re,G);
@@ -1958,11 +1962,8 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
 	// Rhs Bell
     //
 	variable laplU_real = A.getCoeff(*lapl_uEx,G);
-    variable dJ_re = A.getCoeff(*strech_detJ_re,G);
 
 	auto rhs_force_real = laplU_real.val()*dJ_re.val()*u*meas(G);
-
-    variable dJ_im = A.getCoeff(*strech_detJ_im,G);
 
 	auto rhs_force_imag = laplU_real.val()*dJ_im.val()*u*meas(G);
 
@@ -2083,8 +2084,8 @@ gsMatrix<> gsStateEquationPotWaves::getDerivativeOfAu(index_t realOrImag, gsMult
     variable solVar = A.getCoeff(sol);
     variable zer = A.getCoeff(zero,G);
 
-    variable dJ_le_re = A.getCoeff(*strech_detJ_len_re,G);
-    variable dJ_le_im = A.getCoeff(*strech_detJ_len_im,G);
+    variable dJ_re = A.getCoeff(*strech_detJ_re,G);
+    variable dJ_im = A.getCoeff(*strech_detJ_im,G);
 
     variable detJJm1Jm1_asVec_re = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_re,G);
     variable detJJm1Jm1_asVec_im = A.getCoeff(*strech_detJ_Jm1_Jm1_asVec_im,G);
@@ -2111,7 +2112,7 @@ gsMatrix<> gsStateEquationPotWaves::getDerivativeOfAu(index_t realOrImag, gsMult
 	// Helmholtz Term
 	//auto helmholtz_term_real = - wave_K*u*u.tr()*dJ_le_re.val()*nv(G).norm();
     //auto d_helm_real_term1 = - wave_K * nvDeriv(v,G)*nv(G)/nv(G).norm()*u.tr()*dJ_le_re.val();
-    auto d_helm_real_term1 = - wave_K*nvDeriv(v,G)*nv(G)/nv(G).norm()*solVar.val()*u.tr()*dJ_le_re.val();
+    auto d_helm_real_term1 = - wave_K*nvDeriv(v,G)*nv(G)/nv(G).norm()*solVar.val()*u.tr()*dJ_re.val();
     // FIXIT : if helmholtx term is complex you need to differentiate the imaginary term also :)
 
     //auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
@@ -2299,7 +2300,6 @@ void gsStateEquationPotWaves::getObjFunctions(
 }
 
 void gsStateEquationPotWaves::getBessel()
-
 {
     std::stringstream stream;
     stream.precision(12);
@@ -2374,7 +2374,7 @@ void gsStateEquationPotWaves::getBessel()
 
     stream.clear();
     stream.str(std::string());
-    stream << "- exp( " << wave_K << " * z ) *(" << Y0str << ")";
+    stream << "-exp( " << wave_K << " * z ) *(" << Y0str << ")";
     std::string mY0exp_str = stream.str();
 
     pde_bessel_J0exp = memory::make_unique( new gsFunctionExpr<>(J0exp_str, 3) );

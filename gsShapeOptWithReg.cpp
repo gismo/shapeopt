@@ -34,6 +34,7 @@ gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memo
 
 real_t gsShapeOptWithReg::evalObj() const
 {
+    //gsInfo << "EVALOBJ\n" << std::flush;
     real_t winslow = m_winslow->evalObj();
     if ( std::isinf(winslow) )
         return winslow;
@@ -46,6 +47,8 @@ real_t gsShapeOptWithReg::evalObj() const
 
 gsVector<> gsShapeOptWithReg::gradObj() const
 {
+    //gsInfo << "GRADOBJ\n" << std::flush;
+
     gsVector<> gradAll = m_opt->gradAll() + m_eps * m_winslow->gradAll();
     gsVector<> out = m_winslow->mapMatrix(m_opt->mapper_grad(),gradAll);
     return out;
@@ -158,14 +161,18 @@ void gsShapeOptWithReg::setupMappers()
 
 real_t gsShapeOptWithReg::evalObj( const gsAsConstVector<real_t> & u ) const
 {
-    m_winslow->updateFree(u);
+    updateDesignVariables(u);
     return evalObj();
 }
 
 void gsShapeOptWithReg::gradObj_into ( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result ) const
 {
-    m_winslow->updateFree(u);
     result = gradObj();
+}
+
+void gsShapeOptWithReg::updateDesignVariables(gsVector<> u) const
+{
+    m_winslow->updateFree(u);
 }
 
 void gsShapeOptWithReg::setupOptParameters()
@@ -204,10 +211,11 @@ void gsShapeOptWithReg::setupOptParameters()
     // out << m_desLowerBounds, m_desUpperBounds;
     // gsInfo << out;
 
-    // Default constraints are the gsDetJacConstraints
-    // Call once to setup solver
-    // m_dJC->evalCon();
+    setupConstraints();
+}
 
+void gsShapeOptWithReg::setupConstraints()
+{
     m_numConstraints = 0;
     m_numConJacNonZero = 0;
 }
@@ -289,13 +297,15 @@ void gsShapeOptWithReg::runOptimizationUntilPosDetJ(index_t maxiter, real_t k, i
     *m_log << "N.o. tagged cps: " << n_tagged << "\n";
     *m_log << "N.o. flat cps: " << n_flat << "\n\n";
 
-    *m_log << "m_eps = " << m_eps << "\n\n";
+    *m_log << "Start with m_eps = " << m_eps << "\n";
 
     // gsInfo << "DoFs for analysis: " << m_stateEq.dbasis.size() << "\n";
 
     counter2 = 0;
 
-    *m_log << "factor to decrease m_eps; k = " << k << "\n\n";
+    *m_log << "   and factor to decrease m_eps; k = " << k << "\n\n";
+
+    *m_log << "---- Run Optimization Until Positive Det J ----\n";
 
     // Run optimization
     for (index_t i = 0; i < maxiter; i++){
@@ -307,37 +317,69 @@ void gsShapeOptWithReg::runOptimizationUntilPosDetJ(index_t maxiter, real_t k, i
         // Solve the current optimization problem
         solve();
 
+        // Save the result in a paraview file
         std::string name = "mp";
         m_log->plotInParaview(*m_mp,name,i);
 
+        // Compute the smallest value of detJ in quadrature pts
+        real_t minDJ0 = m_winslow->minDetJInGaussPts(0);    // The pts we use in the optimization
+        real_t minDJ15 = m_winslow->minDetJInGaussPts(15);  // 15 additional pts (quA,quB+15)
+        *m_log << "Smallest value of detJ mp in quad pts \t\t: " << minDJ0 << "\n";
+        *m_log << "Smallest value of detJ mp in 15 extra pts \t: " << minDJ15 << "\n";
 
+        // Check wether to increse quad pts
+        if ((minDJ0 - minDJ15)/minDJ15 > 1e-3)
+        {
+            real_t quA = m_winslow->m_quA;
+            real_t quB = m_winslow->m_quB;
+
+            real_t quAnew = quA + 1;
+            real_t quBnew = quB + 1;
+            m_winslow->setQuad(quAnew, quBnew);
+
+            *m_log << "Relative difference in detJ value: " << (minDJ0 - minDJ15)/minDJ15 << "\n";
+            *m_log << "Increase (quA,quB) from (" << quA << ", " << quB << ") to (";
+            *m_log << quAnew << ", " << quBnew << ")\n";
+
+        }
+
+        // Increase counter and decrease m_eps
         counter2++;
-
         m_eps *= k;
 
+        // Snap bnd control points
         gsMultiPatch<> snapped  = (std::dynamic_pointer_cast< gsOptParam >(m_opt))->getSnapped();
         gsMultiPatch<>::Ptr snapped_ptr = memory::make_shared_not_owned(&snapped);
 
+        // Save the snapped domain
         name = "snapped";
         m_log->plotInParaview(snapped,name,i);
 
+        // Construct gsDetJacConstraint
         gsInfo << "construct dJC\n";
         gsDetJacConstraint dJC(snapped_ptr, true); // True means that we use tensor product structure
-        gsWinslow tmp(snapped_ptr, false);
-
         index_t neededSteps;
+
+        // Construct temporary Winslow method
+        gsWinslow tmp(snapped_ptr, false);
     
         gsInfo << "compute minDetJInGauss\n";
-        real_t minGaussD = tmp.minDetJInGaussPts(15);
-        if (minGaussD < 0)
+        real_t minDetJ0_snapped = tmp.minDetJInGaussPts(0);
+        real_t minDetJ15_snapped = tmp.minDetJInGaussPts(15);
+
+        gsInfo << "detJ value of of snapped :" << minDetJ0_snapped << " \n";
+        gsInfo << "detJ value of of snapped :" << minDetJ15_snapped << " \n";
+        *m_log << "detJ value of of snapped :" << minDetJ0_snapped << " \n";
+        *m_log << "detJ value of of snapped :" << minDetJ15_snapped << " \n";
+
+        if (minDetJ15_snapped < 0)
         {
-            gsInfo << "detJ value of " << minGaussD << " detected, continues.\n";
-            *m_log << "detJ value of " << minGaussD << " detected, continues.\n";
+            gsInfo << "Negative detJ of snapped found, continues!\n\n";
+            *m_log << "Negative detJ of snapped found, continues!\n\n";
             continue;
         }
-        gsInfo << "smalles value of detJ found : " << minGaussD << "\n";
-        *m_log << "smalles value of detJ found : " << minGaussD << "\n";
 
+        gsInfo << "Positive detJ of snapped found, continues!\n\n";
         gsInfo << "compute detJ coefs\n";
         real_t minD = dJC.provePositivityOfDetJ_TP(neededSteps, maxRef);
 

@@ -1,6 +1,7 @@
 #include <gismo.h>
 #include "gsOptPotWaves.h"
 #include "gsMyExpressions.h"
+#include "gsStateEquationPotWaves.h"
 
 // Implement
 gsOptPotWaves::gsOptPotWaves(gsMultiPatch<>::Ptr mp, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, index_t param, real_t quA, index_t quB, bool useDetJCons, bool use_Lagrangian):
@@ -9,6 +10,8 @@ gsOptPotWaves::gsOptPotWaves(gsMultiPatch<>::Ptr mp, index_t numRefine, memory::
     setupMappers();
 
     constructor(param, quA, quB, use_Lagrangian);
+
+    getTestMatrix();
 
 }
 
@@ -74,9 +77,19 @@ gsDofMapper gsOptPotWaves::mapper_grad() const {
 }
 
 real_t gsOptPotWaves::evalObj() const {
-    gsMultiPatch<> u_real,u_imag;
-    m_stateEq.solve(u_real,u_imag);
+    //gsMultiPatch<> u_real,u_imag;
+    //gsVector<> uvec_real, uvec_imag;
+    //m_stateEq.solve(u_real,u_imag, uvec_real, uvec_imag);
 
+    //getObjVec();
+    //gsVector<> out =  m_objVec_re.transpose()*uvec_real + m_objVec_im.transpose()*uvec_imag;
+    //return out[0];
+    
+    gsVector<> flat = m_paramMethod->getFlat();
+
+    return 0.5*flat.transpose()*m_testMatrix*flat;
+
+    /*
     gsExprAssembler<> A(1,1);
     gsExprEvaluator<> ev(A);
 
@@ -100,25 +113,34 @@ real_t gsOptPotWaves::evalObj() const {
     //
 
     // FIXIT: shouldn't I multiply with 0.5 for this to work?
-    return ev.integral(u_r.sqNorm());
+    gsDebugVar(out);
+    gsDebugVar(ev.integral(u_r));
+    return ev.integral(u_r);
+    */
+    
 
 }
 
 gsVector<> gsOptPotWaves::gradAll() const{
-    gsMultiPatch<> u_real,u_imag;
-    m_stateEq.solve(u_real,u_imag);
+    //gsMultiPatch<> u_real,u_imag;
+    //gsVector<> uvec_real, uvec_imag;
+    //m_stateEq.solve(u_real,u_imag, uvec_real, uvec_imag);
 
-    gsMatrix<> mat = m_stateEq.getDerivativeWithoutSolving(u_real,u_imag);
+    //gsMatrix<> mat = m_stateEq.getDerivativeWithoutSolving(u_real,u_imag);
 
-    gsVector<> dJdu = getObjDerivativeDu(u_real,u_imag);
+    //gsVector<> dJdu = getObjDerivativeDu(u_real,u_imag);
 
-    gsVector<> adjoint = m_stateEq.solveAdjoint(dJdu);
+    //gsVector<> adjoint = m_stateEq.solveAdjoint(dJdu);
 
-    // m_stateEq.printMatSize(mat,"mat");
-    // m_stateEq.printMatSize(adjoint,"adjoint");
-    gsVector<> term2 = adjoint.transpose()*mat;
+    //// m_stateEq.printMatSize(mat,"mat");
+    //// m_stateEq.printMatSize(adjoint,"adjoint");
+    //gsVector<> term2 = adjoint.transpose()*mat;
 
-    return (getObjDerivativeDc(u_real,u_imag) + term2);
+    //return (getObjDerivativeDc(uvec_real,uvec_imag) + term2);
+    //
+    gsVector<> flat = m_paramMethod->getFlat();
+
+    return m_testMatrix*flat;
 }
 
 // Adjoint method for sensitivities.
@@ -149,6 +171,7 @@ void gsOptPotWaves::setupMapperGrad()
     A.initSystem();
 
     m_mapper_grad = u.mapper();
+    m_mapper_grad_exist = true;
 }
 
 void gsOptPotWaves::setupMappers()
@@ -197,7 +220,14 @@ void gsOptPotWaves::setupMappers()
             for (index_t j = 0; j < boundaryDofs.size(); j ++)
             {
                 for( index_t d = 0; d < m_dim; d++)
-                    m_mappers[d].markTagged(boundaryDofs[j],ps.patch); 
+                {
+                    index_t i = boundaryDofs[j];
+
+                    // Skip if cps(i,p,d) == 0
+                    if (m_mp->patch(ps.patch).coef(i,d) == 0) continue;
+
+                    m_mappers[d].markTagged(i,ps.patch); 
+                }
             }
         }
     }
@@ -223,15 +253,36 @@ void gsOptPotWaves::eliminatePatch(index_t p)
     }
 }
 
-//FIXIT: implement
+//FIXIT: implemen
 void gsOptPotWaves::setupDesignBounds()
 {
-    m_desLowerBounds.setZero(n_tagged);
-    m_desUpperBounds.setZero(n_tagged);
+    m_desLowerBounds.setConstant(n_tagged,-1e3);
+    m_desUpperBounds.setConstant(n_tagged,1e3);
+
+    gsVector<> tagged = m_paramMethod->getTagged();
+    for (index_t i = 0; i < n_tagged; i++)
+    {
+        if( i < m_paramMethod->m_shift_tagged[1])     // Direction x
+            continue;
+        else if( i < m_paramMethod->m_shift_tagged[2])// Direction y
+            m_desLowerBounds[i] = 0;
+        else                            // Direction z
+            m_desUpperBounds[i] = 0;
+    }
+
+    //gsMatrix<> disp(n_tagged,3);
+    //disp << m_desLowerBounds, tagged, m_desUpperBounds;
+    //gsInfo << "\n" << disp << "\n";
 }
 
 // Derivative of obj wrt c (not inlcuding du/dc terms)
-gsVector<> gsOptPotWaves::getObjDerivativeDc(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const{
+gsVector<> gsOptPotWaves::getObjDerivativeDc(gsVector<> &u_real, gsVector<> &u_imag) const{
+
+    getGradObjMat();
+
+    return m_gradObjMat_re*u_real + m_gradObjMat_im*u_imag;
+
+    /*
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(m_stateEq.dbasis);
@@ -259,9 +310,12 @@ gsVector<> gsOptPotWaves::getObjDerivativeDc(gsMultiPatch<> &u_real, gsMultiPatc
     out.setZero(A.rhs().rows(),1);
 
     return out;
+    */
 }
 
-gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const{
+gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const
+{
+    /*
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(m_stateEq.dbasis);
@@ -292,7 +346,7 @@ gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatc
 
     A.initSystem();
     // A.assemble(df.val()*du*meas(G));
-    A.assemble(2*du*u_r);
+    A.assemble(du);
 
     gsVector<> vec_re = A.rhs();
 
@@ -301,10 +355,13 @@ gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatc
     // A.assemble(df.val()*2*u_i.val()*du*meas(G));
 
     gsVector<> vec_im = A.rhs();
+    */
+    getObjVec();
 
     gsVector<> out;
-    out.setZero(A.rhs().rows()*2);
-    out << vec_re,vec_im;
+    out.setZero(m_objVec_re.rows()*2);
+    out << m_objVec_re,m_objVec_im;
+    
 
     return out;
 }
@@ -343,3 +400,159 @@ bool gsOptPotWaves::isCpsInDomain(index_t i, index_t p, index_t dim)
 
 }
 
+void gsOptPotWaves::getObjVec() const {
+
+    gsExprAssembler<> A(1,1);
+    gsExprEvaluator<> ev(A);
+
+    ev.options().setInt("quB",m_stateEq.quA()); // FIXIT lower no points
+    ev.options().setReal("quA",m_stateEq.quB()); // FIXIT lower no points
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    geometryMap G = A.getMap(*m_mp);
+    gsMultiBasis<> dbasis(m_stateEq.dbasis);
+    A.setIntegrationElements(dbasis);
+
+    space u = A.getSpace(dbasis);
+    u.setInterfaceCont(0);
+
+
+    /*gsFunctionExpr<> zerfun("0.0",3);
+    variable zer = ev.getVariable(zerfun);
+    auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
+    auto zero_vec = zer.val()*u*nv(G).norm();     // Perhaps I need to multiply with u;
+    */
+
+    gsFunctionExpr<>::uPtr expKzpiKx_re, expKzpiKx_im;
+    m_stateEq.getObjFunctions( expKzpiKx_re, expKzpiKx_im);
+
+    variable exp_re = A.getCoeff(*expKzpiKx_re,G);
+    variable exp_im = A.getCoeff(*expKzpiKx_im,G);
+
+    gsFunctionExpr<>::uPtr grad_expKzpiKx_re, grad_expKzpiKx_im, hess_asVec_expKzpiKx_re, hess_asVec_expKzpiKx_im;
+    m_stateEq.getObjFunctions(grad_expKzpiKx_re, grad_expKzpiKx_im, hess_asVec_expKzpiKx_re, hess_asVec_expKzpiKx_im);
+
+    variable gexp_re = A.getCoeff(*grad_expKzpiKx_re,G);
+    variable gexp_im = A.getCoeff(*grad_expKzpiKx_im,G);
+
+    A.initSystem();
+    A.assemble(exp_im.val()*igrad(u,G)*nv(G));//*nv(G).norm());
+    A.assemble( - u*(gexp_im.tr()*nv(G)));//*nv(G).norm());
+    m_objVec_re =  - 2 * A.rhs();
+
+    A.initSystem();
+    A.assemble(exp_re.val()*igrad(u,G)*nv(G));//*nv(G).norm());
+    A.assemble( - u*(gexp_re.tr()*nv(G)));//*nv(G).norm());
+    m_objVec_im =  - 2 * A.rhs();
+
+}
+
+void gsOptPotWaves::getGradObjMat() const
+{
+    gsExprAssembler<> A(1,1);
+    gsExprEvaluator<> ev(A);
+
+    ev.options().setInt("quB",m_stateEq.quA()); // FIXIT lower no points
+    ev.options().setReal("quA",m_stateEq.quB()); // FIXIT lower no points
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    geometryMap G = A.getMap(*m_mp);
+    gsMultiBasis<> dbasis(m_stateEq.dbasis);
+    gsMultiBasis<> gbasis(*m_mp);
+    A.setIntegrationElements(dbasis);
+
+    space u = A.getSpace(dbasis);
+    u.setInterfaceCont(0);
+
+    space v = A.getTestSpace(u,gbasis,m_dim);
+
+    /*gsFunctionExpr<> zerfun("0.0",3);
+    variable zer = ev.getVariable(zerfun);
+    auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
+    auto zero_vec = zer.val()*u*nv(G).norm();     // Perhaps I need to multiply with u;
+    */
+
+    gsFunctionExpr<>::uPtr expKzpiKx_re, expKzpiKx_im;
+    m_stateEq.getObjFunctions( expKzpiKx_re, expKzpiKx_im);
+
+    variable exp_re = A.getCoeff(*expKzpiKx_re,G);
+    variable exp_im = A.getCoeff(*expKzpiKx_im,G);
+
+    gsFunctionExpr<>::uPtr grad_expKzpiKx_re, grad_expKzpiKx_im, hess_asVec_expKzpiKx_re, hess_asVec_expKzpiKx_im;
+    m_stateEq.getObjFunctions(grad_expKzpiKx_re, grad_expKzpiKx_im, hess_asVec_expKzpiKx_re, hess_asVec_expKzpiKx_im);
+
+    variable gexp_re = A.getCoeff(*grad_expKzpiKx_re,G);
+    variable gexp_im = A.getCoeff(*grad_expKzpiKx_im,G);
+
+    variable h_asVec_exp_re = A.getCoeff(*hess_asVec_expKzpiKx_re,G);
+    variable h_asVec_exp_im = A.getCoeff(*hess_asVec_expKzpiKx_im,G); 
+
+    //gsDebugVar(*grad_expKzpiKx_im);
+    //gsDebugVar(*hess_asVec_expKzpiKx_im);
+
+    auto hess_re = reshape(h_asVec_exp_re,m_dim,m_dim);
+    auto hess_im = reshape(h_asVec_exp_im,m_dim,m_dim);
+
+    // Obs I had to multiply jac(G).inv() to the other term in 'collapse' to get the code to run
+    auto dJinvTdc = - matrix_by_space_tr(jac(G).inv(),jac(v));//*jac(G).inv();
+
+    // FIXIT: Use unit normal vec here?
+    A.initSystem();
+
+    //A.assemble(- (nvDeriv(v,G)*nv(G)/nv(G).norm())*u.tr()*(gexp_im.tr()*nv(G)).val());
+    A.assemble(- (nvDeriv(v,G)*gexp_im)*u.tr());//*nv(G).norm());
+    A.assemble(- (v*hess_im*nv(G))*u.tr());//*nv(G).norm());
+
+    A.assemble((v*gexp_im)*(igrad(u,G)*nv(G)).tr());//*nv(G).norm());
+    A.assemble(exp_im.val()*my_collapse(nv(G).tr(),dJinvTdc)*jac(G).inv().tr()*grad(u).tr());//*nv(G).norm());
+    A.assemble(exp_im.val()*nvDeriv(v,G)*igrad(u,G).tr());//)*nv(G).norm() );
+    //A.assemble((nvDeriv(v,G)*nv(G)/nv(G).norm())*exp_im.val()*(igrad(u,G)*nv(G)).tr() );
+
+    m_gradObjMat_re =  - 2 * A.matrix();
+
+    A.initSystem();
+    //A.assemble(- (nvDeriv(v,G)*nv(G)/nv(G).norm())*u.tr()*(gexp_re.tr()*nv(G)).val());
+    A.assemble(- (nvDeriv(v,G)*gexp_re)*u.tr());//*nv(G).norm());
+    A.assemble(- (v*hess_re*nv(G))*u.tr());//*nv(G).norm());
+
+    A.assemble((v*gexp_re)*(igrad(u,G)*nv(G)).tr());//*nv(G).norm());
+    A.assemble(exp_re.val()*my_collapse(nv(G).tr(),dJinvTdc)*jac(G).inv().tr()*grad(u).tr());//*nv(G).norm());
+    A.assemble(exp_re.val()*nvDeriv(v,G)*igrad(u,G).tr());//*nv(G).norm() );
+    //A.assemble((nvDeriv(v,G)*nv(G)/nv(G).norm())*exp_re.val()*(igrad(u,G)*nv(G)).tr() );
+
+    m_gradObjMat_im =  - 2 * A.matrix();
+
+}
+
+void gsOptPotWaves::getTestMatrix()
+{
+    m_testMatrix.setZero(n_flat,n_flat);
+    index_t flat = 0;
+
+    for(index_t d = 0; d < m_mp->targetDim(); ++d)
+    {
+        for (index_t p = 0; p < m_mp->nBoxes(); p++)
+        {
+            for (index_t i = 0; i < m_mp->patch(p).coefsSize(); i++)
+            {
+
+                if (m_mappers[d].is_tagged(i,p))
+                {
+                    m_testMatrix(flat,flat) = 1;
+                }
+                
+                flat++;
+            }
+        }
+    }
+
+}
+    

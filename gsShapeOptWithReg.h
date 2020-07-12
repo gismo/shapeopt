@@ -19,9 +19,9 @@ public:
     // Evaluation of the gradient wrt design variables (tagged cps)
     gsVector<> gradObj() const ;
 
-    void evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const ;
+    virtual void evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const ;
 
-    void jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const ;
+    virtual void jacobCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const ;
 
     // Mappers for antenna problem,
     // Interfaces are glued, outer boundary is fixed
@@ -29,6 +29,11 @@ public:
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
     void setupOptParameters();
+
+    // Method to setup constraints
+    // Default behaviour is to have no constraints but it can be overloaded in child class
+    // It is only called in setupOptParameters()
+    virtual void setupConstraints();
 
     // Update parametrization with u and call evalObj()
     real_t evalObj( const gsAsConstVector<real_t> & u ) const;
@@ -38,15 +43,18 @@ public:
 
     // Method that is called between each optimization iteration.. Can be used to log
     //      or check stuff. If it returns false the optimization will be interrupted.
-    bool intermediateCallback();
+    virtual bool intermediateCallback();
 
     // Method to run optimization again and again while decreasing the regularization parameter
-    void runOptimization(index_t maxiter);
+    virtual void runOptimization(index_t maxiter);
 
     void setWinslowQuad(real_t quA, index_t quB);
 
     void runOptimizationUntilPosDetJ(index_t maxiter, real_t k, index_t maxRef);
 
+    std::vector< gsDofMapper > mappers() { return m_mappers; };
+
+    void updateDesignVariables( gsVector<> u ) const;
 
 
 public:

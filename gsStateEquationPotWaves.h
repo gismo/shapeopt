@@ -123,6 +123,7 @@ private:
 
 
 public:
+    index_t m_degree = 2;
 
     //gsSparseSolver<>::CGDiagonal solver;
     gsMultiBasis<> dbasis_domain;
@@ -135,7 +136,7 @@ public:
     real_t wave_A       = 1.0;                            // Amplitude
 
     // PML parameters
-    real_t pml_n        = 3;    // Exponent
+    real_t pml_n        = 2;    // Exponent
     real_t pml_C        = 5;    // constant
 
     real_t pml_Lx       = 5;
@@ -172,9 +173,6 @@ public:
 
     gsFunctionExpr<>::uPtr strech_detJ_re;
     gsFunctionExpr<>::uPtr strech_detJ_im;
-
-    gsFunctionExpr<>::uPtr strech_detJ_len_re;
-    gsFunctionExpr<>::uPtr strech_detJ_len_im;
 
     gsFunctionExpr<> zero;
 

@@ -35,6 +35,9 @@ public:
     // Evaluation of the gradient wrt all control points
     gsVector<> gradAll() const ;
 
+    void getObjVec() const;
+    void getGradObjMat() const;
+
     // Mappers for the problem,
     // Interfaces are glued, the pml patches is eliminated, Gamma_s is tagged and eliminated.
     void setupMappers();
@@ -44,7 +47,7 @@ public:
     // Method to set the bounds on the design variables,
     void setupDesignBounds();
 
-    gsVector<> getObjDerivativeDc(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
+    gsVector<> getObjDerivativeDc(gsVector<> &u_real, gsVector<> &u_imag) const;
     gsVector<> getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
 
     gsDofMapper mapper_grad() const;
@@ -54,6 +57,8 @@ public:
     bool isCpsInDomain(index_t i, index_t p, index_t dim);
 
     void eliminatePatch(index_t p);
+
+    void getTestMatrix();
 
 public:
     // Define smart pointers
@@ -70,6 +75,14 @@ public:
 
     index_t m_dim = 3;
     index_t n_controlpoints;
+
+    mutable gsVector<> m_objVec_re;
+    mutable gsVector<> m_objVec_im;
+
+    mutable gsMatrix<> m_gradObjMat_re;
+    mutable gsMatrix<> m_gradObjMat_im;
+
+    gsMatrix<> m_testMatrix;
 };
 
 
