@@ -661,6 +661,9 @@ real_t gsDetJacConstraint::provePositivityOfDetJ_TP(index_t & neededRefSteps, in
 {
 
     // Save old basis
+    //
+
+    gsInfo << "\n === Prove that detJ is positive === \n";
 
     real_t minD;
 
@@ -670,9 +673,12 @@ real_t gsDetJacConstraint::provePositivityOfDetJ_TP(index_t & neededRefSteps, in
 
         minD = evalCon().minCoeff();
 
+	gsInfo << "minD = " << minD << " on refinement level " << i << "\n";
+
         // If all coefficients, i.e. the minimal one, is positive stop the loop
         if (minD > 0)
         {
+	    gsInfo << "All coeff positive\n\n";
             setup();
             return minD;
         }
@@ -682,7 +688,7 @@ real_t gsDetJacConstraint::provePositivityOfDetJ_TP(index_t & neededRefSteps, in
         reset();
     }
 
-    gsInfo << "DetJ could not be proven positive in " << maxRefSteps << "iterations. Smallest coef was still " << minD << "\n";
+    gsInfo << "DetJ could not be proven positive in " << maxRefSteps << "iterations. Smallest coef was still " << minD << "\n\n";
     setup();
     return minD;
 }
