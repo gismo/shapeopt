@@ -299,6 +299,11 @@ void gsShapeOptWithReg::runOptimizationUntilPosDetJ(index_t maxiter, real_t k, i
 
     *m_log << "Start with m_eps = " << m_eps << "\n";
 
+    real_t init_minDJ15 = m_winslow->minDetJInGaussPts(15);  // 15 additional pts (quA,quB+15)
+    real_t init_maxDJ15 = m_winslow->maxDetJInGaussPts(15);  // 15 additional pts (quA,quB+15)
+    gsInfo << "Smallest value of detJ mp in 15 extra pts \t: " << init_minDJ15 << "\n";
+    gsInfo << "Largest value of detJ mp in 15 extra pts \t: " << init_maxDJ15 << "\n";
+
     // gsInfo << "DoFs for analysis: " << m_stateEq.dbasis.size() << "\n";
 
     counter2 = 0;

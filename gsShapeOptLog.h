@@ -99,6 +99,9 @@ public:
     bool plotState() { return m_plotState; };
     std::string output() { return m_output; };
 
+    void saveAsXML(gsMultiPatch<> &fun, std::string name);
+    void saveAsXML(gsMultiPatch<> &fun, std::string name, index_t i);
+
 public:
 
 	typedef memory::shared_ptr<gsShapeOptLog> Ptr;
