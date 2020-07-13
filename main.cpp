@@ -2905,7 +2905,7 @@ void scaleMP(gsMultiPatch<> &mp)
     gsDebugVar(size);
 
     for (index_t p = 0; p < mp.nBoxes(); p++)
-        mp.patch(p).scale(1.0/size);
+        mp.patch(p).scale(1.0/(pow(size,1.0/mp.targetDim())));
 
 }
 
