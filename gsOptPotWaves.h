@@ -35,6 +35,9 @@ public:
     // Evaluation of the gradient wrt all control points
     gsVector<> gradAll() const ;
 
+    // Solve if u != m_state
+    void solveStateEquation( ) const ;
+
     void getObjVec() const;
     void getGradObjMat() const;
 
@@ -60,6 +63,10 @@ public:
 
     void getTestMatrix();
 
+    gsMultiPatch<> getUR() { return m_uR; };
+    gsMultiPatch<> getUI() { return m_uI; };
+
+
 public:
     // Define smart pointers
 	typedef memory::shared_ptr<gsOptPotWaves> Ptr;
@@ -83,6 +90,11 @@ public:
     mutable gsMatrix<> m_gradObjMat_im;
 
     gsMatrix<> m_testMatrix;
+
+    // Hold latest solve of state equation
+    mutable gsMultiPatch<> m_uR, m_uI;
+    mutable gsVector<> m_uRVec, m_uIVec;
+    mutable gsVector<> m_state; // Save the design used to calculate u_real and u_imag
 };
 
 

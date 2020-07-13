@@ -2110,13 +2110,8 @@ gsMatrix<> gsStateEquationPotWaves::getDerivativeOfAu(index_t realOrImag, gsMult
     
 
 	// Helmholtz Term
-	//auto helmholtz_term_real = - wave_K*u*u.tr()*dJ_le_re.val()*nv(G).norm();
-    //auto d_helm_real_term1 = - wave_K * nvDeriv(v,G)*nv(G)/nv(G).norm()*u.tr()*dJ_le_re.val();
     auto d_helm_real_term1 = - wave_K*nvDeriv(v,G)*nv(G)/nv(G).norm()*solVar.val()*u.tr()*dJ_re.val();
     // FIXIT : if helmholtx term is complex you need to differentiate the imaginary term also :)
-
-    //auto zero_matrix = zer.val()*u*u.tr();  // Perhaps I need to multiply with u*u.tr();
-    auto zero_vec = zer.val()*v*nv(G)*nv(G).norm();     // Perhaps I need to multiply with u;
 
     A.initSystem();
     if (realOrImag == 0){
@@ -2124,7 +2119,8 @@ gsMatrix<> gsStateEquationPotWaves::getDerivativeOfAu(index_t realOrImag, gsMult
         A.assemble(d_lapl_real_term_1);
         A.assemble(d_lapl_real_term_2);
         A.assemble(d_lapl_real_term_3);
-	    A.assembleLhsRhsBc(d_helm_real_term1, zero_vec , bcInfo_Gamma_f.neumannSides()); 
+
+	    A.assembleLhsRhsBc(d_helm_real_term1, zeroRhs(v) , bcInfo_Gamma_f.neumannSides()); 
     } else {
         // Imag sys
     }
@@ -2192,10 +2188,10 @@ gsMatrix<> gsStateEquationPotWaves::getDerivativeOfRhsZeroBC(index_t realOrImag)
 
 	if (realOrImag == 0){
 		// FIXIT: why including rhs here? TODO avoid this...
-		A.assembleLhsRhsBc(drhs_real_term1 + drhs_real_term2, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
+		A.assembleLhsRhsBc(drhs_real_term1 + drhs_real_term2, zeroRhs(v) ,bcInfo_Gamma_s.neumannSides());
 	} else {
 		// FIXIT: why including rhs here? TODO avoid this...
-		A.assembleLhsRhsBc(drhs_imag_term1 + drhs_imag_term2, zer.val()*v*nv(G),bcInfo_Gamma_s.neumannSides());
+		A.assembleLhsRhsBc(drhs_imag_term1 + drhs_imag_term2, zeroRhs(v) ,bcInfo_Gamma_s.neumannSides());
 	}
 
 	return A.matrix();

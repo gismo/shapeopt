@@ -13,6 +13,8 @@ gsOptPotWaves::gsOptPotWaves(gsMultiPatch<>::Ptr mp, index_t numRefine, memory::
 
     getTestMatrix();
 
+    m_state.setZero(n_flat);
+
 }
 
 void gsOptPotWaves::constructor(index_t param, real_t quA, index_t quB, bool use_Lagrangian)
@@ -50,7 +52,8 @@ void gsOptPotWaves::constructor(index_t param, real_t quA, index_t quB, bool use
     } else if (param == 6) {
         gsWinslow::Ptr opt_param = memory::make_shared(new gsWinslow(m_mp,m_mappers,false,false,true,0));
         // opt_param->setQuad(quA,quB);// FIXIT: this and the next two statements can be moved out of if state ment if param =! 0 if ()...
-        opt_param->setQuad(4,4);
+        opt_param->setQuad(0,1);
+        gsInfo << "\n --- OBS, quA and quB is very low!! ---\n";
         *m_log << "quA, quB = " << opt_param->m_quA << ", " << opt_param->m_quB << "\n";
         m_paramMethod = memory::make_shared(new gsAffineOptParamMethod(opt_param, use_Lagrangian));
         m_paramMethod->computeMap();
@@ -77,17 +80,15 @@ gsDofMapper gsOptPotWaves::mapper_grad() const {
 }
 
 real_t gsOptPotWaves::evalObj() const {
-    //gsMultiPatch<> u_real,u_imag;
-    //gsVector<> uvec_real, uvec_imag;
-    //m_stateEq.solve(u_real,u_imag, uvec_real, uvec_imag);
+    solveStateEquation();
 
-    //getObjVec();
-    //gsVector<> out =  m_objVec_re.transpose()*uvec_real + m_objVec_im.transpose()*uvec_imag;
-    //return out[0];
+    getObjVec();
+    gsVector<> out =  m_objVec_re.transpose()*m_uRVec + m_objVec_im.transpose()*m_uIVec;
+    return out[0];
     
-    gsVector<> flat = m_paramMethod->getFlat();
+    //gsVector<> flat = m_paramMethod->getFlat();
 
-    return 0.5*flat.transpose()*m_testMatrix*flat;
+    //return 0.5*flat.transpose()*m_testMatrix*flat;
 
     /*
     gsExprAssembler<> A(1,1);
@@ -108,8 +109,8 @@ real_t gsOptPotWaves::evalObj() const {
     // gsInfo<<"Plotting in Paraview...\n";
     // ev.options().setSwitch("plot.elements", true);
     // ev.writeParaview( deltaf    , G, "deltaf");
-    variable u_r = A.getCoeff(u_real);
-    variable u_i = A.getCoeff(u_imag);
+    variable u_r = A.getCoeff(m_uR);
+    variable u_i = A.getCoeff(m_uI);
     //
 
     // FIXIT: shouldn't I multiply with 0.5 for this to work?
@@ -122,30 +123,30 @@ real_t gsOptPotWaves::evalObj() const {
 }
 
 gsVector<> gsOptPotWaves::gradAll() const{
-    //gsMultiPatch<> u_real,u_imag;
-    //gsVector<> uvec_real, uvec_imag;
-    //m_stateEq.solve(u_real,u_imag, uvec_real, uvec_imag);
+    solveStateEquation();
 
-    //gsMatrix<> mat = m_stateEq.getDerivativeWithoutSolving(u_real,u_imag);
+    gsMatrix<> mat = m_stateEq.getDerivativeWithoutSolving(m_uR,m_uI);
 
-    //gsVector<> dJdu = getObjDerivativeDu(u_real,u_imag);
+    gsVector<> dJdu = getObjDerivativeDu(m_uR,m_uI);
 
-    //gsVector<> adjoint = m_stateEq.solveAdjoint(dJdu);
+    gsVector<> adjoint = m_stateEq.solveAdjoint(dJdu);
 
-    //// m_stateEq.printMatSize(mat,"mat");
-    //// m_stateEq.printMatSize(adjoint,"adjoint");
-    //gsVector<> term2 = adjoint.transpose()*mat;
+    // m_stateEq.printMatSize(mat,"mat");
+    // m_stateEq.printMatSize(adjoint,"adjoint");
+    gsVector<> term2 = adjoint.transpose()*mat;
 
-    //return (getObjDerivativeDc(uvec_real,uvec_imag) + term2);
+    return (getObjDerivativeDc(m_uRVec,m_uIVec) + term2);
     //
-    gsVector<> flat = m_paramMethod->getFlat();
+    //gsVector<> flat = m_paramMethod->getFlat();
 
-    return m_testMatrix*flat;
+    //return m_testMatrix*flat;
 }
 
 // Adjoint method for sensitivities.
 gsVector<> gsOptPotWaves::gradObj() const{
+
     // get gradObj from gradAll!
+    gsInfo << "==== OBS: Convergence is only checked for gradALL!! Not gradObj!! ====\n\n";
     
     gsMatrix<> dcdx = jacobDesignUpdate();
 
@@ -157,6 +158,22 @@ gsVector<> gsOptPotWaves::gradObj() const{
     return out.transpose();
    
 };
+
+void gsOptPotWaves::solveStateEquation( ) const
+{
+    gsVector<> flat = m_paramMethod->getFlat();
+    real_t diff = (flat - m_state).norm();
+    gsDebugVar(diff);
+
+    // Only solve if not already solved at this state
+    //if (diff != 0)
+    {
+        m_stateEq.solve(m_uR, m_uI, m_uRVec, m_uIVec);
+        m_state = flat;
+    }
+
+
+}
 
 void gsOptPotWaves::setupMapperGrad()
 {    
@@ -276,11 +293,11 @@ void gsOptPotWaves::setupDesignBounds()
 }
 
 // Derivative of obj wrt c (not inlcuding du/dc terms)
-gsVector<> gsOptPotWaves::getObjDerivativeDc(gsVector<> &u_real, gsVector<> &u_imag) const{
+gsVector<> gsOptPotWaves::getObjDerivativeDc(gsVector<> &m_uR, gsVector<> &m_uI) const{
 
     getGradObjMat();
 
-    return m_gradObjMat_re*u_real + m_gradObjMat_im*u_imag;
+    return m_gradObjMat_re*m_uR + m_gradObjMat_im*m_uI;
 
     /*
     gsExprAssembler<> A(1,1);
@@ -301,8 +318,8 @@ gsVector<> gsOptPotWaves::getObjDerivativeDc(gsVector<> &u_real, gsVector<> &u_i
 
     space u = A.getSpace(dbasis,m_dim);
 
-    variable u_r = A.getCoeff(u_real);
-    variable u_i = A.getCoeff(u_imag);
+    variable u_r = A.getCoeff(m_uR);
+    variable u_i = A.getCoeff(m_uI);
 
     A.initSystem();
 
@@ -313,7 +330,7 @@ gsVector<> gsOptPotWaves::getObjDerivativeDc(gsVector<> &u_real, gsVector<> &u_i
     */
 }
 
-gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const
+gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &m_uR, gsMultiPatch<> &m_uI) const
 {
     /*
     gsExprAssembler<> A(1,1);
@@ -341,8 +358,8 @@ gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatc
     space du = A.getSpace(m_stateEq.dbasis);
     du.setInterfaceCont(0);
 
-    variable u_r = A.getCoeff(u_real);
-    variable u_i = A.getCoeff(u_imag);
+    variable u_r = A.getCoeff(m_uR);
+    variable u_i = A.getCoeff(m_uI);
 
     A.initSystem();
     // A.assemble(df.val()*du*meas(G));

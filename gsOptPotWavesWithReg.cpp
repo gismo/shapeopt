@@ -11,12 +11,6 @@ gsOptPotWavesWithReg::gsOptPotWavesWithReg(memory::shared_ptr<gsMultiPatch<>> mp
 
     setupOptParameters();
 
-
-    gsVector<> free = m_winslow->getFree();
-    gsMatrix<> disp(m_numDesignVars,3);
-    disp << m_desLowerBounds, free, m_desUpperBounds;
-    gsInfo << "\n" << disp << "\n";
-
 }
 
 // Overload to get 2NormConstraints
@@ -81,8 +75,28 @@ bool gsOptPotWavesWithReg::intermediateCallback() {
 
     if (m_log->saveCps()){
         std::string name = "cps";
-        m_log->saveVec(m_winslow->getFlat(),name,counter2,counter1++);
+        m_log->saveVec(m_winslow->getFlat(),name,counter2,counter1);
         m_log->logObj(v); // Recalculated, is there a better way?
+
+        name = "paraview/mp";
+        m_log->plotInParaview(*m_mp,name,counter1);
+
+        gsMultiPatch<> ur = m_opt->getUR();
+        gsMultiPatch<> ui = m_opt->getUI();
+
+        name = "paraview/ur";
+        m_log->plotMultiPatchOnGeometry(*m_mp,ur,name,counter1);
+
+        name = "paraview/ui";
+        m_log->plotMultiPatchOnGeometry(*m_mp,ui,name,counter1);
+
+        name = "xml/ur";
+        m_log->saveAsXML(ur,name,counter1);
+
+        name = "xml/ui";
+        m_log->saveAsXML(ui,name,counter1);
+
+        counter1++;
     }
 
     return true;
@@ -91,17 +105,12 @@ bool gsOptPotWavesWithReg::intermediateCallback() {
 void gsOptPotWavesWithReg::runOptimization()
 {
     *m_log << "eps = " << m_eps << "\n";
-    std::string name = "initial_design";
+    std::string name = "paraview/initial_design";
     m_log->plotInParaview(*m_mp,name);
 
     solve();
 
-    gsVector<> con = m_constraint->evalCon();
-    gsMatrix<> disp(m_numConstraints,3);
-    disp << m_conLowerBounds, con, m_conUpperBounds;
-    gsInfo << "\n" << disp << "\n";
-
-    name = "final_design";
+    name = "paraview/final_design";
     m_log->plotInParaview(*m_mp,name);
 
 }

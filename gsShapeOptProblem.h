@@ -178,6 +178,9 @@ public:
     virtual real_t getQuA(){ GISMO_NO_IMPLEMENTATION };
     virtual real_t getQuB(){ GISMO_NO_IMPLEMENTATION };
 
+    virtual gsMultiPatch<> getUR(){ GISMO_NO_IMPLEMENTATION };
+    virtual gsMultiPatch<> getUI(){ GISMO_NO_IMPLEMENTATION };
+
 public:
     mutable memory::shared_ptr<gsMultiPatch<>> m_mp;
     mutable memory::shared_ptr<gsConstraint> m_dJC;

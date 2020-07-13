@@ -562,8 +562,10 @@ void convergenceTestOfJacobian(gsShapeOptProblem &sOP){
 	gsVector<> des = sOP.getDesignVariables();
 	gsInfo << "\n Size of design vector : " << des.size() << "\n";
 
+    gsDebugVar(sOP.evalObj());
 	sOP.updateDesignVariables(des);
 	real_t obj = sOP.evalObj();
+    gsDebugVar(obj);
 
     // Time
     clock_t start, stop;
@@ -2905,7 +2907,10 @@ void scaleMP(gsMultiPatch<> &mp)
     gsDebugVar(size);
 
     for (index_t p = 0; p < mp.nBoxes(); p++)
-        mp.patch(p).scale(1.0/size);
+        mp.patch(p).scale(1.0/(pow(size,1.0/mp.targetDim())));
+
+    size = measureSize(mp.patch(0));
+    gsDebugVar(size);
 
 }
 
@@ -3110,14 +3115,12 @@ if (potWave) {
     gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
     gsOptPotWavesWithReg optWR(mp_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps);
 
-    //convergenceTestOfJacobian(optPW);
+    //convergenceTestOfJacobianAll(optPW);
     //
 
-    
-    optPW.getTestMatrix();
-
     gsInfo << " \n ================== \n";
-    gsInfo << " Objective : " << optPW_ptr->evalObj();
+    gsInfo << " Objective : " << optPW_ptr->evalObj() << "\n";
+    //optPW_ptr->gradAll();
 
     optWR.runOptimization();
 

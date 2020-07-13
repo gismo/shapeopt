@@ -131,7 +131,7 @@ void gsShapeOptLog::plotMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatch<> 
 
     variable out = A.getCoeff(fun);
 
-    gsInfo<<"Plotting " << BASE_FOLDER + m_output + name << " in Paraview...\n";
+    //gsInfo<<"Plotting " << BASE_FOLDER + m_output + name << " in Paraview...\n";
     ev.options().setSwitch("plot.elements", true);
     ev.options().setInt("plot.npts", 10000);
     ev.writeParaview( out   , G, BASE_FOLDER + m_output + name);
@@ -192,7 +192,7 @@ void gsShapeOptLog::plotSignMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPatc
 
     variable out = A.getCoeff(fun);
 
-    gsInfo<<"Plotting " << BASE_FOLDER + m_output + name << " in Paraview...\n";
+    //gsInfo<<"Plotting " << BASE_FOLDER + m_output + name << " in Paraview...\n";
     ev.writeParaview( out   , G, BASE_FOLDER + m_output + name);
     ev.options().setSwitch("plot.elements", true);
 }
@@ -238,7 +238,7 @@ void gsShapeOptLog::plotActiveMultiPatchOnGeometry(gsMultiPatch<> &mp, gsMultiPa
 
     variable out = A.getCoeff(fun);
 
-    gsInfo<<"Plotting " << BASE_FOLDER + m_output + name << " in Paraview...\n";
+    //gsInfo<<"Plotting " << BASE_FOLDER + m_output + name << " in Paraview...\n";
     ev.writeParaview( out   , G, BASE_FOLDER + m_output + name);
     ev.options().setSwitch("plot.elements", true);
 }
@@ -250,3 +250,21 @@ void gsShapeOptLog::plotActiveMultiPatchOnGeometry(gsMultiPatch<> &mp,  gsMultiP
     std::string str = stream.str();
     plotActiveMultiPatchOnGeometry(mp,fun,val,str);
 }
+
+void gsShapeOptLog::saveAsXML(gsMultiPatch<> &fun, std::string name)
+{
+    gsFileData<> fd;
+    fd << fun;
+    std::string nm = BASE_FOLDER + m_output + name;
+    fd.save(nm);
+
+}
+
+void gsShapeOptLog::saveAsXML(gsMultiPatch<> &fun, std::string name, index_t i)
+{
+    std::stringstream stream;
+    stream << name << "_" << i;
+    std::string str = stream.str();
+    saveAsXML(fun,str);
+}
+

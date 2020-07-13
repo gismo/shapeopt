@@ -421,10 +421,10 @@ public:
 };
 
 /*
-   Expression for the derivate of the normal vector - Local to ASGL
+   Expression for zero rhs - Local to ASGL
  */
 template<class E>
-class collapsedJac_expr : public _expr<collapsedJac_expr<E> >
+class zeroRhs_expr : public _expr<zeroRhs_expr<E> >
 {
     typename E::Nested_t _u;
 
@@ -435,26 +435,13 @@ class collapsedJac_expr : public _expr<collapsedJac_expr<E> >
 
     mutable gsMatrix<Scalar> res;
 
-    collapsedJac_expr(const E & u) : _u(u) { }
+    zeroRhs_expr(const E & u) : _u(u) { }
 
+    // FIXIT: Maybe this stuff can be more efficient. Look again, once validated.
     MatExprType eval(const index_t k) const
     {
-        const index_t dd = _u.source().domainDim();
         index_t n = _u.rows();
-        res.setZero(n, dd);
-
-        gsMatrix<> jac = _u.data().values[1].col(k).transpose()
-            .blockDiag(_u.dim()); 
-
-        //gsDebugVar(dd);
-        //gsDebugVar(n);
-        //gsDebugVar(_u.cols());
-        //gsDebugVar(jac.rows());
-        //gsDebugVar(jac.cols());
-        for ( index_t j = 0; j < n; j++)
-        {
-            res.row(j) = jac.block(0,dd*j,dd,dd).diagonal();
-        }
+        res.setZero(n, 1);
 
         return res;
     }
@@ -463,19 +450,20 @@ class collapsedJac_expr : public _expr<collapsedJac_expr<E> >
     const gsFeSpace<Scalar> & colVar() const { return gsNullExpr<Scalar>::get(); }
 
     index_t rows() const { 
-        return _u.data().values[1].rows() / cols();
+        return _u.data().values[1].rows();
     }
 
-    index_t cols() const { return _u.source().domainDim(); }
+    index_t cols() const { return 1; }
 
     static constexpr bool rowSpan() {return true; }
     static bool colSpan() {return false;}
 
     void setFlag() const
     {
-        _u.data().flags |= NEED_DERIV;
-        if (_u.composed() )
-            _u.mapData().flags |= NEED_VALUE;
+        //_u.data().flags |= NEED_DERIV;
+        //_G.data().flags |= NEED_GRAD;
+        //if (_u.composed() )
+        //    _u.mapData().flags |= NEED_VALUE;
     }
 
     void parse(gsSortedVector<const gsFunctionSet<Scalar>*> & evList) const
@@ -483,13 +471,15 @@ class collapsedJac_expr : public _expr<collapsedJac_expr<E> >
         //GISMO_ASSERT(NULL!=m_fd, "FeVariable: FuncData member not registered");
         evList.push_sorted_unique(& _u.source());
 
-        _u.data().flags |= NEED_DERIV;
-        if (_u.composed() )
-            _u.mapData().flags |= NEED_VALUE;
+        //_u.data().flags |= NEED_DERIV;
+        //_G.data().flags |= NEED_GRAD;
+        //if (_u.composed() )
+        //    _u.mapData().flags |= NEED_VALUE;
     }
 
-    void print(std::ostream &os) const { os << "collapsedJac("; _u.print(os); os <<")"; }
+    void print(std::ostream &os) const { os << "zeroRhs("; _u.print(os); os <<")"; }
 };
+
 
 /// The derivative of the jacobian of a geometry map with respect to a coordinate.
 template<class E> EIGEN_STRONG_INLINE
@@ -505,12 +495,11 @@ mynormal_expr<T> myNv(const gsGeometryMap<T> & u) { return mynormal_expr<T>(u); 
 
 /// The derivate of the normal vector - Local to ASGL
 template<class E> EIGEN_STRONG_INLINE
-nvDeriv_expr<E> nvDeriv(const E & u, const gsGeometryMap<typename E::Scalar> & G) { return nvDeriv_expr<E>(u,G); }
-
+zeroRhs_expr<E> zeroRhs(const E & u) { return zeroRhs_expr<E>(u); }
 
 /// The derivate of the normal vector - Local to ASGL
 template<class E> EIGEN_STRONG_INLINE
-collapsedJac_expr<E> collapsedJac(const E & u) { return collapsedJac_expr<E>(u); }
+nvDeriv_expr<E> nvDeriv(const E & u, const gsGeometryMap<typename E::Scalar> & G) { return nvDeriv_expr<E>(u,G); }
 
 
 } // namespace expr
