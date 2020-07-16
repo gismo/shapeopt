@@ -2,14 +2,16 @@
 #include "gsOptPotWavesWithReg.h"
 
 
-gsOptPotWavesWithReg::gsOptPotWavesWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces, bool usePow):
-    gsShapeOptWithReg(mp, sopt, numRefine, slog, quA, quB, eps, glueInterfaces, usePow)
+gsOptPotWavesWithReg::gsOptPotWavesWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool useConstraints, bool glueInterfaces, bool usePow):
+    gsShapeOptWithReg(mp, sopt, numRefine, slog, quA, quB, eps, glueInterfaces, usePow),
+    m_useConstraints(useConstraints)
 {
     // setupMappers called in gsShapeOptWithReg constructor 
     
     m_constraint = memory::make_shared( new gs2NormConstraints(m_mp, m_mappers, m_a, m_b) );
 
     setupOptParameters();
+    updateDesignBounds();
 
 }
 
@@ -44,12 +46,42 @@ void gsOptPotWavesWithReg::jacobCon_into( const gsAsConstVector<real_t> & u, gsA
 // Overloaded to use gs2NormConstraints
 void gsOptPotWavesWithReg::setupConstraints()
 {
-    m_numConstraints = m_constraint->numConstraints();
-    m_conLowerBounds = m_constraint->getLowerBounds();
-    m_conUpperBounds = m_constraint->getUpperBounds();
+    if (m_useConstraints)
+    {
+        m_numConstraints = m_constraint->numConstraints();
+        m_conLowerBounds = m_constraint->getLowerBounds();
+        m_conUpperBounds = m_constraint->getUpperBounds();
 
-    //compute jac structure
-    computeJacStructure();
+        //compute jac structure
+        computeJacStructure();
+    }
+    else 
+    {
+        m_numConstraints = 0;
+    }
+
+}
+
+void gsOptPotWavesWithReg::updateDesignBounds()
+{
+    for (index_t i = 0; i < n_free; i++)
+    {
+        index_t d=-1;
+        if( i < m_winslow->m_shift_free[1])     // Direction x
+        {
+            continue;
+        }
+        else if( i < m_winslow->m_shift_free[2])// Direction y
+        {
+            continue;
+        }
+        else                            // Direction z
+        {
+            // In the z direction we just have and upper and lower bound.
+            m_desUpperBounds[i] = 0; 
+
+        }
+    }
 
 }
     
@@ -78,23 +110,26 @@ bool gsOptPotWavesWithReg::intermediateCallback() {
         m_log->saveVec(m_winslow->getFlat(),name,counter2,counter1);
         m_log->logObj(v); // Recalculated, is there a better way?
 
-        name = "paraview/mp";
-        m_log->plotInParaview(*m_mp,name,counter1);
-
         gsMultiPatch<> ur = m_opt->getUR();
         gsMultiPatch<> ui = m_opt->getUI();
 
-        name = "paraview/ur";
-        m_log->plotMultiPatchOnGeometry(*m_mp,ur,name,counter1);
+        if (counter1 % 5 == 0)
+        {
+            name = "paraview/mp";
+            m_log->plotInParaview(*m_mp,name,counter1);
 
-        name = "paraview/ui";
-        m_log->plotMultiPatchOnGeometry(*m_mp,ui,name,counter1);
+            name = "paraview/ur";
+            m_log->plotMultiPatchOnGeometry(*m_mp,ur,name,counter1);
 
-        name = "xml/ur";
-        m_log->saveAsXML(ur,name,counter1);
+            name = "paraview/ui";
+            m_log->plotMultiPatchOnGeometry(*m_mp,ui,name,counter1);
 
-        name = "xml/ui";
-        m_log->saveAsXML(ui,name,counter1);
+            name = "xml/ur";
+            m_log->saveAsXML(ur,name,counter1);
+
+            name = "xml/ui";
+            m_log->saveAsXML(ui,name,counter1);
+        }
 
         counter1++;
     }

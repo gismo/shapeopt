@@ -8,7 +8,7 @@ using namespace gismo;
 class gsOptPotWavesWithReg: public gsShapeOptWithReg{
 public:
 
-    gsOptPotWavesWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true, bool usePow = false);
+    gsOptPotWavesWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool useConstraints = false, bool glueInterfaces = true, bool usePow = false);
 
     // Overload to get 2NormConstraints
     void evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const ;
@@ -18,6 +18,8 @@ public:
     // Method to setup constraints
     // Overloaded to use gs2NormConstraints
     void setupConstraints();
+
+    void updateDesignBounds();
 
     void computeJacStructure(); // Overloaded from gsOptProblem
 
@@ -41,6 +43,8 @@ public:
 
     real_t m_a = 0.25;
     real_t m_b = 0.6;
+
+    bool m_useConstraints;
 
 
 };

@@ -36,6 +36,7 @@ real_t gsShapeOptWithReg::evalObj() const
 {
     //gsInfo << "EVALOBJ\n" << std::flush;
     real_t winslow = m_winslow->evalObj();
+    //gsInfo << "winslow : " << winslow << "\n" <<  std::flush;
     if ( std::isinf(winslow) )
         return winslow;
 
@@ -90,16 +91,27 @@ void gsShapeOptWithReg::setupMappers()
         }
         m_mappers[d].finalize();
 
-        // Tag tagged again
-        for (index_t k = 0; k < m_mp->nBoxes(); k++) // For each patch
+        // Tag again
+        for (index_t t = 0; t < m_opt->mappers()[d].taggedSize(); t++)
         {
-            for (index_t i = 0; i < m_mp->patch(k).coefsSize(); i++) // For each cps
-            {
-                if (m_opt->mappers()[d].is_tagged(i,k))
-                    m_mappers[d].markTagged(i,k);
+            index_t ii = m_opt->mappers()[d].getTagged()[t];
+            std::vector< std::pair<index_t,index_t> > result;
+            m_opt->mappers()[d].preImage(ii, result);
 
-            }
+            m_mappers[d].markTagged(result[0].second, result[0].first);
         }
+
+        // DEBUG: The order is not kept. Instead iterate over tagg
+        // Tag tagged again
+        //for (index_t k = 0; k < m_mp->nBoxes(); k++) // For each patch
+        //{
+        //    for (index_t i = 0; i < m_mp->patch(k).coefsSize(); i++) // For each cps
+        //    {
+        //        if (m_opt->mappers()[d].is_tagged(i,k))
+        //            m_mappers[d].markTagged(i,k);
+
+        //    }
+        //}
 
         gsInfo << "\nDimension " << d << "\n";
         gsInfo << "size " << m_opt->mappers()[d].size() << ", " << m_mappers[d].size() << "\n";
@@ -195,21 +207,42 @@ void gsShapeOptWithReg::setupOptParameters()
 
     index_t iter = 0;
 
+    gsVector<> tagged = m_opt->m_paramMethod->getTagged();
+    gsVector<> free = m_winslow->getFree();
     // Chose correct bounds for tagged cps
     for(index_t d = 0; d < m_mp->targetDim(); d++){
         // Iterate through tagged indices
-        for (index_t t = 0; t < m_mappers[d].taggedSize(); t++){
+        for (index_t t = 0; t < m_opt->mappers()[d].taggedSize(); t++){
             // Get global index
-            index_t ii = m_mappers[d].getTagged()[t];
+            index_t ii_mopt = m_opt->mappers()[d].getTagged()[t];
 
-            m_desLowerBounds[ii + shifts[d]] = m_opt->lowerDesignVar(iter);
-            m_desUpperBounds[ii + shifts[d]] = m_opt->upperDesignVar(iter);
+            std::vector< std::pair< index_t, index_t > > result;
+            m_opt->mappers()[d].preImage(ii_mopt,result);
+
+            index_t ii = m_mappers[d].index(result[0].second, result[0].first);
+
+            index_t jj = ii + shifts[d];
+
+            if (tagged[iter] - m_opt->lowerDesignVar(iter) < 0)
+            {
+                gsDebugVar(tagged[iter]);
+                gsDebugVar(m_opt->lowerDesignVar(iter));
+                GISMO_ERROR("ERROR WITH LOWER DES VAR");
+            }
+            if (-tagged[iter] + m_opt->upperDesignVar(iter) < 0)
+            {
+                gsDebugVar(tagged[iter]);
+                gsDebugVar(m_opt->upperDesignVar(iter));
+                GISMO_ERROR("ERROR WITH UPPER DES VAR");
+            }
+
             iter++;
         }
     }
-    // gsMatrix<> out(m_numDesignVars,2);
-    // out << m_desLowerBounds, m_desUpperBounds;
-    // gsInfo << out;
+     //gsMatrix<> out(m_numDesignVars,2);
+     //gsVector<> free = m_winslow->getFree();
+     //out << free - m_desLowerBounds, m_desUpperBounds - free;
+     //gsInfo << out;
 
     setupConstraints();
 }
