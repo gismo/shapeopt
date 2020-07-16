@@ -15,6 +15,8 @@ gsOptPotWaves::gsOptPotWaves(gsMultiPatch<>::Ptr mp, index_t numRefine, memory::
 
     m_state.setZero(n_flat);
 
+    m_stateEq.setQuad(quA,quB);
+
 }
 
 void gsOptPotWaves::constructor(index_t param, real_t quA, index_t quB, bool use_Lagrangian)
@@ -70,6 +72,45 @@ void gsOptPotWaves::constructor(index_t param, real_t quA, index_t quB, bool use
     // Setup optimization setupOptParameters
     // Calls the setupDesignBounds method
     setupOptParameters();
+    setupGoalFunctions();
+}
+
+void gsOptPotWaves::setupGoalFunctions()
+{
+
+    //std::string w = "exp( - ( (x - 0)^2 + (y - 1)^2 + (z - 0)^2 ) / (2 * 0.1^2) )";
+
+    //std::string dwx = "- (x - 0)/ ( 0.1^2) * " + w;
+    //std::string dwy = "- (y - 1)/ ( 0.1^2) * " + w;
+    //std::string dwz = "- (z - 0)/ ( 0.1^2) * " + w;
+    std::string w = " (- 1/(0.1^3 * (3.1415 * 2)^(3/2) ) * exp( - ( (x-0)^2 + (y-0)^2 + (z-0)^2)/ (2*0.1^2) ))";
+
+    std::string dwx = " - (x-0) / (0.1^2) * " + w;
+    std::string dwy = " - (y-0) / (0.1^2) * " + w;
+    std::string dwz = " - (z-0) / (0.1^2) * " + w;
+
+    std::string goal_re = " 0.0 ";
+    std::string goal_im = " 0.0 ";
+
+    std::string dgoal_re_x = " 0.0 ";
+    std::string dgoal_re_y = " 0.0 ";
+    std::string dgoal_re_z = " 0.0 ";
+
+    std::string dgoal_im_x = " 0.0 ";
+    std::string dgoal_im_y = " 0.0 ";
+    std::string dgoal_im_z = " 0.0 ";
+
+    // initialize members
+    weight_fun = memory::make_unique( new gsFunctionExpr<>( w , m_dim ) );
+
+    grad_weight_fun = memory::make_unique( new gsFunctionExpr<>( dwx, dwy, dwz, m_dim ) );
+
+    goal_fun_re = memory::make_unique( new gsFunctionExpr<>( goal_re, m_dim ) );
+    goal_fun_im = memory::make_unique( new gsFunctionExpr<>( goal_im, m_dim ) );
+
+    grad_goal_fun_re = memory::make_unique( new gsFunctionExpr<>( dgoal_re_x, dgoal_re_y, dgoal_re_z, m_dim ) );
+    grad_goal_fun_im = memory::make_unique( new gsFunctionExpr<>( dgoal_im_x, dgoal_im_y, dgoal_im_z, m_dim ) );
+
 }
 
 gsDofMapper gsOptPotWaves::mapper_grad() const {
@@ -82,15 +123,15 @@ gsDofMapper gsOptPotWaves::mapper_grad() const {
 real_t gsOptPotWaves::evalObj() const {
     solveStateEquation();
 
-    getObjVec();
-    gsVector<> out =  m_objVec_re.transpose()*m_uRVec + m_objVec_im.transpose()*m_uIVec;
-    return out[0];
+    //getObjVec();
+    //gsVector<> out =  m_objVec_re.transpose()*m_uRVec + m_objVec_im.transpose()*m_uIVec;
+    //return out[0];
     
     //gsVector<> flat = m_paramMethod->getFlat();
 
     //return 0.5*flat.transpose()*m_testMatrix*flat;
 
-    /*
+    
     gsExprAssembler<> A(1,1);
     gsExprEvaluator<> ev(A);
 
@@ -106,18 +147,21 @@ real_t gsOptPotWaves::evalObj() const {
     gsMultiBasis<> dbasis(m_stateEq.dbasis);
     A.setIntegrationElements(dbasis);
 
+    variable wfun = A.getCoeff(*weight_fun,G);
+    variable goal_r = A.getCoeff(*goal_fun_re,G);
+    variable goal_i = A.getCoeff(*goal_fun_im,G);
+
     // gsInfo<<"Plotting in Paraview...\n";
     // ev.options().setSwitch("plot.elements", true);
     // ev.writeParaview( deltaf    , G, "deltaf");
     variable u_r = A.getCoeff(m_uR);
     variable u_i = A.getCoeff(m_uI);
-    //
+    
 
     // FIXIT: shouldn't I multiply with 0.5 for this to work?
-    gsDebugVar(out);
-    gsDebugVar(ev.integral(u_r));
-    return ev.integral(u_r);
-    */
+    return ev.integral( wfun * ( pow(u_r - goal_r,2) + pow(u_i - goal_i,2) ) * meas(G));
+    //return ev.integral( meas(G));
+   
     
 
 }
@@ -135,7 +179,7 @@ gsVector<> gsOptPotWaves::gradAll() const{
     // m_stateEq.printMatSize(adjoint,"adjoint");
     gsVector<> term2 = adjoint.transpose()*mat;
 
-    return (getObjDerivativeDc(m_uRVec,m_uIVec) + term2);
+    return (getObjDerivativeDc(m_uR,m_uI) + term2);
     //
     //gsVector<> flat = m_paramMethod->getFlat();
 
@@ -163,10 +207,9 @@ void gsOptPotWaves::solveStateEquation( ) const
 {
     gsVector<> flat = m_paramMethod->getFlat();
     real_t diff = (flat - m_state).norm();
-    gsDebugVar(diff);
 
     // Only solve if not already solved at this state
-    //if (diff != 0)
+    if (diff != 0)
     {
         m_stateEq.solve(m_uR, m_uI, m_uRVec, m_uIVec);
         m_state = flat;
@@ -241,7 +284,8 @@ void gsOptPotWaves::setupMappers()
                     index_t i = boundaryDofs[j];
 
                     // Skip if cps(i,p,d) == 0
-                    if (m_mp->patch(ps.patch).coef(i,d) == 0) continue;
+                    // The goal is to skip z-value on Gamma_f
+                    if (d == 2 and m_mp->patch(ps.patch).coef(i,d) == 0) continue;
 
                     m_mappers[d].markTagged(i,ps.patch); 
                 }
@@ -273,9 +317,99 @@ void gsOptPotWaves::eliminatePatch(index_t p)
 //FIXIT: implemen
 void gsOptPotWaves::setupDesignBounds()
 {
+
+
     m_desLowerBounds.setConstant(n_tagged,-1e3);
     m_desUpperBounds.setConstant(n_tagged,1e3);
 
+    real_t cx = m_stateEq.init_center_x;
+    real_t cy = m_stateEq.init_center_y;
+    real_t cz = m_stateEq.init_center_z;
+
+    real_t box_xl = cx - m_stateEq.init_lbx; // x coordinate of left bnd
+    real_t box_xu = cx + m_stateEq.init_lbx; // x coordinate of right bnd
+
+    real_t box_yl = cy - m_stateEq.init_lby; // y coordinate of front bnd
+    real_t box_yu = cy + m_stateEq.init_lby; // y coordinate of back bnd
+
+    real_t box_zl = cz - m_stateEq.init_lbz; // z coordinate of bottom bnd
+
+    // Cloacking:
+    gsDebugVar(n_tagged);
+    gsDebugVar(m_paramMethod->m_shift_tagged);
+    
+    gsVector<> tagged = m_paramMethod->getTagged();
+    for (index_t i = 0; i < n_tagged; i++)
+    {
+        index_t d=-1;
+        if( i < m_paramMethod->m_shift_tagged[1])     // Direction x
+        {
+            d=0;
+            if (tagged[i] == box_xl) // We are at left bnd
+            {
+                m_desLowerBounds[i] = desLowerBoundx + cx; 
+                m_desUpperBounds[i] = cx; 
+            }
+            else if (tagged[i] == box_xu) // We are at right bnd
+            {
+                m_desLowerBounds[i] = cx; 
+                m_desUpperBounds[i] = desUpperBoundx + cx; 
+            }
+            else
+            {
+                m_desLowerBounds[i] = desLowerBoundx + cx; 
+                m_desUpperBounds[i] = desUpperBoundx + cx; 
+            }
+        }
+        else if( i < m_paramMethod->m_shift_tagged[2])// Direction y
+        {
+            d=1;
+            if (tagged[i] == box_yl) // We are at front bnd
+            {
+                m_desLowerBounds[i] = desLowerBoundy + cy; 
+                gsDebugVar(m_desLowerBounds[i]);
+                m_desUpperBounds[i] = cy; 
+            }
+            else if (tagged[i] == box_yu) // We are at back bnd
+            {
+                m_desLowerBounds[i] = cy; 
+                m_desUpperBounds[i] = desUpperBoundy + cy; 
+            }
+            else
+            {
+                m_desLowerBounds[i] = desLowerBoundy + cy; 
+                m_desUpperBounds[i] = desUpperBoundy + cy; 
+            }
+
+        }
+        else                            // Direction z
+        {
+            d=2;
+            // In the z direction we just have and upper and lower bound.
+            m_desLowerBounds[i] = desLowerBoundz + cz; 
+            m_desUpperBounds[i] = cz; 
+
+        }
+
+        if (tagged[i] - m_desLowerBounds[i]  < 0)
+        {
+            gsDebugVar(d);
+            gsDebugVar(tagged[i]);
+            gsDebugVar(m_desLowerBounds[i]);
+            GISMO_ERROR("ERR LOWERBOUNDS\n");
+        }
+
+        if (-tagged[i] + m_desUpperBounds[i]  < 0)
+        {
+            gsDebugVar(d);
+            gsDebugVar(tagged[i]);
+            gsDebugVar(m_desUpperBounds[i]);
+            GISMO_ERROR("ERR UpperBOUNDS\n");
+        }
+    }
+
+    // Cloacking:
+    /*
     gsVector<> tagged = m_paramMethod->getTagged();
     for (index_t i = 0; i < n_tagged; i++)
     {
@@ -286,6 +420,7 @@ void gsOptPotWaves::setupDesignBounds()
         else                            // Direction z
             m_desUpperBounds[i] = 0;
     }
+    */
 
     //gsMatrix<> disp(n_tagged,3);
     //disp << m_desLowerBounds, tagged, m_desUpperBounds;
@@ -293,13 +428,15 @@ void gsOptPotWaves::setupDesignBounds()
 }
 
 // Derivative of obj wrt c (not inlcuding du/dc terms)
-gsVector<> gsOptPotWaves::getObjDerivativeDc(gsVector<> &m_uR, gsVector<> &m_uI) const{
+gsVector<> gsOptPotWaves::getObjDerivativeDc(gsMultiPatch<> &m_uR, gsMultiPatch<> &m_uI) const{
 
+    /*
     getGradObjMat();
 
     return m_gradObjMat_re*m_uR + m_gradObjMat_im*m_uI;
+    */
 
-    /*
+    
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(m_stateEq.dbasis);
@@ -316,30 +453,43 @@ gsVector<> gsOptPotWaves::getObjDerivativeDc(gsVector<> &m_uR, gsVector<> &m_uI)
 
     geometryMap G = A.getMap(*m_mp);
 
-    space u = A.getSpace(dbasis,m_dim);
+    space v = A.getSpace(dbasis,m_dim);
 
+    variable wfun = A.getCoeff(*weight_fun,G);
+    variable goal_r = A.getCoeff(*goal_fun_re,G);
+    variable goal_i = A.getCoeff(*goal_fun_im,G);
+
+    variable g_wfun = A.getCoeff(*grad_weight_fun,G);
+    variable g_goal_r = A.getCoeff(*grad_goal_fun_re,G);
+    variable g_goal_i = A.getCoeff(*grad_goal_fun_im,G);
+
+    // gsInfo<<"Plotting in Paraview...\n";
+    // ev.options().setSwitch("plot.elements", true);
+    // ev.writeParaview( deltaf    , G, "deltaf");
     variable u_r = A.getCoeff(m_uR);
     variable u_i = A.getCoeff(m_uI);
 
     A.initSystem();
 
-    gsMatrix<> out;
-    out.setZero(A.rhs().rows(),1);
-
-    return out;
-    */
+    A.assemble( - wfun.val() * 2 * v * g_goal_r * (u_r - goal_r) * meas(G));
+    A.assemble( - wfun.val() * 2 * v * g_goal_i * (u_i - goal_i) * meas(G));
+    A.assemble( v * g_wfun * ( pow(u_r - goal_r,2) + pow(u_i - goal_i,2) ) * meas(G));
+    A.assemble( matrix_by_space(jac(G).inv(),jac(v)).trace() * meas(G) * wfun.val() * ( pow(u_r - goal_r,2) + pow(u_i - goal_i,2) ) );
+    
+    //A.assemble(matrix_by_space(jac(G).inv(),jac(v)).trace() * meas(G) );
+    return A.rhs();
+    
 }
 
 gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &m_uR, gsMultiPatch<> &m_uI) const
 {
-    /*
     gsExprAssembler<> A(1,1);
     gsMultiBasis<> dbasis(*m_mp);
     A.setIntegrationElements(m_stateEq.dbasis);
     gsExprEvaluator<> ev(A);
 
-    A.options().setReal("quA",m_stateEq.quA());
-    A.options().setInt("quB",m_stateEq.quB());
+    A.options().setReal("quA",m_stateEq.quA() );
+    A.options().setInt("quB",m_stateEq.quB() );
 
     // opts.setReal("quA",2);
     // gsOptionList opts = A.options();
@@ -361,18 +511,27 @@ gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &m_uR, gsMultiPatch<
     variable u_r = A.getCoeff(m_uR);
     variable u_i = A.getCoeff(m_uI);
 
+    variable wfun = A.getCoeff(*weight_fun,G);
+    variable goal_r = A.getCoeff(*goal_fun_re,G);
+    variable goal_i = A.getCoeff(*goal_fun_im,G);
+
     A.initSystem();
-    // A.assemble(df.val()*du*meas(G));
-    A.assemble(du);
+    A.assemble( wfun.val()* 2*du*(u_r - goal_r) * meas(G) );
 
     gsVector<> vec_re = A.rhs();
 
     A.initSystem();
-    //A.assemble(df.val()*2*u_i.val()*du*meas(G));
-    // A.assemble(df.val()*2*u_i.val()*du*meas(G));
+    A.assemble( wfun.val()* 2*du*(u_i - goal_i) * meas(G) );
 
     gsVector<> vec_im = A.rhs();
-    */
+
+    gsVector<> out;
+    out.setZero(vec_re.rows()*2);
+    out << vec_re,vec_im;
+
+    return out;
+    
+    /*
     getObjVec();
 
     gsVector<> out;
@@ -381,6 +540,7 @@ gsVector<> gsOptPotWaves::getObjDerivativeDu(gsMultiPatch<> &m_uR, gsMultiPatch<
     
 
     return out;
+    */
 }
 
 bool gsOptPotWaves::isFlatInPML(index_t i)
@@ -570,6 +730,35 @@ void gsOptPotWaves::getTestMatrix()
             }
         }
     }
+
+}
+
+void gsOptPotWaves::plotGoalFunctions(std::string name)
+{
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::solution    solution;
+
+    gsExprAssembler<> A(1,1);
+
+    A.options().setReal("quA",m_stateEq.quA());
+    A.options().setInt("quB",m_stateEq.quB());
+
+    // Elements used for numerical integration
+    A.setIntegrationElements(m_stateEq.dbasis);
+    gsExprEvaluator<> ev(A);
+
+    geometryMap G = A.getMap(*m_mp);
+
+    variable w = A.getCoeff(*weight_fun,G);
+    variable gr = A.getCoeff(*goal_fun_re,G);
+    variable gi = A.getCoeff(*goal_fun_im,G);
+
+    ev.options().setInt("plot.npts",30000);
+
+    gsInfo<< "Plotting " << name << " in Paraview...\n";
+    ev.writeParaview( w    , G, name);
 
 }
     

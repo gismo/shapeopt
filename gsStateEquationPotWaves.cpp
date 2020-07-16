@@ -486,7 +486,7 @@ gsStateEquationPotWaves::gsStateEquationPotWaves(index_t numRefine):
     m_numRefine(numRefine)
 {
     // Get initial domain
-    m_mp = getInitialDomain();
+    m_mp = getInitialDomainReflector();
 
     // Setup dbasis 
     setup();
@@ -935,6 +935,128 @@ gsMatrix<> gsStateEquationPotWaves::getCoefs(index_t p)
     return out;
 }
 
+gsMatrix<> gsStateEquationPotWaves::getCoefsReflector(index_t p)
+{
+    gsMatrix<> out(8,3);
+
+    real_t lbx = init_lbx; // Length of box in the middle of the domain
+    real_t lby = init_lby; // Length of box in the middle of the domain
+    real_t lbz = init_lbz; // Length of box in the middle of the domain
+
+    real_t cx = init_center_x;
+    real_t cy = init_center_y;
+    real_t cz = init_center_z;
+
+    switch (p){
+
+        case 0: out <<  
+                        -pml_lx     ,0          ,-pml_lz,
+                        cx-lbx        ,cy-lby          ,cz -lbz,
+                        -pml_lx     ,pml_ly     ,-pml_lz,
+                        cx-lbx        ,cy+lby        ,cz-lbz,
+                        -pml_lx     ,0          ,0,
+                        cx-lbx        ,cy-lby          ,cz,
+                        -pml_lx     ,pml_ly     ,0,
+                        cx-lbx        ,cy+lby          ,cz;
+                break;
+
+        case  1: out <<  
+                        pml_lx     ,0          ,0,
+                        cx+lbx        ,cy-lby          ,cz,
+                        pml_lx     ,pml_ly     ,0,
+                        cx+lbx        ,cy+lby          ,cz,
+                        pml_lx     ,0          ,-pml_lz,
+                        cx+lbx        ,cy-lby          ,cz-lbz,
+                        pml_lx     ,pml_ly     ,-pml_lz,
+                        cx+lbx        ,cy+lby        ,cz-lbz;
+                break;
+
+        case  2: out << cx-lbx    ,cy+lby        ,cz-lbz,
+                        cx+lbx     ,cy+lby        ,cz-lbz,
+                        -pml_lx ,pml_ly     ,-pml_lz,
+                        pml_lx  ,pml_ly     ,-pml_lz,
+                        cx-lbx    ,cy+lby        ,cz,
+                        cx+lbx     ,cy+lby        ,cz,
+                        -pml_lx ,pml_ly     ,0,
+                        pml_lx  ,pml_ly     ,0;
+                 break;
+
+        case  3: out << -pml_lx ,0          ,-pml_lz,
+                        pml_lx  ,0          ,-pml_lz,
+                        -pml_lx ,pml_ly     ,-pml_lz,
+                        pml_lx  ,pml_ly     ,-pml_lz,
+                        cx-lbx    ,cy-lby         ,cz-lbz,
+                        cx+lbx     ,cy-lby        ,cz-lbz,
+                        cx-lbx     ,cy+lby        ,cz-lbz,
+                        cx+lbx     ,cy+lby        ,cz-lbz;
+                 break;
+
+        case  4: out << cx+lbx    ,cy-lby        ,cz-lbz,
+                        cx-lbx     ,cy-lby        ,cz-lbz,
+                        pml_lx ,0     ,-pml_lz,
+                        -pml_lx  ,0     ,-pml_lz,
+                        cx+lbx    ,cy-lby        ,cz,
+                        cx-lbx     ,cy-lby        ,cz,
+                        pml_lx ,0     ,0,
+                        -pml_lx  ,0     ,0;
+                 break;
+
+        case  5: out = getBoxHelper(-pml_lx,pml_lx,0,pml_ly,-pml_Lz,-pml_lz); break;
+
+        case  6: out = getBoxHelper(-pml_Lx,-pml_lx,0,pml_ly,-pml_lz,0); break;
+        case  7: out = getBoxHelper(pml_lx,pml_Lx,0,pml_ly,-pml_lz,0);   break;
+
+        case  8: out = getBoxHelper(-pml_Lx,-pml_lx,pml_ly,pml_Ly,-pml_lz,0);   break; 
+        case  9: out = getBoxHelper(pml_lx,pml_Lx,pml_ly,pml_Ly,-pml_lz,0);     break;
+
+        case  10: out = getBoxHelper(-pml_lx,pml_lx,pml_ly,pml_Ly,-pml_lz,0); break;
+        case  11: out = getBoxHelper(-pml_Lx,-pml_lx,0,pml_ly,-pml_Lz,-pml_lz); break;
+        case  12: out = getBoxHelper(pml_lx,pml_Lx,0,pml_ly,-pml_Lz,-pml_lz); break;
+
+        case  13: out = getBoxHelper(-pml_lx,pml_lx,pml_ly,pml_Ly,-pml_Lz,-pml_lz); break;
+        case  14: out = getBoxHelper(-pml_Lx,-pml_lx,pml_ly,pml_Ly,-pml_Lz,-pml_lz); break;
+        case  15: out = getBoxHelper(pml_lx,pml_Lx,pml_ly,pml_Ly,-pml_Lz,-pml_lz); break;
+
+        /*case  4: out <<  0   ,0  ,0,
+                        1   ,0  ,0,
+                        0   ,1  ,0,
+                        1   ,1  ,0,
+                        0   ,0  ,1,
+                        1   ,0  ,1,
+                        0   ,1  ,1,
+                        2   ,1  ,1;
+                 break;
+        */
+
+    }
+    return out;
+}
+
+gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainReflector()
+{
+    index_t nPatches = 16;
+
+	gsMultiPatch<>::Ptr out = memory::make_shared( new gsMultiPatch<> );
+    for (index_t p = 0; p < nPatches; p++)
+    {
+        gsMatrix<> coefs = getCoefsReflector(p);
+        gsTensorBSpline<3, real_t> tbs = getBox(coefs);
+        out->addPatch( tbs );
+
+        gsInfo << "Sign of detJ on patch " << p << " is " << getSignOfDetJ(tbs) << "\n";
+    }
+
+    out->computeTopology();
+
+    out->uniformRefine();
+    out->degreeElevate(m_degree-1);
+    out->closeGaps();
+
+
+    return out;
+
+}
+
 gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomain(bool includeCenter)
 {
     index_t nPatches = 15;
@@ -950,8 +1072,6 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomain(bool includeCenter
         gsMatrix<> coefs = getCoefs(p);
         gsTensorBSpline<3, real_t> tbs = getBox(coefs);
         out->addPatch( tbs );
-
-        //gsInfo << "Sign of detJ on patch " << p << " is " << getSignOfDetJ(tbs) << "\n";
     }
 
     out->computeTopology();

@@ -55,6 +55,7 @@ public:
     void markBoundariesDirichletNoPML_NoCenter();
 
     // Method to generate initial domain.
+    gsMultiPatch<>::Ptr getInitialDomainReflector();
     gsMultiPatch<>::Ptr getInitialDomain(bool includeCenter = false);
     gsMultiPatch<>::Ptr getInitialDomainTmp(bool includeCenter = false);
     gsMultiPatch<>::Ptr getInitialDomainNoPML(bool includeCenter = false);
@@ -118,6 +119,7 @@ public:
 private:
     // Helper method
     gsMatrix<> getCoefs(index_t p);
+    gsMatrix<> getCoefsReflector(index_t p);
 
     index_t m_numRefine;
 
@@ -141,14 +143,18 @@ public:
 
     real_t pml_Lx       = 5;
     real_t pml_lx       = 3;
-    real_t pml_Ly       = 5;
-    real_t pml_ly       = 3;
+    real_t pml_Ly       = 6;
+    real_t pml_ly       = 4;
     real_t pml_Lz       = 2;
     real_t pml_lz       = 1.0;
 
     real_t init_lbx     = 0.5;
     real_t init_lby     = 0.5;
-    real_t init_lbz     = 0.5;
+    real_t init_lbz     = 0.25;
+
+    real_t init_center_x     = 0;
+    real_t init_center_y     = 0.75;
+    real_t init_center_z     = 0;
     //real_t pml_Lx       = 8;
     //real_t pml_lx       = 1;
     //real_t pml_Ly       = 8;

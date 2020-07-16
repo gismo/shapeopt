@@ -645,7 +645,7 @@ void convergenceTestOfJacobianAll(gsShapeOptProblem &sOP){
 
     //gsDebugVar(grad.norm());
 
-	index_t beg = 3;
+	index_t beg = 0;
 	index_t n = 8;
 	gsVector<> Eps(n);
 	gsVector<> Error0(n);
@@ -3094,8 +3094,6 @@ if (potWave) {
     //SE.convergenceTestOnlyPML( maxiter , BASE_FOLDER + output );
     //SE.convergenceTestNoPML_NoCenter( maxiter , BASE_FOLDER + output );
 
-
-    
     gsStateEquationPotWaves SE(numRefine);
     
     //SE.convergenceTestBessel( maxiter, BASE_FOLDER + output );
@@ -3111,17 +3109,23 @@ if (potWave) {
     gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
 
     //convergenceTestOfJacobianAll(optPW);
-
-    gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
-    gsOptPotWavesWithReg optWR(mp_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps);
-
-    //convergenceTestOfJacobianAll(optPW);
     //
 
+    bool useConstraints = false;
+
+    gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
+    gsOptPotWavesWithReg optWR(mp_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,useConstraints);
+
     gsInfo << " \n ================== \n";
+    optPW_ptr->solveStateEquation();
     gsInfo << " Objective : " << optPW_ptr->evalObj() << "\n";
+
+    //std::string name = "wfun";
+    //optPW_ptr->plotGoalFunctions(BASE_FOLDER + output + name);
+
     //optPW_ptr->gradAll();
 
+    //gsDebugVar(optWR.m_winslow->evalObj());
     optWR.runOptimization();
 
 
@@ -3147,7 +3151,8 @@ if (potWave) {
     // ===========================k=============
     // =========  Plot velocity field =========
     // ========================================
-   /* 
+    
+    /*
     SE.setQuad(quA,quB);
  
     gsMultiPatch<> ur, ui;
@@ -3160,9 +3165,10 @@ if (potWave) {
  
     SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/veloc", true);
     SE.plotVelocityField(ur,ui,timestep,BASE_FOLDER + output + "velocity/scatt", false);
-    */
+    
 
     gsInfo << "\n -------------- \n";
+    */
 
     return 0;
 
@@ -3660,8 +3666,8 @@ if(optParamXML)
 	//testValidity(mp_init,"detJ.txt", quA, quB, output);
 	
  	// Test snaps
-	gsWinslow win(mp_init_ptr,optP_ptr->mappers(),false,false,true,0); 
-	gsWinslow win_jig(mp_ptr,optP_ptr->mappers(),false,false,true,0); 
+	gsWinslowPow win(mp_init_ptr,optP_ptr->mappers(),false,false,true,0); 
+	gsWinslowPow win_jig(mp_ptr,optP_ptr->mappers(),false,false,true,0); 
 	gsVector<> tagged_jig = win_jig.getTagged();
 	win.updateTagged(tagged_jig);
 

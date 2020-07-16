@@ -50,7 +50,10 @@ public:
     // Method to set the bounds on the design variables,
     void setupDesignBounds();
 
-    gsVector<> getObjDerivativeDc(gsVector<> &u_real, gsVector<> &u_imag) const;
+    void setupGoalFunctions();
+    void plotGoalFunctions(std::string name);
+
+    gsVector<> getObjDerivativeDc(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
     gsVector<> getObjDerivativeDu(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag) const;
 
     gsDofMapper mapper_grad() const;
@@ -76,6 +79,14 @@ public:
     // State equation class to hold state equation
     mutable gsStateEquationPotWaves m_stateEq;
 
+    real_t desLowerBoundx = -0.75;
+    real_t desUpperBoundx = 0.75;
+
+    real_t desLowerBoundy = -0.5;
+    real_t desUpperBoundy = 0.75;
+
+    real_t desLowerBoundz = -0.5;
+
     // Mapper used for assembling gradients
     mutable gsDofMapper m_mapper_grad;
     mutable bool m_mapper_grad_exist = false;
@@ -95,6 +106,15 @@ public:
     mutable gsMultiPatch<> m_uR, m_uI;
     mutable gsVector<> m_uRVec, m_uIVec;
     mutable gsVector<> m_state; // Save the design used to calculate u_real and u_imag
+
+    gsFunctionExpr<>::uPtr goal_fun_re;
+    gsFunctionExpr<>::uPtr goal_fun_im;
+    gsFunctionExpr<>::uPtr weight_fun;
+                  
+    gsFunctionExpr<>::uPtr grad_goal_fun_re;
+    gsFunctionExpr<>::uPtr grad_goal_fun_im;
+    gsFunctionExpr<>::uPtr grad_weight_fun;
+
 };
 
 
