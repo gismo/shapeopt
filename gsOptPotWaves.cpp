@@ -392,6 +392,7 @@ void gsOptPotWaves::setupDesignBounds()
             {
                 m_desLowerBounds[i] = cy; 
                 m_desUpperBounds[i] = desUpperBoundy + cy; 
+                gsDebugVar(m_desUpperBounds[i]);
             }
             else
             {

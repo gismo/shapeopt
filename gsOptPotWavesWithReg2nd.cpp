@@ -255,7 +255,7 @@ bool gsOptPotWavesWithReg2nd::intermediateCallback()
         gsMultiPatch<> ur = m_opt->getUR();
         gsMultiPatch<> ui = m_opt->getUI();
 
-        if (counter1 % 5 == 0)
+        if (counter1 % 50 == 0)
         {
             name = "paraview/mp";
             m_log->plotInParaview(*m_mp,name,counter1);
@@ -339,7 +339,7 @@ real_t gsOptPotWavesWithReg2nd::evalObj() const
     if ( std::isinf(winslow) )
         return winslow;
 
-    winslow += m_center_winslow->evalObj()
+    winslow += m_center_winslow->evalObj();
     if ( std::isinf(winslow) )
         return winslow;
 
