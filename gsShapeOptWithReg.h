@@ -14,10 +14,10 @@ public:
     gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true, bool usePow = false);
 
     // Evaluation of the objective, using the design contained in m_mp
-    real_t evalObj() const ;
+    virtual real_t evalObj() const ;
 
     // Evaluation of the gradient wrt design variables (tagged cps)
-    gsVector<> gradObj() const ;
+    virtual gsVector<> gradObj() const ;
 
     virtual void evalCon_into( const gsAsConstVector<real_t> & u, gsAsVector<real_t> & result) const ;
 
@@ -28,7 +28,7 @@ public:
     void setupMappers();
 
     // Method to set the optimization parameters such as design bounds, constraint bounds etc   .
-    void setupOptParameters();
+    virtual void setupOptParameters();
 
     // Method to setup constraints
     // Default behaviour is to have no constraints but it can be overloaded in child class
@@ -48,13 +48,13 @@ public:
     // Method to run optimization again and again while decreasing the regularization parameter
     virtual void runOptimization(index_t maxiter);
 
-    void setWinslowQuad(real_t quA, index_t quB);
+    virtual void setWinslowQuad(real_t quA, index_t quB);
 
     void runOptimizationUntilPosDetJ(index_t maxiter, real_t k, index_t maxRef);
 
     std::vector< gsDofMapper > mappers() { return m_mappers; };
 
-    void updateDesignVariables( gsVector<> u ) const;
+    virtual void updateDesignVariables( gsVector<> u ) const;
 
 
 public:

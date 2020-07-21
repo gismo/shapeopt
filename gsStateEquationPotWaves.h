@@ -55,6 +55,7 @@ public:
     void markBoundariesDirichletNoPML_NoCenter();
 
     // Method to generate initial domain.
+    gsMultiPatch<>::Ptr getCenterReflector();
     gsMultiPatch<>::Ptr getInitialDomainReflector();
     gsMultiPatch<>::Ptr getInitialDomain(bool includeCenter = false);
     gsMultiPatch<>::Ptr getInitialDomainTmp(bool includeCenter = false);
@@ -109,6 +110,8 @@ public:
     gsMatrix<> getDerivativeOfRhsZeroBC(index_t realOrImag);
     gsMatrix<> getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol);
 
+    bool isBndGammaF(patchSide ps);
+    bool isBndGammaSymm(patchSide ps);
     bool isPatchInDomain(index_t p);
 
     gsVector< index_t > getVectorWithDomainPatches();
@@ -127,7 +130,6 @@ private:
 public:
     index_t m_degree = 2;
 
-    //gsSparseSolver<>::CGDiagonal solver;
     gsMultiBasis<> dbasis_domain;
     gsMultiPatch<> m_mp_domain;
 

@@ -373,7 +373,7 @@ bool checkIfInPML(gsVector<unsigned> boundaryDofs, gsMatrix<> coefs, real_t lx, 
 
 }
 
-gsTensorBSpline<3, real_t> getBox(gsMatrix<> &coefs)
+gsTensorBSpline<3, real_t> getBox(gsMatrix<> &coefs, index_t m_degree)
 {
     index_t degree  = 1;
     index_t n       = 2;
@@ -385,7 +385,18 @@ gsTensorBSpline<3, real_t> getBox(gsMatrix<> &coefs)
 	gsTensorBSplineBasis<3, real_t> basis(kv, kv, kv);
 
 	// 3. construction of a coefficients
-	gsTensorBSpline<3, real_t>  tbsout(basis, coefs);
+	gsTensorBSpline<3, real_t>  tbs(basis, coefs);
+
+    // Get basis with higher degree
+    basis.degreeIncrease();
+
+    // Uniform refin tbs to get new coefs
+    tbs.uniformRefine();
+
+    // Combine 
+	gsTensorBSpline<3, real_t>  tbsout(basis, tbs.coefs());
+
+
 
     // To insert more knots use this
     /*
@@ -662,6 +673,7 @@ void gsStateEquationPotWaves::setup()
             m_mp_domain.addPatch( m_mp->patch(p) );
         }
     }
+
     m_mp_domain.computeTopology();
     gsDebugVar(m_mp_domain);
     gsDebugVar(m_mp_domain.domainDim());
@@ -693,6 +705,24 @@ void gsStateEquationPotWaves::setup()
 
 }
 
+bool gsStateEquationPotWaves::isBndGammaF(patchSide ps)
+{
+    gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+    // Find Gamma_f
+    // Goal is to find the boundaries with z=0
+    return checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs());
+}
+
+bool gsStateEquationPotWaves::isBndGammaSymm(patchSide ps)
+{
+    gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
+
+    // Find Gamma_f
+    // Goal is to find the boundaries with z=0
+    return checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs(),1);
+}
+
 void gsStateEquationPotWaves::markBoundaries()
 {
 
@@ -700,10 +730,7 @@ void gsStateEquationPotWaves::markBoundaries()
     {
         patchSide ps = m_mp->boundaries()[i];
         gsVector<unsigned> boundaryDofs = m_mp->basis(ps.patch).boundary(ps);
-
-        // Find Gamma_f
-        // Goal is to find the boundaries with z=0
-        if (checkForZero(boundaryDofs,m_mp->patch(ps.patch).coefs()))
+        if (isBndGammaF(ps))
         {
             gsInfo << "GAMMA_F: Add condition at patch " << ps.patch << " bnd " << ps.index() <<"\n";
             bcInfo_Gamma_f.addCondition(ps.patch, ps.index(), condition_type::neumann, zero);
@@ -1032,6 +1059,34 @@ gsMatrix<> gsStateEquationPotWaves::getCoefsReflector(index_t p)
     return out;
 }
 
+gsMultiPatch<>::Ptr gsStateEquationPotWaves::getCenterReflector()
+{
+
+    real_t lbx = init_lbx; // Length of box in the middle of the domain
+    real_t lby = init_lby; // Length of box in the middle of the domain
+    real_t lbz = init_lbz; // Length of box in the middle of the domain
+
+    real_t cx = init_center_x;
+    real_t cy = init_center_y;
+    real_t cz = init_center_z;
+
+    gsMatrix<> coefs = getBoxHelper(cx-lbx,cx+lbx,cy-lby,cy+lby,cz-lbz,0); 
+
+	gsMultiPatch<>::Ptr out = memory::make_shared( new gsMultiPatch<> );
+
+    gsTensorBSpline<3, real_t> tbs = getBox(coefs,m_degree);
+    out->addPatch( tbs );
+
+    gsInfo << "Sign of detJ on center is " << getSignOfDetJ(tbs) << "\n";
+
+    out->computeTopology();
+    out->uniformRefine();
+    out->closeGaps();
+
+    return out;
+
+}
+
 gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainReflector()
 {
     index_t nPatches = 16;
@@ -1040,7 +1095,7 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainReflector()
     for (index_t p = 0; p < nPatches; p++)
     {
         gsMatrix<> coefs = getCoefsReflector(p);
-        gsTensorBSpline<3, real_t> tbs = getBox(coefs);
+        gsTensorBSpline<3, real_t> tbs = getBox(coefs,m_degree);
         out->addPatch( tbs );
 
         gsInfo << "Sign of detJ on patch " << p << " is " << getSignOfDetJ(tbs) << "\n";
@@ -1049,7 +1104,6 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainReflector()
     out->computeTopology();
 
     out->uniformRefine();
-    out->degreeElevate(m_degree-1);
     out->closeGaps();
 
 
@@ -1070,14 +1124,13 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomain(bool includeCenter
     for (index_t p = 0; p < nPatches; p++)
     {
         gsMatrix<> coefs = getCoefs(p);
-        gsTensorBSpline<3, real_t> tbs = getBox(coefs);
+        gsTensorBSpline<3, real_t> tbs = getBox(coefs,m_degree);
         out->addPatch( tbs );
     }
 
     out->computeTopology();
 
     out->uniformRefine();
-    out->degreeElevate(m_degree-1);
     out->closeGaps();
 
 
@@ -1100,7 +1153,7 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainTmp(bool includeCen
     {
         index_t p = vec[i];
         gsMatrix<> coefs = getCoefs(p);
-        gsTensorBSpline<3, real_t> tbs = getBox(coefs);
+        gsTensorBSpline<3, real_t> tbs = getBox(coefs,m_degree);
         out->addPatch( tbs );
     }
 
@@ -1125,7 +1178,7 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainNoPML(bool includeC
     {
         index_t p = vec[i];
         gsMatrix<> coefs = getCoefs(p);
-        gsTensorBSpline<3, real_t> tbs = getBox(coefs);
+        gsTensorBSpline<3, real_t> tbs = getBox(coefs,m_degree);
         out->addPatch( tbs );
     }
 
@@ -1150,7 +1203,7 @@ gsMultiPatch<>::Ptr gsStateEquationPotWaves::getInitialDomainNoPMLInZDir(bool in
     {
         index_t p = vec[i];
         gsMatrix<> coefs = getCoefs(p);
-        gsTensorBSpline<3, real_t> tbs = getBox(coefs);
+        gsTensorBSpline<3, real_t> tbs = getBox(coefs,m_degree);
         out->addPatch( tbs );
     }
 
@@ -2333,8 +2386,8 @@ bool gsStateEquationPotWaves::isPatchInDomain(index_t p)
 
 gsVector< index_t > gsStateEquationPotWaves::getVectorWithDomainPatches()
 {
-    gsVector< index_t > patches(5);
-    patches << 0, 1, 2, 3, 15;
+    gsVector< index_t > patches(6);
+    patches << 0, 1, 2, 3, 4, 15;
 
     return patches;
 }

@@ -136,11 +136,16 @@ void gsStateEquation::plotMagnitude(std::string name){
 	gsMultiPatch<> u_real, u_imag;
 	solve(u_real,u_imag);
 
+    plotMagnitude(u_real, u_imag, name);
+}
+
+void gsStateEquation::plotMagnitude(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag, std::string name){
+
 	gsExprAssembler<> A(1,1);
 	gsExprEvaluator<> ev(A);
-  A.setIntegrationElements(dbasis);
+    A.setIntegrationElements(dbasis);
 
-  geometryMap G = A.getMap(*m_mp);
+    geometryMap G = A.getMap(*m_mp);
 
 	variable u_re = A.getCoeff(u_real);
 	variable u_im = A.getCoeff(u_imag);

@@ -95,6 +95,7 @@ public:
     void plotSolution(gsMultiPatch<> &sol, std::string name);
     void plotSolution(std::string name);
     void plotMagnitude(std::string name);
+    void plotMagnitude(gsMultiPatch<> &u_real, gsMultiPatch<> &u_imag, std::string name);
 
     void writeToFile(gsMatrix<> mat, std::string name) const;
 

@@ -77,6 +77,7 @@ void gsShapeOptWithReg::setupMappers()
         return;
     }
 
+    m_shift_free.setZero(m_mp->targetDim());
     for (index_t d = 0; d < m_mp->targetDim(); d++) // For each dimension
     {
         for (index_t k = 0; k < m_mp->nBoxes(); k++) // For each patch
@@ -117,6 +118,9 @@ void gsShapeOptWithReg::setupMappers()
         gsInfo << "size " << m_opt->mappers()[d].size() << ", " << m_mappers[d].size() << "\n";
         gsInfo << "taggedSize " << m_opt->mappers()[d].taggedSize() << ", " << m_mappers[d].taggedSize() << "\n";
         gsInfo << "freeSize " << m_opt->mappers()[d].freeSize() << ", " << m_mappers[d].freeSize() << "\n";
+        if (d > 0)
+            m_shift_free[d] = m_shift_free[d-1] + m_mappers[d-1].freeSize();
+
 
     }
 

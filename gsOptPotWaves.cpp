@@ -249,7 +249,25 @@ void gsOptPotWaves::setupMappers()
         // gsInfo << ps << " is fixed in y direction \n\n";
         // gsInfo << "boundaryDofs on patch " << ps.patch << "\n"<< boundaryDofs << "\n\n";
         for( index_t d = 0; d < m_dim; d++)
+        {
+            // Skip x and y coordinate of gamma_f
+            if (d != 2 and m_stateEq.isBndGammaF(ps))
+            {
+                //gsInfo << "i = " << i << " SKIPPING d=2 and GammaF\n";
+                continue;
+            }
+
+            // Skip y coordinate of gamma_symm
+            
+            if (d != 1 and m_stateEq.isBndGammaSymm(ps))
+            {
+                //gsInfo << "i = " << i << " SKIPPING GammaSymm\n";
+                continue;
+            }
+           
+                
             m_mappers[d].markBoundary(ps.patch,boundaryDofs);
+        }
     }
 
 
