@@ -182,6 +182,11 @@ public:
     virtual gsMultiPatch<> getUI(){ GISMO_NO_IMPLEMENTATION };
 
 public:
+
+	typedef memory::unique_ptr<gsShapeOptProblem> uPtr;
+	typedef memory::shared_ptr<gsShapeOptProblem> Ptr;
+
+public:
     mutable memory::shared_ptr<gsMultiPatch<>> m_mp;
     mutable memory::shared_ptr<gsConstraint> m_dJC;
     mutable memory::shared_ptr<gsParamMethod> m_paramMethod;

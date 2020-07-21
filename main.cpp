@@ -35,6 +35,7 @@
 #include "gsShapeOptProblem.h"
 #include "gsShapeOptWithReg.h"
 #include "gsOptPotWavesWithReg.h"
+#include "gsOptPotWavesWithReg2nd.h"
 #include "gsOptAntenna.h"
 #include "gsOptPotWaves.h"
 #include "gsOptParam.h"
@@ -1623,6 +1624,55 @@ gsMultiPatch<> getSeastar(){
 
 }
 
+gsMultiPatch<> getTorus(){
+
+    gsMultiPatch<> out(getGeometry(5,4,2).patch(4));
+
+    gsMatrix<> coefs = out.patch(0).coefs();
+
+    patchSide ps = out.boundaries()[0];
+    gsVector< unsigned > boundaryDofs_lhs = out.basis(0).boundary(ps);
+
+    ps = out.boundaries()[1];
+    gsVector< unsigned > boundaryDofs_rhs = out.basis(0).boundary(ps);
+
+    ps = out.boundaries()[2];
+    gsVector< unsigned > boundaryDofs_top = out.basis(0).boundary(ps);
+
+    ps = out.boundaries()[3];
+    gsVector< unsigned > boundaryDofs_bot = out.basis(0).boundary(ps);
+
+    for (index_t i = 0; i < boundaryDofs_top.size(); i++)
+    {
+        coefs.row(boundaryDofs_bot[i]) = coefs.row(boundaryDofs_top[i])*0.33;
+    }
+
+    gsVector<> left = coefs.row(boundaryDofs_rhs[0]);
+    gsVector<> right = coefs.row(boundaryDofs_bot[4]);
+
+    for (index_t i = 0; i < boundaryDofs_rhs.size(); i++)
+    {
+        gsDebugVar(coefs.row(boundaryDofs_rhs[i]));
+        coefs.row(boundaryDofs_rhs[i]) = (1 - i/3.0)* left + i/3.0 * right;
+        gsDebugVar(coefs.row(boundaryDofs_rhs[i]));
+    }
+
+    left = coefs.row(boundaryDofs_lhs[0]);
+    right = coefs.row(boundaryDofs_bot[0]);
+
+    for (index_t i = 0; i < boundaryDofs_lhs.size(); i++)
+    {
+        coefs.row(boundaryDofs_lhs[i]) = (1 - i/3.0)* left + i/3.0 * right;
+
+    }
+
+
+    out.patch(0).setCoefs(coefs);
+
+	return out;
+
+}
+
 gsMatrix<> reshape(gsVector<> vec, index_t n, index_t m){
     gsMatrix<> out(n,m);
 
@@ -1672,15 +1722,15 @@ void extractCornersAndSaveXML(index_t jigtype, index_t dim)
 
 	index_t num = 1;
 	if (dim == 3)
-	{
+    {
 		if (jigtype == 5)
 			num = 3;
 		if (jigtype == 6)
 			num = 2;
 		if (jigtype == 7)
 			num = 4;
-
-	} else if (dim == 2)
+	} 
+    else if (dim == 2)
 	{
 		if (jigtype == 1)
 			num = 1;
@@ -2830,6 +2880,77 @@ gsMultiPatch<> getInitGuess3d_full(gsMultiPatch<> goal)
 
 }
 
+gsMultiPatch<> getInitGuess2d_unitSq(gsMultiPatch<> &goal)
+{
+	index_t n = 2;
+	index_t degree = 1;
+
+	index_t dim = goal.targetDim();
+
+	gsMultiPatch<> out;
+	for( index_t p = 0; p < goal.nBoxes(); p++)
+	{	
+		gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
+		gsKnotVector<> kv2(0, 1, n - degree - 1, degree + 1);
+		// 2. construction of a basis
+		gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
+		// 3. construction of a coefficients
+		gsMatrix<> coefs = basis.anchors().transpose();
+		gsTensorBSpline<2, real_t>  tbsout(basis, coefs);
+
+		gsTensorBSpline<2, real_t> tbs = static_cast< gsTensorBSpline<2, real_t>& > (goal.patch(p));
+
+		for (index_t d = 0; d < dim; d++)	
+		{
+			tbsout.degreeElevate(tbs.degree(d)-degree,d);
+
+			gsKnotVector<> kv = tbs.knots(d);
+
+			for(gsKnotVector<>::iterator it = kv.begin() + tbs.degree(d) + 1; it != kv.end() - tbs.degree(d) - 1; it++)
+			{
+				tbsout.insertKnot(*it,d);
+			}
+
+
+		}
+		
+		out.addPatch(tbsout);
+	}
+	//out.computeTopology();
+	//out.closeGaps();
+	return out;
+
+}
+
+gsMultiPatch<> getInitGuess2d_full(gsMultiPatch<> goal)
+{
+    gsMultiPatch<> out(goal);
+   
+    for (index_t p = 0; p < goal.nBoxes(); p++)
+    {
+        gsMultiPatch<> sp1(goal.patch(p));
+
+        gsMultiPatch<> sp_init = getInitGuess2d_unitSq(sp1);
+        sp_init.computeTopology();
+
+        gsMultiPatch<>::Ptr sp_ptr = memory::make_shared_not_owned(&sp1);
+        gsMultiPatch<>::Ptr sp_init_ptr = memory::make_shared_not_owned(&sp_init);
+
+        gsInfo << *sp_ptr;
+        gsInfo << *sp_init_ptr;
+        gsOptInit4th OI(sp_init_ptr, sp_ptr);
+        OI.print();
+
+        OI.solve();
+        OI.updateMP();
+
+        out.patch(p).setCoefs( sp_init.patch(0).coefs() );
+    }
+
+    return out;
+
+}
+
 gsMultiPatch<> getInitGuess2d(gsMultiPatch<> &goal)
 {
 	index_t n = 2;
@@ -3072,6 +3193,9 @@ cmd.addSwitch("usePow", "use winslow: JTJ/detJ^(2/d)", usePow);
 bool changeSign = false;
 cmd.addSwitch("changeSign", "change sign of detJ", changeSign);
 
+std::string plotDir;
+cmd.addString("9", "plotDir", "design to start from", plotDir);
+
 cmd.getValues(argc,argv);
 
 output = "/" + output;
@@ -3102,6 +3226,7 @@ if (potWave) {
 	gsShapeOptLog::Ptr slog1_ptr = memory::make_shared_not_owned(&slog1); 
 
     gsMultiPatch<>::Ptr mp_ptr = SE.m_mp;
+    gsMultiPatch<>::Ptr c_ptr = SE.getCenterReflector();
 
     gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
 
@@ -3111,11 +3236,9 @@ if (potWave) {
     bool useConstraints = false;
 
     gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
-    gsOptPotWavesWithReg optWR(mp_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,useConstraints);
+    gsOptPotWavesWithReg2nd optWR(mp_ptr,c_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,true,true);
 
-    gsInfo << " \n ================== \n";
-    optPW_ptr->solveStateEquation();
-    gsInfo << " Objective : " << optPW_ptr->evalObj() << "\n";
+    //gsInfo << " Objective : " << optPW_ptr->evalObj() << "\n";
 
     //std::string name = "wfun";
     //optPW_ptr->plotGoalFunctions(BASE_FOLDER + output + name);
@@ -3123,7 +3246,89 @@ if (potWave) {
     //optPW_ptr->gradAll();
 
     //gsDebugVar(optWR.m_winslow->evalObj());
-    optWR.runOptimization();
+
+    if (plotDesign)
+    {
+    
+        std::string nameDetJ = plotDir + "detJ.txt";
+		std::ofstream file(nameDetJ);
+        for( index_t i = 0; i < 3000; i += 50)
+        {
+
+            std::string si = std::to_string(i);
+            std::string nameUR = plotDir + "xml/ur_" + si + ".xml";
+            std::string nameUI = plotDir + "xml/ui_" + si + ".xml";
+
+            if (!exists(nameUR))
+            {
+                gsInfo << nameUR << "\n";
+                gsInfo << "BREAK\n";
+                break;
+            }
+
+            file << "i = " << i << "\n";
+
+            // Load solution
+	        gsMultiPatch<>::uPtr ur_ptr, ui_ptr;
+
+	        gsFileData<> fdr(nameUR);
+	        ur_ptr = fdr.getFirst< gsMultiPatch<> > ();
+
+	        gsFileData<> fdi(nameUI);
+	        ui_ptr = fdi.getFirst< gsMultiPatch<> > ();
+
+            std::string nameCps = plotDir + "cps_0_" + si + ".txt";
+            gsInfo << nameCps << "\n";
+
+            gsWinslowPow winslow(mp_ptr,optWR.mappers(),false, false, true, 0);
+            winslow.setQuad(quA,quB);
+
+            winslow.updateFlat(loadVec(winslow.n_flat,nameCps));
+
+            real_t minDJ0 = winslow.minDetJInGaussPts();
+            real_t minDJ15 = winslow.minDetJInGaussPts(15);
+
+            // Compute detJ
+
+            file << "min in qauss pts (" << quA << ", " << quB << ") :" << minDJ0 << "\n";
+            file << "min in qauss pts (" << quA << ", " << quB + 15 << ") :" << minDJ15 << "\n";
+
+            if (minDJ15 > 0)
+            {
+                gsDetJacConstraint dJC(mp_ptr, true);
+                index_t neededSteps;
+                real_t minJacCoeff = dJC.provePositivityOfDetJ_TP(neededSteps, 3);
+                file << "minJacCoeff " << minJacCoeff << ": " << minJacCoeff << "\n";
+            }
+
+            // Plot |u|^2
+            std::string nameAbsU = plotDir + "paraview/absU_" + si;
+            SE.plotMagnitude(*ur_ptr, *ui_ptr, nameAbsU);
+
+            // Plot center as slices
+            gsVector<> dir(5);
+            gsVector<> par(5);
+            dir << 0, 0, 1, 2, 1;
+            par << 1, 1, 0, 1, 0;
+            for (index_t p = 0; p < 5; p++)
+            {
+                std::string nameSlice = plotDir + "paraview/side_" + si + "_" + std::to_string(p); 
+                gsGeometrySlice<> slice = mp_ptr->patch(p).getIsoParametricSlice(dir[p],par[p]);
+
+                gsWriteParaview(slice, nameSlice, 500);
+            }
+
+            file << "================ \n\n";
+        }
+        file.close();
+    
+    }
+    else
+    {
+
+        optWR.runOptimization();
+
+    }
 
 
     // ========================================
@@ -3216,6 +3421,104 @@ gsInfo << "The domain is a "<< patches <<"\n";
 // // gsHBSpline<2> bb(gg->basis(),mm);
 // exit(0);
 //
+//
+
+// get Initial guess of seastar and torus
+if (true)
+{
+    for (index_t i = 0; i < 2; i++)
+    {
+        gsMultiPatch<> seastar;
+        std::string nm;
+
+        if (i == 0)
+        {
+            seastar = getSeastar();
+            nm = "seastar";
+        } else {
+            seastar = getTorus();
+            nm = "torus";
+        }
+
+        gsMultiPatch<>::Ptr seastar_ptr = memory::make_shared_not_owned( &seastar );
+
+        gsMultiPatch<> mp_init1 = getInitGuess2d(seastar);
+        gsMultiPatch<>::Ptr init1_ptr = memory::make_shared_not_owned( &mp_init1 );
+
+        gsMultiPatch<> mp_init2 = getInitGuess2d_full(seastar);
+        gsMultiPatch<>::Ptr init2_ptr = memory::make_shared_not_owned( &mp_init2 );
+
+        gsWinslow winS( seastar_ptr, false );
+        std::string name = BASE_FOLDER + output + nm;
+        gsVector<> flat = winS.getFlat();
+        saveVec(flat, name + ".txt");
+        gsWriteParaview(seastar,name,true,true);
+
+        gsWinslow win1( init1_ptr, false );
+        name = BASE_FOLDER + output + nm + "_init1";
+        flat = win1.getFlat();
+        saveVec(flat, name + ".txt");
+        gsWriteParaview(mp_init1,name,true,true);
+
+        gsWinslow win2( init2_ptr, false );
+        name = BASE_FOLDER + output + nm + "_init2";
+        flat = win2.getFlat();
+        saveVec(flat, name + ".txt");
+        gsWriteParaview(mp_init2,name,true,true);
+    }
+
+    exit(0);
+
+
+
+
+}
+
+// Print number of constraints
+if (false)
+{
+
+    gsInfo << "n  \t p=1 \t p=2 \t p=3 \n";
+    for (index_t n = 2; n < 17; n *= 2)
+    {
+
+        gsInfo << n;
+        for (index_t d = 2; d < 4; d++)
+        {
+
+            for (index_t p = 1; p < 4; p++)
+            { 
+	            gsKnotVector<> kv1(0, 1, n , p + 1);
+	            gsKnotVector<> kv2(0, 1, n , p + 1);
+	            gsKnotVector<> kv3(0, 1, n , p + 1);
+
+                gsBasis<>::uPtr bas_ptr;
+                
+                if (d == 2) // 2D
+                {
+	                bas_ptr = memory::make_unique( new gsTensorBSplineBasis<2, real_t>(kv1, kv2) );
+                }
+                else // 3D
+                {
+	                bas_ptr = memory::make_unique( new gsTensorBSplineBasis<3, real_t>(kv1, kv2, kv3) );
+                }
+	            
+
+                gsMultiBasis<> dbas(*bas_ptr);
+                dbas.setDegree(d*p-1);
+                dbas.reduceContinuity(1);
+
+                gsInfo << "\t&\t" << bas_ptr->size() << ", " <<  dbas.size();
+            }
+        }
+        gsInfo << "\n";
+    }
+
+
+
+    exit(0);
+
+}
 
 if (false)
 {
