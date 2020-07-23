@@ -3193,6 +3193,9 @@ cmd.addSwitch("usePow", "use winslow: JTJ/detJ^(2/d)", usePow);
 bool changeSign = false;
 cmd.addSwitch("changeSign", "change sign of detJ", changeSign);
 
+bool glueInterfaces = true;
+cmd.addSwitch("glueInterfaces", "glue interfaces? If yes we use multi-linear start guess, otherwise we use the affine startguess", glueInterfaces);
+
 std::string plotDir;
 cmd.addString("9", "plotDir", "design to start from", plotDir);
 
@@ -3424,7 +3427,7 @@ gsInfo << "The domain is a "<< patches <<"\n";
 //
 
 // get Initial guess of seastar and torus
-if (true)
+if (false)
 {
     for (index_t i = 0; i < 2; i++)
     {
@@ -3910,7 +3913,10 @@ if(optParamXML)
         }
         else
         {
-    	    mp_init = getInitGuess3d(*mp_ptr);
+            if (glueInterfaces)
+    	        mp_init = getInitGuess3d(*mp_ptr);
+            else
+                mp_init = getInitGuess3d_full(mp);
         }
         //mp_init = getInitGuess3d_full(mp);
 	}
@@ -3940,12 +3946,15 @@ if(optParamXML)
     }
     else
     {
-        optP_ptr = memory::make_shared( new gsOptParam(mp_init_ptr,mp_ptr,slog1_ptr,param) );
+        if (glueInterfaces)
+            optP_ptr = memory::make_shared( new gsOptParam(mp_init_ptr,mp_ptr,slog1_ptr,param) );
+        else
+            optP_ptr = memory::make_shared( new gsOptParamFull(mp_init_ptr,mp_ptr,slog1_ptr,param) );
         optP_ptr->setupMappers();
     }
 
 	gsInfo << "EPS = " << eps << "\n";
-    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps, true, usePow); // glue interfaces, usePow
+    gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps, glueInterfaces, usePow); // glue interfaces, usePow
 
     //optWR.evalObj();
     if (decreaseTau)

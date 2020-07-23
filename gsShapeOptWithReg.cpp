@@ -240,8 +240,8 @@ void gsShapeOptWithReg::setupOptParameters()
                 GISMO_ERROR("ERROR WITH UPPER DES VAR");
             }
 
-            m_desLowerBounds[ii] = m_opt->lowerDesignVar(iter);
-            m_desUpperBounds[ii] = m_opt->upperDesignVar(iter);
+            m_desLowerBounds[jj] = m_opt->lowerDesignVar(iter);
+            m_desUpperBounds[jj] = m_opt->upperDesignVar(iter);
 
             iter++;
         }
