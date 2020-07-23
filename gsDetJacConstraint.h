@@ -54,6 +54,7 @@ public:
 
     // Plot det J in paraview with filename "name"
     void plotDetJ(std::string name);
+    void plotDetJNoSolve(std::string name);
 
     // Plot active constraints
     // tol1 sets the tolerance for marking active constraints

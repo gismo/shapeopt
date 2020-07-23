@@ -10,6 +10,9 @@ public:
     // use constructors from gsOptParam
     using gsOptParam::gsOptParam;
 
+    gsVector<> getGradAllFromInterface(boundaryInterface interface) const;
+
+
     // Evaluation of the objective, using the design contained in m_mp
     real_t evalObj() const ;
 
@@ -24,6 +27,9 @@ public:
 	typedef memory::unique_ptr<gsOptParamFull> uPtr;
 
 public:
+
+    std::vector< gsDofMapper > m_mappers_old;
+    gsVector<index_t> patchShift;
 
 };
 

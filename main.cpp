@@ -667,7 +667,7 @@ void convergenceTestOfJacobianAll(gsShapeOptProblem &sOP){
             {
                 for (index_t i = 0; i < sOP.m_mp->patch(p).coefsSize(); i++)
                 {
-                    if(sOP.isCpsInDomain(i,p,d))
+                    if(true) //sOP.isCpsInDomain(i,p,d))
                     {
                         perturp[i_flat] = ran[i_flat];
                     }
@@ -3296,13 +3296,17 @@ if (potWave) {
             file << "min in qauss pts (" << quA << ", " << quB << ") :" << minDJ0 << "\n";
             file << "min in qauss pts (" << quA << ", " << quB + 15 << ") :" << minDJ15 << "\n";
 
+            gsDetJacConstraint dJC(mp_ptr, true);
             if (minDJ15 > 0)
             {
-                gsDetJacConstraint dJC(mp_ptr, true);
                 index_t neededSteps;
                 real_t minJacCoeff = dJC.provePositivityOfDetJ_TP(neededSteps, 3);
                 file << "minJacCoeff " << minJacCoeff << ": " << minJacCoeff << "\n";
             }
+
+
+            std::string nameDetJPvd = plotDir + "paraview/detJ_" + si;
+            dJC.plotDetJNoSolve(nameDetJPvd);
 
             // Plot |u|^2
             std::string nameAbsU = plotDir + "paraview/absU_" + si;
@@ -3950,8 +3954,12 @@ if(optParamXML)
             optP_ptr = memory::make_shared( new gsOptParam(mp_init_ptr,mp_ptr,slog1_ptr,param) );
         else
             optP_ptr = memory::make_shared( new gsOptParamFull(mp_init_ptr,mp_ptr,slog1_ptr,param) );
+
         optP_ptr->setupMappers();
     }
+
+//    convergenceTestOfJacobianAll(*optP_ptr);
+//    exit(0);
 
 	gsInfo << "EPS = " << eps << "\n";
     gsShapeOptWithReg optWR(mp_init_ptr,optP_ptr,numRefine,slog1_ptr,quA,quB,eps, glueInterfaces, usePow); // glue interfaces, usePow

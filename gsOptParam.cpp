@@ -93,6 +93,7 @@ gsVector<> gsOptParam::gradObj() const{
 };
 
 gsVector<> gsOptParam::gradAll() const{
+    gsInfo << "Grad All Opt Param\n";
     gsVector<> out;
     out.setZero(n_flat);
 
