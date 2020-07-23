@@ -18,6 +18,8 @@ public:
     // evaluation of objective
     virtual real_t evalObj() const;
 
+    virtual real_t evalObj(index_t p) const;
+
     gsVector<> gradObj() const;
 
     // Returns hessian wrt. all variables
@@ -32,6 +34,13 @@ public:
     real_t minDetJInGaussPts(index_t incPts = 0);
     real_t maxDetJInGaussPts(index_t incPts = 0);
 
+    
+    void computeWinslowPerPatch();
+
+    virtual void addCorners(){ GISMO_NO_IMPLEMENTATION; };
+    virtual void setAlpha(real_t){ GISMO_NO_IMPLEMENTATION; };
+
+
 
 public:
 
@@ -42,6 +51,8 @@ public:
     // Flags that determines whether objective should be set to inf if detJ is smaller that m_checkForInf_eps in a gauss point.
     bool m_checkForInf = false;
     real_t m_checkForInf_eps = 0;
+
+    gsVector<> m_winslow_per_patch;
 
     real_t lambda = 1;
 };

@@ -1071,12 +1071,10 @@ void convergenceTestOfParaJacobianAll(gsWinslow &lOP){
 	real_t liao = lOP.evalObj();
 	gsVector<> grad = lOP.gradAll();
 
-	gsMatrix<> hess = lOP.hessAll();
+	//gsMatrix<> hess = lOP.hessAll();
 
 	gsInfo << "\n" << std::setprecision(10) << liao << "\n";
 	// gsInfo << "\n" << grad << "\n";
-    gsDebugVar(hess.rows());
-    gsDebugVar(hess.cols());
 
 	std::srand((unsigned int) std::time(0));
 	gsVector<> ran;
@@ -1116,7 +1114,7 @@ void convergenceTestOfParaJacobianAll(gsWinslow &lOP){
 		real_t newLiao = lOP.evalObj();
 		real_t guess0 = liao;
 		real_t guess1 = liao + grad.transpose()*perturp;
-		real_t guess2 = liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
+		real_t guess2 = 0; //liao + grad.transpose()*perturp + 0.5*perturp.transpose()*hess*perturp;
 
 		// gsInfo << newLiao <<" " << guess1 << " " << guess2 << "\n";
 		// gsInfo << guess0 <<" " << guess1 << " " << newLiao << "\n";
@@ -3236,15 +3234,20 @@ if (potWave) {
 
     gsOptPotWaves optPW(mp_ptr,numRefine,slog1_ptr,param,quA,quB);
 
-    //convergenceTestOfJacobianAll(optPW);
-    //
-
     bool useConstraints = false;
 
     gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
     gsOptPotWavesWithReg2nd optWR(mp_ptr,c_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,true,true);
 
-    //gsInfo << " Objective : " << optPW_ptr->evalObj() << "\n";
+    optWR.m_winslow->computeWinslowPerPatch();
+    gsDebugVar(optWR.m_winslow->m_winslow_per_patch);
+
+    optWR.m_winslow->addCorners();
+
+    //convergenceTestOfParaJacobianAll(*optWR.m_winslow);
+    //gsInfo << " Objective : " << optWR.m_winslow->evalObj() << "\n";
+    //exit(0);
+
 
     //std::string name = "wfun";
     //optPW_ptr->plotGoalFunctions(BASE_FOLDER + output + name);

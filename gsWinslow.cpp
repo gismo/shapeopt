@@ -58,6 +58,46 @@ real_t gsWinslow::evalObj() const {
 
 }
 
+real_t gsWinslow::evalObj(index_t p) const {
+    // gsInfo << "evalObj() \n";
+    gsExprAssembler<> A(1,1);
+    gsMultiBasis<> dbasis(m_mp->patch(p));
+    A.setIntegrationElements(dbasis);
+
+    gsExprEvaluator<> ev(A);
+    ev.options().setInt("quB",m_quB);
+    ev.options().setReal("quA",m_quA);
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    geometryMap G = A.getMap(*m_mp);
+
+    real_t minDJ = ev.min(jac(G).det());
+
+    if (m_checkForInf)
+    {
+        if (minDJ <= m_checkForInf_eps) // Check for too small value of detJ at gauss points
+        {
+            // gsWriteParaview(*m_mp,"geomwin");
+            // gsInfo << "norm of flat : " << getFlat().norm() << "\n";
+            // gsInfo << "norm of tagged : " << getTagged().norm() << "\n";
+            // gsInfo << "quA, quB : " << m_quA << ", " << m_quB << "\n";
+            // gsInfo << "Min detJ in winslow: " << minDJ << "\n\n";
+            return std::numeric_limits<double>::infinity();
+        }
+    }
+
+    auto detJinv = jac(G).inv().det(); // The inverse of det J
+
+    real_t out = ev.integral(jac(G)%jac(G)*detJinv);
+
+    return out;
+
+}
+
 gsVector<> gsWinslow::gradObj() const{
     gsDofMapper mapper;
     gsVector<> all = gradAll(mapper);
@@ -223,3 +263,14 @@ real_t gsWinslow::maxDetJInGaussPts(index_t incPts){
 
     return ev.max(jac(G).det());
 }
+
+void gsWinslow::computeWinslowPerPatch()
+{
+    m_winslow_per_patch.setZero(m_mp->nBoxes());
+
+    for (index_t p = 0; p < m_mp->nBoxes(); p++)
+    {
+        m_winslow_per_patch[p] = evalObj(p);
+    }
+}
+

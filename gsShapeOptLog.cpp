@@ -268,3 +268,9 @@ void gsShapeOptLog::saveAsXML(gsMultiPatch<> &fun, std::string name, index_t i)
     saveAsXML(fun,str);
 }
 
+void gsShapeOptLog::plotDetJ(gsDetJacConstraint &dJC, std::string name)
+{
+    dJC.plotDetJNoSolve(BASE_FOLDER + m_output + name);
+}
+
+
