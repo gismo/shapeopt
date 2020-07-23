@@ -1,6 +1,9 @@
 #include <gismo.h>
 #include "gsWinslowPow.h"
+#include "gsDetJacConstraint.h"
 #include "gsOptPotWavesWithReg2nd.h"
+#include "gsDetJacConstraint.h"
+
 
 
 gsOptPotWavesWithReg2nd::gsOptPotWavesWithReg2nd(gsMultiPatch<>::Ptr mp, gsMultiPatch<>::Ptr center, gsShapeOptProblem::Ptr sopt, index_t numRefine, gsShapeOptLog::Ptr slog, real_t quA, index_t quB, real_t eps,  bool glueInterfaces, bool usePow):
@@ -307,6 +310,11 @@ void gsOptPotWavesWithReg2nd::runOptimization()
 
     name = "paraview/final_design";
     m_log->plotInParaview(*m_mp,name);
+
+    gsDetJacConstraint dJC(m_mp,true);
+    name = "paraview/detJ";
+    m_log->plotDetJ(dJC,name);
+    
 
 }
 

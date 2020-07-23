@@ -39,7 +39,7 @@ void gsParamMethod::computeMapInfo(){
     m_shift_free.setZero(m_mp->targetDim());
     m_shift_all.setZero(m_mp->targetDim());
     m_shift_flat.setZero(m_mp->targetDim());
-    m_patchShift.setZero(m_mp->targetDim());
+    m_patchShift.setZero(m_mp->nBoxes());
     m_shift_tagged.setZero(m_mp->targetDim());
 
     n_free = 0;
@@ -63,7 +63,7 @@ void gsParamMethod::computeMapInfo(){
         // Count flats
         for(index_t p = 0; p < m_mp->nBoxes(); p++){
             if (i == 0)
-                m_patchShift[i] = n_flat;
+                m_patchShift[p] = n_flat;
 
             n_flat += m_mp->patch(p).coefsSize();
         }

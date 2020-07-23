@@ -13,6 +13,9 @@ Author(s): A. Limkilde, A. Mantzaflaris
 */
 #ifndef GSSHAPEOPTLOG_H
 #define GSSHAPEOPTLOG_H
+
+#include "gsDetJacConstraint.h"
+
 using namespace gismo;
 
 class gsShapeOptLog{
@@ -31,6 +34,8 @@ public:
     gsShapeOptLog& operator << (const char str[]);
     gsShapeOptLog& operator << (index_t i);
     gsShapeOptLog& operator << (real_t r);
+
+    void plotDetJ(gsDetJacConstraint &dJC, std::string name);
 
     void logObj(real_t obj); // Logs the objective value
 
