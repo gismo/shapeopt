@@ -275,6 +275,36 @@ void gsDetJacConstraint::plotDetJ(std::string name)
 
 }
 
+void gsDetJacConstraint::plotDetJNoSolve(std::string name)
+{
+	//gsWriteParaview(dJ,name,3000,true);
+
+    typedef gsExprAssembler<>::geometryMap geometryMap;
+    typedef gsExprAssembler<>::variable    variable;
+    typedef gsExprAssembler<>::space       space;
+    typedef gsExprAssembler<>::solution    solution;
+
+    gsExprAssembler<> A(1,1);
+
+    A.options().setInt("quB",m_quB);
+    A.options().setReal("quA",m_quA);
+
+    // Elements used for numerical integration
+    A.setIntegrationElements(m_detJacBasis);
+    gsExprEvaluator<> ev(A);
+
+    space u = A.getSpace(m_detJacBasis);
+
+    geometryMap G = A.getMap(*m_mp);
+
+    gsInfo<<"Plotting " << name << " in Paraview...\n";
+    // gsWriteParaview(dJ,name,100000,true);
+    ev.options().setSwitch("plot.elements", true);
+    ev.options().setInt("plot.npts", 50000);
+    ev.writeParaview( jac(G).det()   , G, name);
+
+}
+
 gsMultiPatch<> gsDetJacConstraint::getDetJFromCoef()
 {
     GISMO_ASSERT(m_mp->targetDim() == 2, "getDetJSurface only works for 2D");
