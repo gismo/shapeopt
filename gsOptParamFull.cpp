@@ -35,18 +35,18 @@ real_t gsOptParamFull::evalObj() const {
     gsVector<> diff = (m_tagged_goal - m_paramMethod->getTagged());
 
     real_t result = 0.5*diff.squaredNorm();
-    gsDebugVar(result);
+    //gsDebugVar(result);
 
     for(index_t i = 0; i < m_mp->nInterfaces(); i++)
     {
         boundaryInterface interface = m_mp->bInterface(i);
 
         result += 0.5*getObjFromInterface(interface, m_mp);
-        gsDebugVar(result);
+        //gsDebugVar(result);
     }
 
-    gsDebugVar(result);
-    gsInfo << "DONE\n" << std::flush;
+    //gsDebugVar(result);
+    //gsInfo << "DONE\n" << std::flush;
     return result;
 }
 

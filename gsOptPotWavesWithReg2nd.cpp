@@ -171,6 +171,9 @@ void gsOptPotWavesWithReg2nd::setupOptParameters()
                 GISMO_ERROR("ERROR WITH UPPER DES VAR");
             }
 
+            m_desLowerBounds[jj] = m_opt->lowerDesignVar(iter);
+            m_desUpperBounds[jj] = m_opt->upperDesignVar(iter);
+
             iter++;
         }
     }
@@ -240,7 +243,8 @@ void gsOptPotWavesWithReg2nd::updateDesignBounds()
 bool gsOptPotWavesWithReg2nd::intermediateCallback() 
 {
     // FIXIT objective evaluated again!
-    real_t obj = m_opt->evalObj();
+    real_t obj = 0;
+    //real_t obj = m_opt->evalObj();
     real_t winslow = m_winslow->evalObj() + m_center_winslow->evalObj();
     // real_t gradn = gradObj().norm();
 
@@ -255,7 +259,7 @@ bool gsOptPotWavesWithReg2nd::intermediateCallback()
         gsMultiPatch<> ur = m_opt->getUR();
         gsMultiPatch<> ui = m_opt->getUI();
 
-        if (counter1 % 50 == 0)
+        if (counter1 % 5 == 0)
         {
             name = "paraview/mp";
             m_log->plotInParaview(*m_mp,name,counter1);
@@ -346,8 +350,8 @@ real_t gsOptPotWavesWithReg2nd::evalObj() const
     //gsInfo << "SE : quA, quB: " << m_opt->getQuA() << ", " << m_opt->getQuB() << "\n";
     //gsInfo << "Win: quA, quB: " << m_winslow->m_quA << ", " << m_winslow->m_quB << "\n";
 
-    return m_opt->evalObj() + m_eps*( winslow );
-    //return m_eps*( winslow );
+    //return m_opt->evalObj() + m_eps*( winslow );
+    return m_eps*( winslow );
 }
 
 gsVector<> gsOptPotWavesWithReg2nd::gradObj() const
@@ -355,8 +359,8 @@ gsVector<> gsOptPotWavesWithReg2nd::gradObj() const
     //gsInfo << "GRADOBJ\n" << std::flush;
     gsVector<> out(m_numDesignVars);
 
-    gsVector<> gradAll = m_opt->gradAll() + m_eps * m_winslow->gradAll();
-    //gsVector<> gradAll = m_eps * m_winslow->gradAll();
+    //gsVector<> gradAll = m_opt->gradAll() + m_eps * m_winslow->gradAll();
+    gsVector<> gradAll = m_eps * m_winslow->gradAll();
 
     out.segment(0,n_free) = m_winslow->mapMatrix(m_opt->mapper_grad(),gradAll);
     out.segment(n_free,n_flat_center) = m_eps*m_center_winslow->gradAll();

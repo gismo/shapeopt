@@ -151,11 +151,11 @@ public:
     real_t pml_lz       = 1.0;
 
     real_t init_lbx     = 0.5;
-    real_t init_lby     = 0.5;
+    real_t init_lby     = 0.25;
     real_t init_lbz     = 0.25;
 
     real_t init_center_x     = 0;
-    real_t init_center_y     = 0.75;
+    real_t init_center_y     = 1;
     real_t init_center_z     = 0;
     //real_t pml_Lx       = 8;
     //real_t pml_lx       = 1;
