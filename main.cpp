@@ -3119,9 +3119,6 @@ void scaleMP(gsMultiPatch<> &mp)
     for (index_t p = 0; p < mp.nBoxes(); p++)
         mp.patch(p).scale(1.0/(pow(size,1.0/mp.targetDim())));
 
-    size = measureSize(mp.patch(0));
-    gsDebugVar(size);
-
 }
 
 bool contains(std::string str, std::string substr)

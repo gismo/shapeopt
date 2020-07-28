@@ -270,7 +270,7 @@ bool gsOptPotWavesWithReg2nd::intermediateCallback()
         gsMultiPatch<> ur = m_opt->getUR();
         gsMultiPatch<> ui = m_opt->getUI();
 
-        if (counter1 % 5 == 0)
+        if (counter1 % 50 == 0)
         {
             name = "paraview/mp";
             m_log->plotInParaview(*m_mp,name,counter1);

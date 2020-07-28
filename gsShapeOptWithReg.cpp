@@ -53,14 +53,14 @@ real_t gsShapeOptWithReg::evalObj() const
     //gsInfo << "SE : quA, quB: " << m_opt->getQuA() << ", " << m_opt->getQuB() << "\n";
     //gsInfo << "Win: quA, quB: " << m_winslow->m_quA << ", " << m_winslow->m_quB << "\n";
 
-    return m_opt->evalObj() + m_eps*m_winslow->evalObj();
+    return 1/m_eps* m_opt->evalObj() + m_winslow->evalObj();
 }
 
 gsVector<> gsShapeOptWithReg::gradObj() const
 {
     //gsInfo << "GRADOBJ\n" << std::flush;
 
-    gsVector<> gradAll = m_opt->gradAll() + m_eps * m_winslow->gradAll();
+    gsVector<> gradAll = 1/m_eps*m_opt->gradAll() +  m_winslow->gradAll();
     gsVector<> out = m_winslow->mapMatrix(m_opt->mapper_grad(),gradAll);
     return out;
 };
@@ -437,6 +437,8 @@ void gsShapeOptWithReg::runOptimizationUntilPosDetJ(index_t maxiter, real_t k, i
         gsInfo << "Positive detJ of snapped found, continues!\n\n";
         gsInfo << "compute detJ coefs\n";
         real_t minD = dJC.provePositivityOfDetJ_TP(neededSteps, maxRef);
+
+        *m_log << "minD = " << minD << "\n";
 
         if (minD > 0)
         {
