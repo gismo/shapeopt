@@ -8,7 +8,7 @@ using namespace gismo;
 class gsOptPotWavesWithReg2nd: public gsShapeOptWithReg{
 public:
 
-    gsOptPotWavesWithReg2nd(gsMultiPatch<>::Ptr mp, gsMultiPatch<>::Ptr center, gsShapeOptProblem::Ptr sopt, index_t numRefine, gsShapeOptLog::Ptr slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true, bool usePow = false);
+    gsOptPotWavesWithReg2nd(gsMultiPatch<>::Ptr mp, gsMultiPatch<>::Ptr center, gsShapeOptProblem::Ptr sopt, index_t numRefine, gsShapeOptLog::Ptr slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true, bool usePow = false, bool useG0 = false);
 
     real_t evalObj() const ;
 

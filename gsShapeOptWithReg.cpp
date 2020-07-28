@@ -3,9 +3,10 @@
 #include "gsShapeOptWithReg.h"
 #include "gsOptParam.h"
 #include "gsWinslowPow.h"
+#include "gsWinslowG0Pow.h"
 
 // Implement
-gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB,real_t eps, bool glueInterfaces, bool usePow):
+gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB,real_t eps, bool glueInterfaces, bool usePow, bool useG0):
     m_glueInterfaces(glueInterfaces),
     m_eps(eps),
     m_mp(mp),
@@ -19,7 +20,16 @@ gsShapeOptWithReg::gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memo
     if (usePow)
     {
         *m_log << "use Pow!\n";
-        m_winslow = memory::make_shared(new gsWinslowPow(m_mp,m_mappers,false,false,true,0));
+        gsInfo << "use Pow!\n";
+        if (useG0)
+        {
+            *m_log << "use G0 !\n";
+            gsInfo << "use G0 !\n";
+            m_winslow = memory::make_shared( new gsWinslowG0Pow(m_mp,m_mappers,false,false,true,0) );
+            m_winslow->setMp0(*mp);
+        }
+        else
+            m_winslow = memory::make_shared( new gsWinslowPow(m_mp,m_mappers,false,false,true,0) );
     }
     else
     {

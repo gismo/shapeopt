@@ -1,20 +1,27 @@
 #include <gismo.h>
 #include "gsWinslowPow.h"
+#include "gsWinslowG0Pow.h"
 #include "gsDetJacConstraint.h"
 #include "gsOptPotWavesWithReg2nd.h"
 #include "gsDetJacConstraint.h"
 
 
 
-gsOptPotWavesWithReg2nd::gsOptPotWavesWithReg2nd(gsMultiPatch<>::Ptr mp, gsMultiPatch<>::Ptr center, gsShapeOptProblem::Ptr sopt, index_t numRefine, gsShapeOptLog::Ptr slog, real_t quA, index_t quB, real_t eps,  bool glueInterfaces, bool usePow):
-    gsShapeOptWithReg(mp, sopt, numRefine, slog, quA, quB, eps, glueInterfaces, usePow),
+gsOptPotWavesWithReg2nd::gsOptPotWavesWithReg2nd(gsMultiPatch<>::Ptr mp, gsMultiPatch<>::Ptr center, gsShapeOptProblem::Ptr sopt, index_t numRefine, gsShapeOptLog::Ptr slog, real_t quA, index_t quB, real_t eps,  bool glueInterfaces, bool usePow, bool useG0):
+    gsShapeOptWithReg(mp, sopt, numRefine, slog, quA, quB, eps, glueInterfaces, usePow, useG0),
     m_center(center)
 {
     // setupMappers called in gsShapeOptWithReg2nd constructor 
     
     // Setup center param method
     if (usePow)
-        m_center_winslow = memory::make_shared( new gsWinslowPow(m_center,false,false,true,0) );
+        if (useG0)
+        {
+            m_center_winslow = memory::make_shared( new gsWinslowG0Pow(m_center,false,false,true,0) );
+            m_center_winslow->setMp0(*center);
+        }
+        else
+            m_center_winslow = memory::make_shared( new gsWinslowPow(m_center,false,false,true,0) );
     else 
         m_center_winslow = memory::make_shared( new gsWinslow(m_center,false,false,true,0) );
 
@@ -112,10 +119,10 @@ gsOptPotWavesWithReg2nd::gsOptPotWavesWithReg2nd(gsMultiPatch<>::Ptr mp, gsMulti
 
     computeJacStructure();
     
-    //gsMatrix<> disp(n_flat_center,3);
-    //disp << m_desLowerBounds.segment(n_free,n_flat_center), m_curDesign.block(n_free,0,n_flat_center,1), m_desLowerBounds.segment(n_free,n_flat_center);
+    //gsMatrix<> disp(m_numDesignVars,3);
+    //disp << m_desLowerBounds, m_curDesign, m_desUpperBounds;
     //gsDebugVar(disp);
-    //
+    
 
 
 }
@@ -123,6 +130,7 @@ gsOptPotWavesWithReg2nd::gsOptPotWavesWithReg2nd(gsMultiPatch<>::Ptr mp, gsMulti
 void gsOptPotWavesWithReg2nd::setupOptParameters()
 {
     n_free = m_winslow->n_free;
+    gsDebugVar(n_free);
     n_flat = m_winslow->n_flat;
     n_tagged = m_winslow->n_tagged;
     n_cps = m_winslow->n_cps;
@@ -246,8 +254,8 @@ void gsOptPotWavesWithReg2nd::updateDesignBounds()
 bool gsOptPotWavesWithReg2nd::intermediateCallback() 
 {
     // FIXIT objective evaluated again!
-    real_t obj = 0;
-    //real_t obj = m_opt->evalObj();
+    //real_t obj = 0;
+    real_t obj = m_opt->evalObj();
     real_t winslow = m_winslow->evalObj() + m_center_winslow->evalObj();
     // real_t gradn = gradObj().norm();
 
@@ -358,8 +366,8 @@ real_t gsOptPotWavesWithReg2nd::evalObj() const
     //gsInfo << "SE : quA, quB: " << m_opt->getQuA() << ", " << m_opt->getQuB() << "\n";
     //gsInfo << "Win: quA, quB: " << m_winslow->m_quA << ", " << m_winslow->m_quB << "\n";
 
-    //return m_opt->evalObj() + m_eps*( winslow );
-    return m_eps*( winslow );
+    return m_opt->evalObj() + m_eps*( winslow );
+    //return m_eps*( winslow );
 }
 
 gsVector<> gsOptPotWavesWithReg2nd::gradObj() const
@@ -367,8 +375,8 @@ gsVector<> gsOptPotWavesWithReg2nd::gradObj() const
     //gsInfo << "GRADOBJ\n" << std::flush;
     gsVector<> out(m_numDesignVars);
 
-    //gsVector<> gradAll = m_opt->gradAll() + m_eps * m_winslow->gradAll();
-    gsVector<> gradAll = m_eps * m_winslow->gradAll();
+    gsVector<> gradAll = m_opt->gradAll() + m_eps * m_winslow->gradAll();
+    //gsVector<> gradAll = m_eps * m_winslow->gradAll();
 
     out.segment(0,n_free) = m_winslow->mapMatrix(m_opt->mapper_grad(),gradAll);
     out.segment(n_free,n_flat_center) = m_eps*m_center_winslow->gradAll();

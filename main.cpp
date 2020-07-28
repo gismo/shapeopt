@@ -1671,6 +1671,97 @@ gsMultiPatch<> getTorus(){
 
 }
 
+gsMultiPatch<> getTorus2nd()
+{
+    gsMultiPatch<> torus = getTorus();
+    gsMatrix<> coefs = torus.patch(0).coefs();
+
+    gsTensorBSplineBasis<2,real_t> tbs = dynamic_cast< gsTensorBSplineBasis<2,real_t> & >( torus.patch(0).basis() );
+
+    tbs.component(0).uniformRefine();
+    tbs.component(0).insertKnot(0.5, 1);
+
+    gsMatrix<> coefsTranslated = coefs;
+    for (index_t i = 0; i < coefs.rows(); i++)
+    {
+        coefsTranslated(i,0) = coefs(i,0) + 4 + 4*0.33;
+        coefsTranslated(i,1) = -coefs(i,1);
+    }
+
+    gsMatrix<> coefsnew(36,2);
+
+    for (index_t i = 0; i < 4; i++)
+    {
+        for (index_t j = 0; j < 5; j++)
+        {
+            index_t k = j + 5*i;
+            coefsnew.row(j + 9*i) = coefsTranslated.row(k);
+            coefsnew.row(j + 9*i + 4) = coefs.row(j + (3-i)*5);
+        }
+    }
+
+    for (index_t i = 0; i < coefsnew.rows(); i++)
+    {
+        coefsnew(i,0) *= -1;
+    }
+
+    gsTensorBSpline<2,real_t> patch(tbs, coefsnew);
+
+
+    gsMultiPatch<> out;
+    out.addPatch(patch);
+    out.computeTopology();
+
+    return out;
+
+}
+
+gsMultiPatch<> getTorus3rd()
+{
+    gsMultiPatch<> torus = getTorus();
+    gsMatrix<> coefs = torus.patch(0).coefs();
+
+    gsTensorBSplineBasis<2,real_t> tbs = dynamic_cast< gsTensorBSplineBasis<2,real_t> & >( torus.patch(0).basis() );
+
+    tbs.component(0).uniformRefine();
+    tbs.component(0).insertKnot(0.5, 1);
+
+    gsMatrix<> coefsTranslated = coefs;
+    for (index_t i = 0; i < coefs.rows(); i++)
+    {
+        coefs(i,0) = -coefs(i,0) ;
+        coefsTranslated(i,0) = coefs(i,0) ;
+        coefsTranslated(i,1) = -coefs(i,1);
+    }
+
+    gsMatrix<> coefsnew(36,2);
+
+    for (index_t i = 0; i < 4; i++)
+    {
+        for (index_t j = 0; j < 5; j++)
+        {
+            index_t k = j + 5*i;
+            coefsnew.row(j + 9*i) = coefs.row(k);
+            coefsnew.row(j + 9*i + 4) = coefsTranslated.row((4-j) + 5*i);
+        }
+    }
+
+    for (index_t i = 0; i < coefsnew.rows(); i++)
+    {
+        coefsnew(i,0) *= -1;
+    }
+
+    gsTensorBSpline<2,real_t> patch(tbs, coefsnew);
+
+
+    gsMultiPatch<> out;
+    out.addPatch(patch);
+    out.computeTopology();
+
+    return out;
+
+}
+
 gsMatrix<> reshape(gsVector<> vec, index_t n, index_t m){
     gsMatrix<> out(n,m);
 
@@ -3197,6 +3288,12 @@ cmd.addSwitch("changeSign", "change sign of detJ", changeSign);
 bool glueInterfaces = true;
 cmd.addSwitch("glueInterfaces", "glue interfaces? If yes we use multi-linear start guess, otherwise we use the affine startguess", glueInterfaces);
 
+bool animate = false;
+cmd.addSwitch("animate", "animate the steady state", animate);
+
+bool addCorners = false;
+cmd.addSwitch("addCorners", "addCorners in Winslow", addCorners);
+
 std::string plotDir;
 cmd.addString("9", "plotDir", "design to start from", plotDir);
 
@@ -3237,14 +3334,12 @@ if (potWave) {
     bool useConstraints = false;
 
     gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
-    gsOptPotWavesWithReg2nd optWR(mp_ptr,c_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,true,true);
+    gsOptPotWavesWithReg2nd optWR(mp_ptr,c_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,true,true,true);
 
-    optWR.m_winslow->computeWinslowPerPatch();
-    gsDebugVar(optWR.m_winslow->m_winslow_per_patch);
+    if (addCorners)
+        optWR.m_winslow->addCorners();
 
-    optWR.m_winslow->addCorners();
-
-    //convergenceTestOfParaJacobianAll(*optWR.m_winslow);
+   // convergenceTestOfParaJacobianAll(*optWR.m_winslow);
     //gsInfo << " Objective : " << optWR.m_winslow->evalObj() << "\n";
     //exit(0);
 
@@ -3255,6 +3350,46 @@ if (potWave) {
     //optPW_ptr->gradAll();
 
     //gsDebugVar(optWR.m_winslow->evalObj());
+
+    if (animate)
+    {
+        index_t i = maxiter;
+        std::string si = std::to_string(i);
+        std::string nameUR = plotDir + "xml/ur_" + si + ".xml";
+        std::string nameUI = plotDir + "xml/ui_" + si + ".xml";
+
+        if (!exists(nameUR))
+        {
+            gsInfo << nameUR << "\n";
+            gsInfo << "BREAK\n";
+            return 0;
+        }
+
+        // Load solution
+	    gsMultiPatch<>::uPtr ur_ptr, ui_ptr;
+
+	    gsFileData<> fdr(nameUR);
+	    ur_ptr = fdr.getFirst< gsMultiPatch<> > ();
+
+	    gsFileData<> fdi(nameUI);
+	    ui_ptr = fdi.getFirst< gsMultiPatch<> > ();
+
+        std::string nameCps = plotDir + "cps_0_" + si + ".txt";
+        gsInfo << nameCps << "\n";
+
+        gsWinslowPow winslow(mp_ptr,optWR.mappers(),false, false, true, 0);
+        winslow.setQuad(quA,quB);
+
+        winslow.updateFlat(loadVec(winslow.n_flat,nameCps));
+
+        real_t timestep = 0.025*2*M_PI/SE.wave_omega;
+ 
+        SE.plotVelocityField(*ur_ptr,*ui_ptr,timestep,plotDir + "velocity/veloc", true);
+        SE.plotVelocityField(*ur_ptr,*ui_ptr,timestep,plotDir + "velocity/scatt", false);
+        exit(0);
+    }
+
+
 
     if (plotDesign)
     {
@@ -3288,7 +3423,7 @@ if (potWave) {
 
             std::string nameCps = plotDir + "cps_0_" + si + ".txt";
             gsInfo << nameCps << "\n";
-
+            
             gsWinslowPow winslow(mp_ptr,optWR.mappers(),false, false, true, 0);
             winslow.setQuad(quA,quB);
 
@@ -3437,9 +3572,9 @@ gsInfo << "The domain is a "<< patches <<"\n";
 //
 
 // get Initial guess of seastar and torus
-if (false)
+if (true)
 {
-    for (index_t i = 0; i < 2; i++)
+    for (index_t i = 0; i < 3; i++)
     {
         gsMultiPatch<> seastar;
         std::string nm;
@@ -3448,9 +3583,14 @@ if (false)
         {
             seastar = getSeastar();
             nm = "seastar";
-        } else {
+        } else if(i == 1) {
             seastar = getTorus();
             nm = "torus";
+        } else {
+            seastar = getTorus3rd();
+            nm = "torus3";
+
+
         }
 
         gsMultiPatch<>::Ptr seastar_ptr = memory::make_shared_not_owned( &seastar );
@@ -3460,6 +3600,16 @@ if (false)
 
         gsMultiPatch<> mp_init2 = getInitGuess2d_full(seastar);
         gsMultiPatch<>::Ptr init2_ptr = memory::make_shared_not_owned( &mp_init2 );
+
+        gsDetJacConstraint dJC(seastar_ptr,true);
+        gsInfo << "\nSign of " << nm << ": " << dJC.getSignOfPatch(0) << "\n";
+
+        gsDetJacConstraint dJC1(init1_ptr,true);
+        gsInfo << "Sign of " << "init1" << ": " << dJC1.getSignOfPatch(0) << "\n";
+
+        gsDetJacConstraint dJC2(init2_ptr,true);
+        gsInfo << "Sign of " << "init2" << ": " << dJC2.getSignOfPatch(0) << "\n\n";
+
 
         gsWinslow winS( seastar_ptr, false );
         std::string name = BASE_FOLDER + output + nm;

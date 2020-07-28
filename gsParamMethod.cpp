@@ -236,7 +236,7 @@ void gsParamMethod::setupDefaultMappers()
         }
     }
 
-    gsInfo << "n controlpoints: " << m_mappers[0].mapSize() << "\n";
+    gsInfo << "setupDefaultMappers,setupDefaultMappers,  n controlpoints: " << m_mappers[0].mapSize() << "\n";
 
 
     // Call setMappers to calculate n_free, n_tagged etc.
@@ -705,7 +705,7 @@ void gsParamMethod::recreateMappers()
         }
     }
 
-    gsInfo << "n controlpoints: " << m_mappers[0].mapSize() << "\n";
+    gsInfo << "recreateMappers, n controlpoints: " << m_mappers[0].mapSize() << "\n";
 
 
     // Call setMappers to calculate n_free, n_tagged etc.

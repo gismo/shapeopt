@@ -39,6 +39,7 @@ public:
 
     virtual void addCorners(){ GISMO_NO_IMPLEMENTATION; };
     virtual void setAlpha(real_t){ GISMO_NO_IMPLEMENTATION; };
+    virtual void setMp0(gsMultiPatch<> mp){ GISMO_NO_IMPLEMENTATION; };
 
 
 

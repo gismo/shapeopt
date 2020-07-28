@@ -474,7 +474,7 @@ gsStateEquationPotWaves::gsStateEquationPotWaves(index_t numRefine, real_t Lx, r
     pml_lz = lz;
      
     // Get initial domain
-    m_mp = getInitialDomain();
+    m_mp = getInitialDomainReflector();
 
     // Setup dbasis 
     setup();
@@ -2219,7 +2219,6 @@ void gsStateEquationPotWaves::getTerm(index_t realOrImag, gsSparseMatrix<> &mat,
 
 }
 
-
 // Methods for calculating the derivative
 gsMatrix<> gsStateEquationPotWaves::getDerivativeOfAu(index_t realOrImag, gsMultiPatch<> sol){
     // gsInfo << "f = " << *f << "\n" << std::flush;
@@ -2386,8 +2385,8 @@ bool gsStateEquationPotWaves::isPatchInDomain(index_t p)
 
 gsVector< index_t > gsStateEquationPotWaves::getVectorWithDomainPatches()
 {
-    gsVector< index_t > patches(6);
-    patches << 0, 1, 2, 3, 4, 15;
+    gsVector< index_t > patches(5);
+    patches << 0, 1, 2, 3, 4;
 
     return patches;
 }
