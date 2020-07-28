@@ -259,11 +259,11 @@ void gsOptPotWaves::setupMappers()
 
             // Skip y coordinate of gamma_symm
             
-            if (d != 1 and m_stateEq.isBndGammaSymm(ps))
-            {
-                //gsInfo << "i = " << i << " SKIPPING GammaSymm\n";
-                continue;
-            }
+            //if (d != 1 and m_stateEq.isBndGammaSymm(ps))
+            //{
+            //    //gsInfo << "i = " << i << " SKIPPING GammaSymm\n";
+            //    continue;
+            //}
            
                 
             m_mappers[d].markBoundary(ps.patch,boundaryDofs);
@@ -386,13 +386,13 @@ void gsOptPotWaves::setupDesignBounds()
             {
                 m_desLowerBounds[i] = desLowerBoundy + cy; 
                 gsDebugVar(m_desLowerBounds[i]);
-                m_desUpperBounds[i] = cy; 
+                //m_desUpperBounds[i] = cy; 
             }
             else if (tagged[i] == box_yu) // We are at back bnd
             {
                 m_desLowerBounds[i] = cy; 
                 m_desUpperBounds[i] = desUpperBoundy + cy; 
-                gsDebugVar(m_desUpperBounds[i]);
+                //gsDebugVar(m_desUpperBounds[i]);
             }
             else
             {
