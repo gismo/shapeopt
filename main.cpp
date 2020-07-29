@@ -3291,6 +3291,12 @@ cmd.addSwitch("animate", "animate the steady state", animate);
 bool addCorners = false;
 cmd.addSwitch("addCorners", "addCorners in Winslow", addCorners);
 
+bool useMp0 = false;
+cmd.addSwitch("useMp0", "use Winslow only on permutation to initial design", useMp0);
+
+bool useLobatto = false;
+cmd.addSwitch("useLobatto", "use Gauss-Lobatto for calculating Winslow", useLobatto);
+
 std::string plotDir;
 cmd.addString("9", "plotDir", "design to start from", plotDir);
 
@@ -3331,13 +3337,16 @@ if (potWave) {
     bool useConstraints = false;
 
     gsOptPotWaves::Ptr optPW_ptr = memory::make_shared_not_owned( &optPW );
-    gsOptPotWavesWithReg2nd optWR(mp_ptr,c_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,true,true,true);
+    gsOptPotWavesWithReg2nd optWR(mp_ptr,c_ptr,optPW_ptr,numRefine,slog1_ptr,quA,quB,eps,true,true,useMp0);
 
     if (addCorners)
         optWR.m_winslow->addCorners();
 
-   // convergenceTestOfParaJacobianAll(*optWR.m_winslow);
-    //gsInfo << " Objective : " << optWR.m_winslow->evalObj() << "\n";
+    if (useLobatto)
+        optWR.m_winslow->setQuRuleLobatto();
+
+    //convergenceTestOfParaJacobianAll(*optWR.m_winslow);
+    //gsInfo << " Winslow : " << optWR.m_winslow->evalObj() << "\n";
     //exit(0);
 
 
@@ -3413,10 +3422,10 @@ if (potWave) {
 	        gsMultiPatch<>::uPtr ur_ptr, ui_ptr;
 
 	        gsFileData<> fdr(nameUR);
-	        ur_ptr = fdr.getFirst< gsMultiPatch<> > ();
+	        //ur_ptr = fdr.getFirst< gsMultiPatch<> > ();
 
 	        gsFileData<> fdi(nameUI);
-	        ui_ptr = fdi.getFirst< gsMultiPatch<> > ();
+	        //ui_ptr = fdi.getFirst< gsMultiPatch<> > ();
 
             std::string nameCps = plotDir + "cps_0_" + si + ".txt";
             gsInfo << nameCps << "\n";
@@ -3448,7 +3457,7 @@ if (potWave) {
 
             // Plot |u|^2
             std::string nameAbsU = plotDir + "paraview/absU_" + si;
-            SE.plotMagnitude(*ur_ptr, *ui_ptr, nameAbsU);
+            //SE.plotMagnitude(*ur_ptr, *ui_ptr, nameAbsU);
 
             // Plot center as slices
             gsVector<> dir(5);

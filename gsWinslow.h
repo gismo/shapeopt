@@ -41,7 +41,7 @@ public:
     virtual void setAlpha(real_t){ GISMO_NO_IMPLEMENTATION; };
     virtual void setMp0(gsMultiPatch<> mp){ GISMO_NO_IMPLEMENTATION; };
 
-
+    void setQuRuleLobatto() { m_quRule = 2; }; // Sets quRule to Gauss-Lobatto
 
 public:
 
@@ -56,6 +56,8 @@ public:
     gsVector<> m_winslow_per_patch;
 
     real_t lambda = 1;
+
+    index_t m_quRule = 1; // Use Gauss-Legendre quadrature rule as default
 };
 
 #endif //GSWINSLOW_H

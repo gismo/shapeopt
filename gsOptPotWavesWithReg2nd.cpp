@@ -254,8 +254,8 @@ void gsOptPotWavesWithReg2nd::updateDesignBounds()
 bool gsOptPotWavesWithReg2nd::intermediateCallback() 
 {
     // FIXIT objective evaluated again!
-    //real_t obj = 0;
     real_t obj = m_opt->evalObj();
+    //real_t obj = 0;
     real_t winslow = m_winslow->evalObj() + m_center_winslow->evalObj();
     // real_t gradn = gradObj().norm();
 

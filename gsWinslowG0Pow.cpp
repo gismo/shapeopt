@@ -13,6 +13,7 @@ real_t gsWinslowG0Pow::evalObj() const {
     gsExprEvaluator<> ev(A);
     ev.options().setInt("quB",m_quB);
     ev.options().setReal("quA",m_quA);
+    A.options().addInt("quRule","quad rule", m_quRule);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -43,7 +44,9 @@ real_t gsWinslowG0Pow::evalObj() const {
 
     real_t q = -2.0/m_mp->domainDim();
 
-    auto W = (jac(G)*jac(G0).inv())%(jac(G)*jac(G0).inv())*pow(detJ,q)*pow(detJ0,-q+1);
+    auto J0invJ = jac(G0).inv() * jac(G);
+
+    auto W = (J0invJ)%(J0invJ)*pow(detJ,q)*pow(detJ0,-q+1);
 
     real_t out = ev.integral(W);
 
@@ -89,6 +92,7 @@ gsVector<> gsWinslowG0Pow::gradAll(gsDofMapper &space_mapper) const {
     gsExprEvaluator<> ev(A);
     A.options().setInt("quB",m_quB);
     A.options().setReal("quA",m_quA);
+    A.options().addInt("quRule","quad rule", m_quRule);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -107,11 +111,11 @@ gsVector<> gsWinslowG0Pow::gradAll(gsDofMapper &space_mapper) const {
     auto detJ = jac(G).det(); 
     auto detJ0 = jac(G0).det(); 
 
-    auto J = jac(G)*jac(G0).inv();
-    auto dJdc = jac(u)*jac(G0).inv();
+    auto J0invJ = jac(G0).inv() * jac(G);
+    auto dJdc = jac(G0).inv() * jac(u);
 
-    auto JTJ = (J%J).val();
-    auto dJdcTJ = dJdc%J;
+    auto JTJ = (J0invJ%J0invJ).val();
+    auto dJdcTJ = dJdc%J0invJ;
 
     A.assemble(q*pow(detJ,q)*JTJ*jac(u)%jac(G).inv().tr()*pow(detJ0,-q+1));
     A.assemble(2*pow(detJ,q)*dJdcTJ*pow(detJ0,-q+1));

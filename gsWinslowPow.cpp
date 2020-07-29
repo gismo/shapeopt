@@ -11,6 +11,7 @@ real_t gsWinslowPow::evalObj() const {
     gsExprEvaluator<> ev(A);
     ev.options().setInt("quB",m_quB);
     ev.options().setReal("quA",m_quA);
+    ev.options().addInt("quRule","quad rule", m_quRule);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -82,6 +83,7 @@ real_t gsWinslowPow::evalObj(index_t p) const {
     gsExprEvaluator<> ev(A);
     ev.options().setInt("quB",m_quB);
     ev.options().setReal("quA",m_quA);
+    ev.options().addInt("quRule","quad rule", m_quRule);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -129,6 +131,7 @@ gsVector<> gsWinslowPow::gradAll(gsDofMapper &space_mapper) const {
     gsExprEvaluator<> ev(A);
     A.options().setInt("quB",m_quB);
     A.options().setReal("quA",m_quA);
+    A.options().addInt("quRule","quad rule", m_quRule);
 
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -222,6 +225,7 @@ gsMatrix<> gsWinslowPow::hessAll(gsDofMapper &space_mapper) const {
 
         A.options().setInt("quB",m_quB);
         A.options().setReal("quA",m_quA);
+        A.options().addInt("quRule","quad rule", m_quRule);
 
         typedef gsExprAssembler<>::geometryMap geometryMap;
         typedef gsExprAssembler<>::variable    variable;
