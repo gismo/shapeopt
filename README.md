@@ -25,7 +25,7 @@ Note: Only the files starting with "gs" (and main.cpp) are used. The other files
 
 # Guide for compilation of G+Smo and shapeopt
 
-NOTE: it is important that everything is done in the appropiate folder, such that you dont mess up the gismo folder with build file.. If you ar unlucky to build in the gismo folder you can clean up by running a command (DONT REMEMBER NAME ATM)
+Note: it is important that everything is done in the appropiate folder, such that you dont mess up the gismo folder with build file.. If you ar unlucky to build in the gismo folder you can clean up by running a command (see G+Smo directions)
 
 Go to your git directory, e.g.
 
