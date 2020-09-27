@@ -23,9 +23,8 @@ A few different specific problems are implemented:
 Note: Only the files starting with "gs" (and main.cpp) are used. The other files are old version that will be updated or deleted at some point.
 
 
-=============================================
- Guide for compilation of G+Smo and shapeopt
-=============================================
+# Guide for compilation of G+Smo and shapeopt
+
 NOTE: it is important that everything is done in the appropiate folder, such that you dont mess up the gismo folder with build file.. If you ar unlucky to build in the gismo folder you can clean up by running a command (DONT REMEMBER NAME ATM)
 
 Go to your git directory, e.g.
@@ -77,7 +76,8 @@ Build with make
 
 	$ make -j 3 (To use 3 cores)
 
------- Note ------
+-------------
+Note 
 
 If there is an issue with the automatic download of the IpOpt code, you can download the file 
 
@@ -103,10 +103,7 @@ to tell gismo to look for the tgz file here and not on coin-or.org/
 
 ------------------
 
-
-=================================== 
-Using shapeopt
-=================================== 
+# Using shapeopt
 
 Get the code from git
 
@@ -114,7 +111,8 @@ Get the code from git
 
 Now we need to run cmake.
 
------- Note ------
+-------------
+Note
 
 You need c++ > 11 to compile the code. If cmake version is >3.1 you can write 
 
