@@ -4,6 +4,7 @@ This repository contains code for performing shape optimization with IGA
 Written by Asger Limkilde, in collaboration with Angelos Mantzaflaris
 
 The code was written as part of Asger Limkildes PhD at the technical university of denmark (DTU).
+(The code for the thesis is in main_used_for_the_thesis.cpp file)
 
 Two main apporaches are implemented:
 
@@ -54,6 +55,11 @@ Make a build folder that is seperate and go into this folder
 Run cmake from the build folder linking to the source code
 
 	$ cmake ../gismo
+
+Obs: before proceding make sure you have a compiler (eg. gcc) and lapack 
+
+   $ sudo apt install gcc-10
+   $ sudo apt install liblapack-dev
 
 Run ccmake to choose the necessary options
 
@@ -183,11 +189,61 @@ class gsShapeOptProblem
 
 class gsOptParam
 
-   This class is an interpretation of the parametrization challenge as a shape optimization problem
+   This class is an interpretation of the parametrization challenge as a shape optimization problem. 
+
+   -------
+   OBS: it does not use regularization, rather it uses an explicit parametrization strategy!
+   -------
  
    Key members are: 
      * gsMultiPatch<> m_mp              // Holds the current design (inherited from gsShapeOptProblem)
      * gsSpringMethod m_mp_goal         // Holds the goal design as a gsParamMethod. The inner cps do not matter, it is only used to hold the boundary cps, and for bookkeeping.
                                         // In practice it is just there to return the mappers of the cps of the goal domain (in this case the boundary cps)
-     *  
 
+   Key methods are:
+     * evalObj()                        // Evaluation of the objective, i.e., the l2 difference of the boundary cps
+     * gradAll()                        // Gradient of the objective with respect to all cps (in the flat format)
+
+     flat format:  c = [ cps_patch1, cps_patch2, ... ]^T
+
+
+class gsShapeOptWithReg
+
+   This class implements a shapeoptimization problem where we use regularization to maintain a valid parametrization. 
+
+   Key members
+     * m_opt              // A gsShapeOptProblem that implements the objective and gradient (evalObj and gradAll) 
+     * m_log              // A gsShapeOptLog to handle logging of the results/ behaviour during the optimization
+     * m_winslow          // A gsWinslow that implements evaluation of the Winslow functional and its derivative
+
+   Key methods
+     * evalObj            // = m_opt->evalObj() + m_eps * m_winslow->evalObj()
+     * setWinslowQuad     // set quA and quB used for the Winslow functional
+     * solve()            // solves the optimization problem (inherited from gismo/gsOptProblem<>)
+     * runOptimizationUntilPosDetJ // Runs a sequence of problems while decreasing m_eps, until a positive determinant is found or maxiter is reached
+
+class gsOptInit.h
+
+   Finds the best possible linear map to use as a starting guess
+
+# How to run an example problem of parametrization of the jigsaw puzzle piece
+
+   $ ./main -r 0 -e 0.005 --optParamXML --startFile "parametrizations/XML/2D/Jigsaw2.xml" -d 2 -o "path/to/output"
+    
+   Flags : 
+     -r :               How many times to uniformly refine the domain (numRefine)
+     -e :               Value of the regularization parameter
+     --optParamXML :    Flag of which code to run in main file
+     --startFile :      The domain to parametrize
+     -d :               Dimension of problem (either d=2 or d=3) should match parametrization in startFile
+     -o :               A folder to put the output
+
+
+   To decrease eps=tau in a sequence of problems:
+
+   $ ./main -r 0 -e 8 --decreasingTau --decrTauFactor 0.25 --optParamXML --startFile "parametrizations/XML/2D/Jigsaw2.xml" -d 2 -o "/path/to/output"
+    
+
+# Gismo documentation can be found at 
+
+   https://gismo.github.io/

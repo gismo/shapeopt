@@ -11,6 +11,31 @@ class gsShapeOptWithReg: public gsOptProblem<real_t>{
 public:
 
     // Constructs from a multipatch, calling setupMappers, and setupOptParameters
+    // 
+    // Input parameters:
+    // mp :       The multipatch on which we perform the optimizatio
+    //
+    // sopt :     The shape optimization problem that we want to regularize 
+    //              (implemets the objective of the shape optimization and the 
+    //              gradient with respect to all cps (gradAll))
+    //
+    // numRefine  Number of times to refine the parametrization uniformly.  
+    //              it is used to increase the resolution if the input domain is too coarse
+    //
+    // slog :     A shape optimization log to log results
+    //
+    // quA, quB : Controls the no. quadrature points used for evaluating the Winslow functional
+    //              as : quA*deg + quB
+    //              see gismo/gsExprAssempler for more info
+    // eps :      The regularization parameter
+    //
+    // glueInterfaces : couples cps on interfaces
+    //
+    // usePow     Determine whether to make 3D Winslow functional scaling invarian
+    //              if True : W = tr(J^T J)/detJ^(2/d)
+    //              if False : W = tr(J^T J)/detJ
+    //
+    // useG0 :    See chapter 3.2.1 in my thesis
     gsShapeOptWithReg(memory::shared_ptr<gsMultiPatch<>> mp, memory::shared_ptr<gsShapeOptProblem> sopt, index_t numRefine, memory::shared_ptr<gsShapeOptLog> slog, real_t quA, index_t quB, real_t eps, bool glueInterfaces = true, bool usePow = false, bool useG0 = false);
 
     // Evaluation of the objective, using the design contained in m_mp
